@@ -40,19 +40,15 @@ SafeHaven is an Android app distribution platform built around transparency. Ins
   <tr>
     <td width="20%" align="center">
       <img src="assets/gitImages/1.jpg" width="190" alt="SafeHaven home screen"><br>
-      <sub><strong>Home</strong></sub>
     </td>
     <td width="20%" align="center">
       <img src="assets/gitImages/2.jpg" width="190" alt="SafeHaven app details"><br>
-      <sub><strong>App Screen</strong></sub>
     </td>
     <td width="20%" align="center">
       <img src="assets/gitImages/3.jpg" width="190" alt="SafeHaven categories"><br>
-      <sub><strong>Security Signals</strong></sub>
     </td>
     <td width="20%" align="center">
       <img src="assets/gitImages/4.jpg" width="190" alt="SafeHaven security signals"><br>
-      <sub><strong>Search</strong></sub>
     </td>
   </tr>
 </table>
