@@ -1,8 +1,8 @@
-<p>
-  <img src="assets/gitImages/logo.png" width="92" alt="SafeHaven logo">
+<p align="center">
+  <img src="assets/gitImages/logo.png" width="200" alt="SafeHaven logo">
 </p>
 
-# SafeHaven
+<h1 align="center">SafeHaven</h1>
 
 ### Open Android app distribution with source links, verification, and transparent security signals.
 
