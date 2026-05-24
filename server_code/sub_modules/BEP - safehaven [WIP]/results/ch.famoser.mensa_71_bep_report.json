@@ -1,0 +1,45 @@
+{
+  "verdict": "TAMPERED",
+  "confidence": 0.065,
+  "source_apk": "/bep/BEP_env/source/res.apk",
+  "binary_apk": "/bep/BEP_env/binary/ch.famoser.mensa.apk",
+  "token_analysis": {
+    "source_token_count": 0,
+    "binary_token_count": 10307,
+    "intersection_count": 0,
+    "forward_coverage": 0.0,
+    "reverse_coverage": 0.0,
+    "tokens_only_in_binary": 10307,
+    "tokens_only_in_source": 0
+  },
+  "permission_analysis": {
+    "source_count": 0,
+    "binary_count": 0,
+    "added": [],
+    "removed": [],
+    "dangerous_added": [],
+    "delta": 0,
+    "dangerous_delta": 0
+  },
+  "component_analysis": {
+    "added": {},
+    "removed": {},
+    "total_added": 0
+  },
+  "so_analysis": {
+    "source_count": 0,
+    "binary_count": 8,
+    "count_delta": 8,
+    "added_libs": [
+      "libandroidx.graphics.path.so",
+      "libdatastore_shared_counter.so"
+    ],
+    "removed_libs": []
+  },
+  "manifest_meta": {
+    "source_package": null,
+    "binary_package": null,
+    "source_version_code": null,
+    "binary_version_code": null
+  }
+}

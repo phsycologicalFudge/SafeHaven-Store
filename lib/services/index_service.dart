@@ -65,4 +65,23 @@ class IndexService {
     final keys = categories.keys.toList()..shuffle();
     return keys;
   }
+
+  List<PublicStoreApp> newArrivals(List<PublicStoreApp> apps, {int limit = 12}) {
+    final withAdded = apps.where((a) => a.versions.isNotEmpty).map((a) {
+      final resolvedAdded = a.versions.map((v) => v.added).reduce((x, y) => x < y ? x : y);
+      return MapEntry(a, resolvedAdded);
+    }).toList();
+
+    withAdded.sort((a, b) => b.value.compareTo(a.value));
+
+    return withAdded.take(limit).map((e) => e.key).toList();
+  }
+
+  List<PublicStoreApp> topInCategory(
+      List<PublicStoreApp> apps,
+      String categoryKey,
+      ) {
+    final filtered = filterByCategory(apps, categoryKey);
+    return topCharts(filtered);
+  }
 }

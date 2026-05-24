@@ -19,7 +19,7 @@ class CatalogueRecommendedSection extends StatefulWidget {
 }
 
 class _CatalogueRecommendedSectionState extends State<CatalogueRecommendedSection> {
-  late final PageController _controller;
+  PageController? _controller;
   Timer? _timer;
   int _page = 0;
   Future<List<CatalogueBannerItem>>? _bannerFuture;
@@ -29,34 +29,49 @@ class _CatalogueRecommendedSectionState extends State<CatalogueRecommendedSectio
   static const Duration _bannerMoveDuration = Duration(milliseconds: 520);
   static const Curve _bannerMoveCurve = Curves.easeOutCubic;
 
+  static const double _bannerHeight = 200;
+
   @override
-  void initState() {
-    super.initState();
-    _controller = PageController(viewportFraction: 0.94);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double cardWidth = screenWidth - 32.0;
+    final double slotWidth = cardWidth + 12.0;
+    final double fraction = slotWidth / screenWidth;
+
+    if (_controller == null) {
+      _controller = PageController(viewportFraction: fraction, initialPage: _page);
+    } else if ((_controller!.viewportFraction - fraction).abs() > 0.001) {
+      _controller!.dispose();
+      _controller = PageController(viewportFraction: fraction, initialPage: _page);
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   Future<List<CatalogueBannerItem>> _bannersFor(List<PublicStoreApp> apps) {
     if (_bannerFuture == null || !identical(_lastApps, apps)) {
       _lastApps = apps;
-      _bannerFuture = CatalogueService.instance.bannersFor(apps);
+      _bannerFuture = CatalogueService.instance.bannersFor(apps).then((banners) {
+        _startTimer(banners.length);
+        return banners;
+      });
     }
     return _bannerFuture!;
   }
 
   void _startTimer(int count) {
-    if (count <= 1 || _timer != null) return;
+    if (count <= 1 || _timer != null || !mounted) return;
 
     _timer = Timer.periodic(_bannerHoldDuration, (_) {
-      if (!mounted || !_controller.hasClients) return;
+      if (!mounted || _controller == null || !_controller!.hasClients) return;
       _page += 1;
-      _controller.animateToPage(
+      _controller!.animateToPage(
         _page,
         duration: _bannerMoveDuration,
         curve: _bannerMoveCurve,
@@ -79,7 +94,9 @@ class _CatalogueRecommendedSectionState extends State<CatalogueRecommendedSectio
         return FutureBuilder<List<CatalogueBannerItem>>(
           future: isAppsLoading ? null : _bannersFor(apps),
           builder: (context, bannerSnapshot) {
-            final isBannersLoading = bannerSnapshot.connectionState == ConnectionState.waiting || isAppsLoading;
+            final isBannersLoading =
+                bannerSnapshot.connectionState == ConnectionState.waiting ||
+                    isAppsLoading;
             final banners = bannerSnapshot.data ?? const <CatalogueBannerItem>[];
 
             Widget content;
@@ -89,36 +106,23 @@ class _CatalogueRecommendedSectionState extends State<CatalogueRecommendedSectio
             } else if (banners.isEmpty) {
               content = const SizedBox.shrink(key: ValueKey('empty'));
             } else {
-              _startTimer(banners.length);
-
               content = Padding(
                 key: const ValueKey('carousel'),
                 padding: const EdgeInsets.only(top: 12),
-                child: Column(
-                  children: [
-                    const CatalogueSectionHeader(title: 'Recommended for you'),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 190,
-                      child: PageView.builder(
-                        controller: _controller,
-                        padEnds: false,
-                        onPageChanged: (index) {
-                          _page = index;
-                        },
-                        itemBuilder: (context, index) {
-                          final banner = banners[index % banners.length];
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              left: index == 0 ? 18 : 5,
-                              right: 5,
-                            ),
-                            child: _RecommendedBannerCard(item: banner),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                child: SizedBox(
+                  height: _bannerHeight,
+                  child: PageView.builder(
+                    controller: _controller,
+                    clipBehavior: Clip.none,
+                    onPageChanged: (i) => _page = i,
+                    itemBuilder: (context, index) {
+                      final banner = banners[index % banners.length];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                        child: _RecommendedBannerCard(item: banner),
+                      );
+                    },
+                  ),
                 ),
               );
             }
@@ -143,17 +147,9 @@ class _RecommendedPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        children: [
-          const CatalogueSectionHeader(title: 'Recommended for you'),
-          const SizedBox(height: 10),
-          const SizedBox(
-            height: 190,
-            child: Center(
-              child: _LoadingDots(),
-            ),
-          ),
-        ],
+      child: SizedBox(
+        height: 160,
+        child: Center(child: _LoadingDots()),
       ),
     );
   }
@@ -169,6 +165,8 @@ class _LoadingDots extends StatefulWidget {
 class _LoadingDotsState extends State<_LoadingDots>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+
+  static const double _piOverZeroPointSix = math.pi / 0.6;
 
   @override
   void initState() {
@@ -202,8 +200,7 @@ class _LoadingDotsState extends State<_LoadingDots>
 
             double pulse = 0.0;
             if (t < 0.6) {
-              final normalizedT = t / 0.6;
-              pulse = math.sin(normalizedT * math.pi);
+              pulse = math.sin(t * _piOverZeroPointSix);
             }
 
             final scale = 0.8 + (0.35 * pulse);
@@ -242,62 +239,68 @@ class _RecommendedBannerCard extends StatelessWidget {
     final app = item.app;
 
     return AnimatedTap(
-      borderRadius: 24,
+      borderRadius: 20,
       onTap: () {
         Navigator.of(context).push(pushRoute(AppScreen(app: app)));
       },
       child: Container(
         decoration: BoxDecoration(
           gradient: item.gradient,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
             Positioned(
-              right: -34,
-              top: -32,
+              right: -24,
+              bottom: -22,
               child: Opacity(
-                opacity: 0.16,
+                opacity: 0.13,
                 child: _BannerLargeIcon(app: app),
               ),
             ),
-            Positioned(
-              right: 22,
-              bottom: 22,
-              child: _BannerForegroundIcon(app: app),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 104, 18),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          app.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _BannerForegroundIcon(app: app),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 78),
+                    child: Text(
+                      app.displaySummary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.25,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.86),
+                      ),
+                    ),
+                  ),
                   const Spacer(),
-                  Text(
-                    app.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 21,
-                      height: 1.05,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    app.displaySummary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.25,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.86),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       if (app.ratingCount > 0)
@@ -368,19 +371,20 @@ class _BannerForegroundIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconUrl = app.iconUrl;
+    final iconUrl = app.iconUrl?.trim();
+    final hasIcon = iconUrl != null && iconUrl.isNotEmpty;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: SizedBox(
-        width: 68,
-        height: 68,
-        child: iconUrl == null
+        width: 58,
+        height: 58,
+        child: !hasIcon
             ? Container(
           color: Colors.white.withOpacity(0.16),
           child: const Icon(
             Icons.apps_rounded,
-            size: 34,
+            size: 28,
             color: Colors.white,
           ),
         )
@@ -391,7 +395,7 @@ class _BannerForegroundIcon extends StatelessWidget {
             color: Colors.white.withOpacity(0.16),
             child: const Icon(
               Icons.apps_rounded,
-              size: 34,
+              size: 28,
               color: Colors.white,
             ),
           ),
@@ -408,19 +412,20 @@ class _BannerLargeIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconUrl = app.iconUrl;
+    final iconUrl = app.iconUrl?.trim();
+    final hasIcon = iconUrl != null && iconUrl.isNotEmpty;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(36),
+      borderRadius: BorderRadius.circular(30),
       child: SizedBox(
-        width: 174,
-        height: 174,
-        child: iconUrl == null
+        width: 148,
+        height: 148,
+        child: !hasIcon
             ? Container(
           color: Colors.white.withOpacity(0.16),
           child: const Icon(
             Icons.apps_rounded,
-            size: 116,
+            size: 96,
             color: Colors.white,
           ),
         )
@@ -431,7 +436,7 @@ class _BannerLargeIcon extends StatelessWidget {
             color: Colors.white.withOpacity(0.16),
             child: const Icon(
               Icons.apps_rounded,
-              size: 116,
+              size: 96,
               color: Colors.white,
             ),
           ),

@@ -54,16 +54,14 @@ import {
 } from "./storage.js";
 
 import { handleRatingsRoute, handleAdminRatingsRoute } from "./modules/ratings.js";
-import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep } from "./modules/git_store_job.js";
+import { normaliseIcon } from "./modules/images/icon_normalise.js";
+import { normaliseScreenshot } from "./modules/images/screenshot_normalise.js";
+import { uploadImageFromBuffer } from "./modules/images/image_upload.js";
+import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, refreshGitHubMetadataForApp } from "./modules/git_store_job.js";
 import { runFdroidSync, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
+import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "./helpers/store_helpers.js";
 
 export { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, runFdroidSync, runFdroidCronJob };
-const nowUnix = () => Math.floor(Date.now() / 1000);
-const cryptoRandomHex = (bytes) => {
-  const a = new Uint8Array(bytes);
-  crypto.getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-};
 
 const corsHeaders = {
   "access-control-allow-origin":  "*",
@@ -95,7 +93,6 @@ const isScannerAuth = (env, request) => {
 };
 
 const REPO_VERIFY_FILE = ".safehaven";
-const COMMUNITY_DEVELOPER_ID = "safehaven-community";
 
 const buildRawFileUrl = (repoUrl) => {
   const url = (repoUrl || "").toString().trim().replace(/\/$/, "").replace(/\.git$/, "");
@@ -105,41 +102,6 @@ const buildRawFileUrl = (repoUrl) => {
   if (gl) return `https://gitlab.com/${gl[1]}/-/raw/main/${REPO_VERIFY_FILE}`;
   return null;
 };
-
-const parseScreenshots = (json) => {
-  if (!json) return [];
-  try { return JSON.parse(json); } catch { return []; }
-};
-
-const normalizeStoreText = (value) => {
-  if (value === null || value === undefined) return null;
-
-  const clean = value
-    .toString()
-    .replace(/\\r\\n/g, "\n")
-    .replace(/\\n/g, "\n")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  return clean || null;
-};
-
-const buildAppEntry = (env, app) => ({
-  packageName:  app.package_name,
-  name:         app.name,
-  summary:      normalizeStoreText(app.summary),
-  description:  normalizeStoreText(app.description),
-  repoUrl:      app.repo_url,
-  trustLevel:   app.trust_level,
-  category:     app.category    || null,
-  upstream:     app.upstream    || null,
-  iconUrl:      app.icon_key ? publicImageUrl(env, app.icon_key) : null,
-  screenshots:  parseScreenshots(app.screenshots_json).map((k) => publicImageUrl(env, k)),
-});
 
 const buildVersionEntry = (submission) => ({
   versionName: submission.version_name,
@@ -173,7 +135,7 @@ const approveAndPublish = async (env, submission, reviewedBy = null) => {
 
   const updatedApp = await getStoreAppById(env, app_id);
   if (updatedApp) {
-    await addOrUpdateApp(env, buildAppEntry(env, updatedApp));
+    await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
     await addVersionToApp(env, finalPackageName, buildVersionEntry(updatedSubmission));
   }
 };
@@ -192,29 +154,29 @@ const saveScannerIcon = async (env, appId, packageName, body) => {
   if (!iconBase64) return;
   if (!["image/png", "image/jpeg", "image/webp"].includes(contentType)) return;
 
-  let bytes;
+  let raw;
   try {
     const binary = atob(iconBase64);
-    bytes = new Uint8Array(binary.length);
-
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
+    raw = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) raw[i] = binary.charCodeAt(i);
   } catch {
     return;
   }
 
-  if (!bytes.byteLength || bytes.byteLength > 2 * 1024 * 1024) return;
+  if (!raw.byteLength || raw.byteLength > 2 * 1024 * 1024) return;
 
   const app = await getStoreAppById(env, appId);
-  
-  if (app && app.icon_key) {
-    return; 
+  if (app && app.icon_key) return;
+
+  let bytes;
+  try {
+    bytes = await normaliseIcon(raw);
+  } catch {
+    bytes = raw;
   }
 
   const existingScreenshots = parseScreenshots(app?.screenshots_json);
-
-  const iconKey = await putImageObject(env, packageName, "icon", bytes, contentType);
+  const iconKey = await putImageObject(env, packageName, "icon", bytes, "image/png");
 
   await setAppImages(env, appId, {
     iconKey,
@@ -306,16 +268,17 @@ const createUnclaimedStoreApp = async (env, input) => {
     return existing.id;
   }
 
-  const id = cryptoRandomHex(16);
+  const id        = cryptoRandomHex(16);
+  const repoToken = cryptoRandomHex(24);
   await env.api_control_db
     .prepare(
       `INSERT INTO store_apps
         (id, developer_id, package_name, name, summary, description,
          repo_url, repo_token, repo_verified, trust_level, status,
          claimed, auto_tracked, created_at, updated_at, upstream)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', 0, 'unverified', ?8, 0, 1, ?9, ?9, NULL)`
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, 'unverified', ?9, 0, 1, ?10, ?10, NULL)`
     )
-    .bind(id, COMMUNITY_DEVELOPER_ID, packageName, name, summary, description, repoUrl, APP_STATUS.ACTIVE, now)
+    .bind(id, COMMUNITY_DEVELOPER_ID, packageName, name, summary, description, repoUrl, repoToken, APP_STATUS.ACTIVE, now)
     .run();
   return id;
 };
@@ -475,16 +438,19 @@ const pollAppRepo = async (env, app) => {
     versionCode,
     submissionId,
   }));
+
+  return true;
 };
 
 export async function runUnclaimedRepoPolls(env) {
   const apps    = await getAppsForRepoPolling(env);
-  const results = { checked: 0, updated: 0, errors: [] };
+  const results = { checked: 0, polled: 0, submitted: 0, errors: [] };
   for (const app of apps) {
     results.checked++;
     try {
-      await pollAppRepo(env, app);
-      results.updated++;
+      const queued = await pollAppRepo(env, app);
+      results.polled++;
+      if (queued) results.submitted++;
     } catch (e) {
       results.errors.push({ appId: app.id, error: String(e?.message || e) });
     }
@@ -731,7 +697,7 @@ if (method === "POST" && path === "/admin/store/fdroid-index-chunk") {
 
     if (method === "POST" && path === "/store/apps") {
       const me = await requireDeveloper();
-      if (!me) return unauthorized();
+      if (me === null) return unauthorized();
       if (me === false) return forbidden();
 
       const body = await readJson(request);
@@ -752,7 +718,12 @@ if (method === "POST" && path === "/admin/store/fdroid-index-chunk") {
       }
 
       const existing = await getStoreAppByPackage(env, packageName);
-      if (existing) return json({ error: "package_already_registered" }, 409);
+      if (existing) {
+        if (!existing.claimed && existing.auto_tracked) {
+          return json({ error: "package_already_registered", claimable: true, appId: existing.id, repoToken: existing.repo_token }, 409);
+        }
+        return json({ error: "package_already_registered", claimable: false }, 409);
+      }
 
       const result = await createStoreApp(env, {
         developerId: me.id, packageName, name, summary, description, repoUrl,
@@ -882,7 +853,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
             }
           }
 
-          await addOrUpdateApp(env, buildAppEntry(env, updatedApp));
+          await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
           await addVersionToApp(env, updatedApp.package_name, buildVersionEntry({
             ...submission,
             package_name: updatedApp.package_name,
@@ -1038,10 +1009,58 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
           .bind(appId)
           .first();
         if (liveSubmission) {
-          await addOrUpdateApp(env, buildAppEntry(env, updatedApp));
+          await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
         }
       }
       return json({ ok: true });
+    }
+
+    if (method === "POST" && path.match(/^\/store\/apps\/[^/]+\/upload-image$/)) {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      const appId = path.replace("/store/apps/", "").replace("/upload-image", "").trim();
+      const app   = await getStoreAppById(env, appId);
+      if (!app)                                                                         return notFound();
+      if (app.developer_id !== me.id && !me.admin)                                     return forbidden();
+
+      const slot        = (url.searchParams.get("slot") || "").trim();
+      const validSlots  = ["icon", "screenshot_1", "screenshot_2", "screenshot_3", "screenshot_4", "screenshot_5", "screenshot_6"];
+      if (!validSlots.includes(slot))                                                   return badRequest("invalid_slot");
+
+      const contentType = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      if (!["image/png", "image/jpeg", "image/webp"].includes(contentType))            return badRequest("invalid_content_type");
+
+      const buffer = await request.arrayBuffer();
+      if (!buffer.byteLength)                                                           return badRequest("empty_body");
+      if (buffer.byteLength > 2 * 1024 * 1024)                                         return badRequest("image_too_large");
+
+      const key = await uploadImageFromBuffer(env, app.package_name, slot, buffer);
+      if (!key) return json({ error: "upload_failed" }, 500);
+
+      const existingScreenshots = parseScreenshots(app.screenshots_json);
+      const isIcon              = slot === "icon";
+      const newIconKey          = isIcon ? key : (app.icon_key || null);
+      const newScreenshotKeys   = isIcon
+        ? existingScreenshots
+        : (() => {
+            const updated = [...existingScreenshots];
+            const idx     = parseInt(slot.replace("screenshot_", ""), 10) - 1;
+            updated[idx]  = key;
+            return updated.filter(Boolean);
+          })();
+
+      await setAppImages(env, appId, { iconKey: newIconKey, screenshotKeys: newScreenshotKeys });
+
+      const updatedApp = await getStoreAppById(env, appId);
+      if (updatedApp && updatedApp.status === APP_STATUS.ACTIVE) {
+        const liveSubmission = await env.api_control_db
+          .prepare("SELECT id FROM store_submissions WHERE app_id = ?1 AND status = 'live' LIMIT 1")
+          .bind(appId)
+          .first();
+        if (liveSubmission) await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
+      }
+
+      return json({ ok: true, key });
     }
 
     if (method === "DELETE" && path.match(/^\/store\/submissions\/[^/]+$/)) {
@@ -1066,6 +1085,9 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (submission.status !== SUBMISSION_STATUS.PENDING_UPLOAD) {
         return json({ error: "invalid_status" }, 409);
       }
+
+      const stagingCheck = await headStagingObject(env, submission.package_name, submission.version_code);
+      if (!stagingCheck.ok) return json({ error: "staging_object_not_found" }, 422);
 
       await advanceSubmissionToScan(env, submissionId);
       return json({ ok: true });
@@ -1144,9 +1166,8 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
           if (observedPkg) {
             const isPlaceholder = !finalPackageName || finalPackageName.startsWith("pending.");
-            const isCommunityImport = appForPkg.developer_id === COMMUNITY_DEVELOPER_ID || Number(appForPkg.auto_tracked || 0) === 1;
 
-            if (isPlaceholder && isCommunityImport) {
+            if (isPlaceholder) {
               await env.api_control_db
                 .prepare("UPDATE store_apps SET package_name = ?2, updated_at = ?3 WHERE id = ?1")
                 .bind(appForPkg.id, observedPkg, nowUnix())
@@ -1313,7 +1334,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!app) return notFound();
       await setAppTrustLevel(env, appId, trustLevel);
       if (app.status === APP_STATUS.ACTIVE) {
-        await addOrUpdateApp(env, { ...buildAppEntry(env, app), trustLevel });
+        await addOrUpdateApp(env, { ...buildIndexAppEntry(env, app), trustLevel });
       }
       return json({ ok: true });
     }
@@ -1363,7 +1384,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
             .bind(appId)
             .first();
           if (liveSubmission) {
-            await addOrUpdateApp(env, buildAppEntry(env, updatedApp));
+            await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
           }
         }
       }
@@ -1384,7 +1405,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (category && !Object.keys(CATEGORIES).includes(category)) return badRequest("invalid_category");
       await setAppCategory(env, appId, category);
       if (app.status === APP_STATUS.ACTIVE) {
-        await addOrUpdateApp(env, { ...buildAppEntry(env, app), category });
+        await addOrUpdateApp(env, { ...buildIndexAppEntry(env, app), category });
       }
       return json({ ok: true });
     }
@@ -1402,7 +1423,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!app) return notFound();
       await setAppCategory(env, appId, category);
       if (app.status === APP_STATUS.ACTIVE) {
-        await addOrUpdateApp(env, { ...buildAppEntry(env, app), category });
+        await addOrUpdateApp(env, { ...buildIndexAppEntry(env, app), category });
       }
       return json({ ok: true });
     }
@@ -1411,19 +1432,18 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const body = await readJson(request);
       if (!body) return badRequest("json_required");
 
-      const repoUrl     = (body.repoUrl     || "").toString().trim();
-      const name        = (body.name        || "").toString().trim();
-      const packageName = (body.packageName || "").toString().trim();
+      const repoUrl     = (body.repoUrl || "").toString().trim();
       const summary     = normalizeStoreText(body.summary);
       const description = normalizeStoreText(body.description);
-      const category    = (body.category    || "").toString().trim() || null;
+      const category    = (body.category || "").toString().trim() || null;
 
-      if (!repoUrl)     return badRequest("repoUrl_required");
-      if (!name)        return badRequest("name_required");
-      if (!packageName) return badRequest("packageName_required");
+      if (!repoUrl) return badRequest("repoUrl_required");
 
       const gh = parseGitHubRepo(repoUrl);
       if (!gh) return badRequest("only_github_repos_supported");
+
+      const name        = (body.name        || "").toString().trim() || gh.repo;
+      const packageName = (body.packageName || "").toString().trim() || `pending.${gh.owner}.${gh.repo}`;
 
       let release;
       try {
@@ -1449,6 +1469,10 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!appId) {
         appId = await createUnclaimedStoreApp(env, { packageName, name, summary, description, repoUrl });
         if (!appId) return json({ error: "app_create_failed" }, 500);
+        try {
+          const newApp = await getStoreAppById(env, appId);
+          if (newApp) await refreshGitHubMetadataForApp(env, newApp, gh.owner, gh.repo);
+        } catch {}
       } else if (existing.status !== APP_STATUS.ACTIVE) {
         await setAppStatus(env, appId, APP_STATUS.ACTIVE);
       }
@@ -1456,7 +1480,12 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const existingSubmission = await getSubmissionByVersionCode(env, appId, versionCode);
       if (existingSubmission) {
         if (existingSubmission.status === "live") {
-          return json({ ok: true, appId, submissionId: existingSubmission.id, versionName, versionCode, imageOnly: true }, 200);
+          return json({ error: "already_live", appId, submissionId: existingSubmission.id, versionName, versionCode }, 409);
+        }
+
+        const pendingStatuses = ["pending_upload", "pending_scan", "scanning", "pending_review"];
+        if (pendingStatuses.includes(existingSubmission.status)) {
+          return json({ error: "already_pending", appId, submissionId: existingSubmission.id, versionName, versionCode }, 409);
         }
 
         await deleteStagingApk(env, packageName, versionCode).catch(() => {});
@@ -1535,11 +1564,9 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!body) return badRequest("json_required");
 
       const providedHash = (body.signingKeyHash || "").toString().trim();
-      if (!providedHash) return badRequest("signingKeyHash_required");
 
-      if (!isFdroid) {
-        if (!app.signing_key_hash) return json({ error: "no_signing_key_on_record_yet" }, 422);
-        if (app.signing_key_hash !== providedHash) return json({ error: "signing_key_mismatch" }, 403);
+      if (isFdroid) {
+        if (!providedHash) return badRequest("signingKeyHash_required");
       }
 
       const gh = parseGitHubRepo(app.repo_url);
@@ -1599,6 +1626,104 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       ).bind(appId, oldHash, newHash, reason, me.id, nowUnix()).run();
 
       return json({ ok: true, oldHash, newHash });
+    }
+
+if (method === "POST" && path === "/admin/store/normalise-images") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const body   = await readJson(request).catch(() => null) || {};
+      const offset = Math.max(0, Number(body.offset) || 0);
+
+      const DEADLINE_MS = 25_000;
+      const startedAt  = Date.now();
+
+      const apps = await getAllStoreApps(env);
+
+      const results = {
+        icons:            { processed: 0, skipped: 0, failed: 0 },
+        screenshots:      { processed: 0, skipped: 0, failed: 0 },
+        errors:           [],
+        totalIcons:       { processed: Number(body.totalIcons?.processed       || 0), skipped: Number(body.totalIcons?.skipped       || 0), failed: Number(body.totalIcons?.failed       || 0) },
+        totalScreenshots: { processed: Number(body.totalScreenshots?.processed || 0), skipped: Number(body.totalScreenshots?.skipped || 0), failed: Number(body.totalScreenshots?.failed || 0) },
+        offset:           null,
+        appsTotal:        apps.length,
+        appsChecked:      0,
+      };
+
+      for (let i = offset; i < apps.length; i++) {
+        if (Date.now() - startedAt >= DEADLINE_MS) {
+          results.offset = i;
+          break;
+        }
+
+        const app = apps[i];
+        results.appsChecked++;
+
+        if (!app.package_name) continue;
+
+        if (app.icon_key) {
+          try {
+            const res = await fetch(publicImageUrl(env, app.icon_key));
+            if (!res.ok) {
+              results.icons.skipped++;
+              console.log(JSON.stringify({ tag: "normalise_skip", appId: app.id, slot: "icon", status: res.status }));
+            } else {
+              const normed = await normaliseIcon(new Uint8Array(await res.arrayBuffer()));
+              await putImageObject(env, app.package_name, "icon", normed, "image/png");
+              results.icons.processed++;
+              console.log(JSON.stringify({ tag: "normalise_ok", appId: app.id, packageName: app.package_name, slot: "icon" }));
+            }
+          } catch (e) {
+            results.icons.failed++;
+            const msg = String(e?.message || e);
+            results.errors.push({ appId: app.id, packageName: app.package_name, slot: "icon", error: msg });
+            console.log(JSON.stringify({ tag: "normalise_fail", appId: app.id, packageName: app.package_name, slot: "icon", error: msg }));
+          }
+        } else {
+          results.icons.skipped++;
+        }
+
+        const screenshotKeys = parseScreenshots(app.screenshots_json);
+        for (let s = 0; s < screenshotKeys.length; s++) {
+          if (Date.now() - startedAt >= DEADLINE_MS) {
+            results.offset = i;
+            break;
+          }
+          const slot = `screenshot_${s + 1}`;
+          try {
+            const res = await fetch(publicImageUrl(env, screenshotKeys[s]));
+            if (!res.ok) {
+              results.screenshots.skipped++;
+              console.log(JSON.stringify({ tag: "normalise_skip", appId: app.id, slot, status: res.status }));
+              continue;
+            }
+            const normed = await normaliseScreenshot(new Uint8Array(await res.arrayBuffer()));
+            await putImageObject(env, app.package_name, slot, normed, "image/png");
+            results.screenshots.processed++;
+            console.log(JSON.stringify({ tag: "normalise_ok", appId: app.id, packageName: app.package_name, slot }));
+          } catch (e) {
+            results.screenshots.failed++;
+            const msg = String(e?.message || e);
+            results.errors.push({ appId: app.id, packageName: app.package_name, slot, error: msg });
+            console.log(JSON.stringify({ tag: "normalise_fail", appId: app.id, packageName: app.package_name, slot, error: msg }));
+          }
+        }
+
+        if (results.offset !== null) break;
+      }
+
+      results.totalIcons.processed       += results.icons.processed;
+      results.totalIcons.skipped         += results.icons.skipped;
+      results.totalIcons.failed          += results.icons.failed;
+      results.totalScreenshots.processed += results.screenshots.processed;
+      results.totalScreenshots.skipped   += results.screenshots.skipped;
+      results.totalScreenshots.failed    += results.screenshots.failed;
+
+      console.log(JSON.stringify({ tag: "normalise_batch", offset, nextOffset: results.offset, elapsed: Date.now() - startedAt }));
+
+      return json({ ok: true, ...results });
     }
 
     const ratingsResponse = await handleRatingsRoute(request, env, path, method);

@@ -1,6 +1,5 @@
 package com.colourswift.safehaven
 
-import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageInfo
@@ -45,6 +44,11 @@ class MainActivity : FlutterActivity() {
                         result.error("invalid_path", "APK path is missing", null)
                         return@setMethodCallHandler
                     }
+                    val targetPackage = call.argument<String>("packageName")
+                    if (!targetPackage.isNullOrBlank() && isPlayStoreApp(targetPackage)) {
+                        result.error("play_store_app", "Cannot manually install a Play Store managed app", null)
+                        return@setMethodCallHandler
+                    }
                     installApk(path, result)
                 }
 
@@ -65,8 +69,12 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
+                    val updatesJson = validUpdates.joinToString(",", "[", "]") { update ->
+                        "{\"packageName\":\"${update["packageName"]}\",\"downloadUrl\":\"${update["downloadUrl"]}\"}"
+                    }
+
                     val intent = Intent(this, UpdateForegroundService::class.java).apply {
-                        putExtra("updates", ArrayList(validUpdates.map { HashMap(it) }))
+                        putExtra("updates_json", updatesJson)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(intent)
@@ -202,7 +210,8 @@ class MainActivity : FlutterActivity() {
             "installed" to false,
             "versionCode" to 0L,
             "versionName" to null,
-            "signingCertificateSha256" to null
+            "signingCertificateSha256" to null,
+            "installer" to null
         )
     }
 
@@ -219,7 +228,17 @@ class MainActivity : FlutterActivity() {
             info.signatures
         }
 
-        val signature = signatures?.firstOrNull() ?: return null
+        val signature = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = info.signingInfo ?: return null
+            if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners.firstOrNull()
+            } else {
+                signingInfo.signingCertificateHistory.lastOrNull()
+            }
+        } else {
+            signatures?.firstOrNull()
+        } ?: return null
+
         val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
     }

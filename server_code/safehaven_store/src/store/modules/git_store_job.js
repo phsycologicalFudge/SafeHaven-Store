@@ -1,45 +1,13 @@
 import { createSubmission, advanceSubmissionToScan, setAppImages } from "../store_db.js";
-import { getPresignedStagingUploadUrl,getPresignedImageUploadUrl,imageKey,addOrUpdateApp,publicImageUrl,} from "../storage.js";
+import { getPresignedStagingUploadUrl, addOrUpdateApp } from "../storage.js";
+import { uploadImageFromUrl } from "./images/image_upload.js";
+import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
 
-const COMMUNITY_DEVELOPER_ID = "safehaven-community";
 const IMPORT_LIMIT           = 50;
 const MAX_APK_BYTES          = 100 * 1024 * 1024;
 const ADMIN_MAX_APK_BYTES    = 200 * 1024 * 1024;
 const MAX_ICON_BYTES         = 4 * 1024 * 1024;
 const MAX_SCREENSHOT_BYTES   = 4 * 1024 * 1024;
-
-const nowUnix = () => Math.floor(Date.now() / 1000);
-
-const normalizeStoreText = (value) => {
-  if (value === null || value === undefined) return null;
-
-  const clean = value
-    .toString()
-    .replace(/\\r\\n/g, "\n")
-    .replace(/\\n/g, "\n")
-    .replace(/\\t/g, " ")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/gi, "\"")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  return clean || null;
-};
-
-const cryptoRandomHex = (bytes) => {
-  const a = new Uint8Array(bytes);
-  crypto.getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-};
 
 const githubHeaders = (env) => {
   const token = (env.GITHUB_TOKEN || "").trim();
@@ -63,23 +31,6 @@ const repoUrlVariants = (repoUrl) => {
   return [normal, `${normal}/`, `${normal}.git`];
 };
 
-const parseScreenshots = (json) => {
-  if (!json) return [];
-  try { return JSON.parse(json); } catch { return []; }
-};
-
-const buildIndexAppEntry = (env, app) => ({
-  packageName:  app.package_name,
-  name:         app.name,
-  summary:      normalizeStoreText(app.summary),
-  description:  normalizeStoreText(app.description),
-  repoUrl:      app.repo_url,
-  trustLevel:   app.trust_level,
-  category:     app.category    || null,
-  iconUrl:      app.icon_key ? publicImageUrl(env, app.icon_key) : null,
-  screenshots:  parseScreenshots(app.screenshots_json).map((k) => publicImageUrl(env, k)),
-});
-
 const githubSearch = async (env, query, perPage = 50) => {
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=${perPage}`;
   const res = await fetch(url, { headers: githubHeaders(env) });
@@ -96,7 +47,7 @@ const githubSearch = async (env, query, perPage = 50) => {
       stars:       item.stargazers_count || 0,
       topics:      Array.isArray(item.topics) ? item.topics : [],
       repoUrl:     normalizeGitHubRepoUrl(item.html_url) || `https://github.com/${item.full_name}`,
-      iconUrl:     item.owner?.avatar_url || null,
+      iconUrl:     null,
     }));
 };
 
@@ -117,7 +68,7 @@ const githubRepoDetails = async (env, owner, repo) => {
     stars:       data.stargazers_count || 0,
     topics:      Array.isArray(data.topics) ? data.topics : [],
     repoUrl:     normalizeGitHubRepoUrl(data.html_url) || `https://github.com/${owner}/${repo}`,
-    iconUrl:     data.owner?.avatar_url || null,
+    iconUrl:     null,
   };
 };
 
@@ -162,14 +113,12 @@ const stripReadmeToDescription = (readme) => {
     .replace(/<picture\b[\s\S]*?<\/picture>/gi, "\n\n")
     .replace(/<svg\b[\s\S]*?<\/svg>/gi, "\n\n")
     .replace(/<table\b[\s\S]*?<\/table>/gi, "\n\n")
-    .replace(/<!--[\s\S]*?-->/g, "\n\n")
-
-    .replace(/^\s*\[!\[[^\]]*]\([^)]*\)]\([^)]*\)\s*$/gm, "\n")
-    .replace(/^\s*!\[[^\]]*]\([^)]*\)\s*$/gm, "\n")
-    .replace(/^\s*\[<img\b[\s\S]*?>]\([^)]*\)\s*$/gim, "\n")
+    .replace(/<\!--[\s\S]*?-->/g, "\n\n")
+    .replace(/^\s*\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)\s*$/gm, "\n")
+    .replace(/^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm, "\n")
+    .replace(/^\s*\[<img\b[\s\S]*?>\]\([^)]*\)\s*$/gim, "\n")
     .replace(/^\s*<a\b[^>]*>\s*<img\b[\s\S]*?<\/a>\s*$/gim, "\n")
     .replace(/^\s*<img\b[^>]*>\s*$/gim, "\n")
-
     .replace(/<p\b[^>]*align=["']center["'][^>]*>[\s\S]*?<\/p>/gi, (block) => {
       const withoutImgs = block
         .replace(/<img\b[^>]*>/gi, "")
@@ -183,7 +132,6 @@ const stripReadmeToDescription = (readme) => {
 
       return `\n\n${plain}\n\n`;
     })
-
     .replace(/<h[1-6]\b[^>]*>/gi, "\n\n")
     .replace(/<\/h[1-6]>/gi, "\n\n")
     .replace(/<p\b[^>]*>/gi, "\n\n")
@@ -200,16 +148,12 @@ const stripReadmeToDescription = (readme) => {
     .replace(/<\/ol>/gi, "\n")
     .replace(/<li\b[^>]*>/gi, "- ")
     .replace(/<\/li>/gi, "\n")
-
     .replace(/^\s*#{1,6}\s+(.+?)\s*#*\s*$/gm, "\n\n$1\n\n")
-
-    .replace(/^\s*>\s*\[!(?:note|tip|important|warning|caution)]\s*$/gim, "\n")
+    .replace(/^\s*>\s*\[!(?:note|tip|important|warning|caution)\]\s*$/gim, "\n")
     .replace(/^\s*>\s?/gm, "")
-
     .replace(/^\s*[-*+]\s+/gm, "- ")
     .replace(/^\s*\d+\.\s+/gm, (match) => match.trim() + " ")
-
-    .replace(/\[([^\]]*)]\(([^)]*)\)/g, (full, label, url) => {
+    .replace(/\[([^\]]*)\]\(([^)]*)\)/g, (full, label, url) => {
       const cleanLabel = (label || "").trim();
       const cleanUrl = (url || "").trim();
 
@@ -217,14 +161,12 @@ const stripReadmeToDescription = (readme) => {
       if (!cleanLabel) return "";
       return cleanLabel;
     })
-
     .replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
     .replace(/<b\b[^>]*>([\s\S]*?)<\/b>/gi, "**$1**")
     .replace(/<strong\b[^>]*>([\s\S]*?)<\/strong>/gi, "**$1**")
     .replace(/<i\b[^>]*>([\s\S]*?)<\/i>/gi, "$1")
     .replace(/<em\b[^>]*>([\s\S]*?)<\/em>/gi, "$1")
     .replace(/<[^>]+>/g, "")
-
     .replace(/&nbsp;/gi, " ")
     .replace(/&bull;/gi, "•")
     .replace(/&amp;/gi, "&")
@@ -232,13 +174,11 @@ const stripReadmeToDescription = (readme) => {
     .replace(/&gt;/gi, ">")
     .replace(/&#39;/g, "'")
     .replace(/&quot;/gi, "\"")
-
     .replace(/\*\*([^*\n]+)\*\*/g, "$1")
     .replace(/__([^_\n]+)__/g, "$1")
     .replace(/\*([^*\n]+)\*/g, "$1")
     .replace(/_([^_\n]+)_/g, "$1")
     .replace(/`([^`\n]+)`/g, "$1")
-
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]{2,}/g, " ")
@@ -436,48 +376,8 @@ const readmeScreenshotUrls = (owner, repo, rawReadme) => {
   return found.slice(0, 6);
 };
 
-const uploadReadmeScreenshot = async (env, packageName, slot, imageUrl) => {
-  let res;
-
-  try {
-    res = await fetch(imageUrl, {
-      headers: { "user-agent": "SafeHaven-Store/1.0" },
-    });
-  } catch {
-    return null;
-  }
-
-  if (!res.ok) return null;
-
-  const contentType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-
-  const extensionType =
-    /\.png(?:[?#].*)?$/i.test(imageUrl) ? "image/png" :
-    /\.jpe?g(?:[?#].*)?$/i.test(imageUrl) ? "image/jpeg" :
-    /\.webp(?:[?#].*)?$/i.test(imageUrl) ? "image/webp" :
-    null;
-
-  const finalContentType = ["image/png", "image/jpeg", "image/webp"].includes(contentType)
-    ? contentType
-    : extensionType;
-
-  if (!finalContentType) return null;
-
-  const buffer = await res.arrayBuffer();
-  if (!buffer.byteLength || buffer.byteLength > MAX_SCREENSHOT_BYTES) return null;
-
-  const url = await getPresignedImageUploadUrl(env, packageName, slot, 300);
-
-  const uploadRes = await fetch(url, {
-    method:  "PUT",
-    headers: { "content-type": finalContentType },
-    body:    buffer,
-  });
-
-  if (!uploadRes.ok) return null;
-
-  return imageKey(packageName, slot);
-};
+const uploadReadmeScreenshot = (env, packageName, slot, imageUrl) =>
+  uploadImageFromUrl(env, packageName, slot, imageUrl, MAX_SCREENSHOT_BYTES);
 
 const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) => {
   if (!app) return [];
@@ -512,7 +412,7 @@ const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) 
   return screenshotKeys;
 };
 
-const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
+export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
   let details = null;
   let rawReadme = null;
   let readmeDescription = null;
@@ -637,41 +537,63 @@ const apkAssetsOf = (release) =>
   (release?.assets || []).filter((asset) =>
     asset?.name?.toLowerCase().endsWith(".apk") &&
     asset.state === "uploaded" &&
-    asset.browser_download_url
+    asset.browser_download_url &&
+    !/debug|beta|alpha|snapshot|unsigned|source|src/i.test(asset.name)
   );
+
+const scoreApkAsset = (asset, options = {}) => {
+  const name = normalizeAssetText(asset.name);
+  let score = 0;
+
+  if (options.assetMatch) {
+    const match = normalizeAssetText(options.assetMatch);
+    if (name === match) return 1000;
+    if (name.includes(match)) score += 50;
+  }
+
+  if (/arm64-v8a|aarch64/.test(name)) score += 30;
+  else if (/-arm64[-_]/.test(name)) score += 25;
+  else if (/universal|noarch|all|generic/.test(name)) score += 15;
+  else if (!/armeabi-v7a|x86|x86_64|mips/.test(name)) score += 10;
+
+  if (/release|stable|prod/.test(name)) score += 5;
+  if (/signed/.test(name)) score += 3;
+
+  if (/armeabi-v7a/.test(name)) score -= 20;
+  if (/x86|x86_64|mips/.test(name)) score -= 30;
+  if (/debug|beta|alpha|snapshot|unsigned/.test(name)) score -= 50;
+
+  if (asset.size) {
+    if (asset.size > 5 * 1024 * 1024 && asset.size < 150 * 1024 * 1024) score += 2;
+  }
+
+  return score;
+};
 
 const findApkAsset = (release, options = {}) => {
   const assets = apkAssetsOf(release);
   if (!assets.length) return null;
 
-  const assetMatch = normalizeAssetText(options.assetMatch);
-  const preferredAbi = normalizeAssetText(options.preferredAbi || "arm64-v8a");
+  const scored = assets
+    .map((asset) => ({ asset, score: scoreApkAsset(asset, options) }))
+    .sort((a, b) => b.score - a.score);
 
-  if (assetMatch) {
-    const exactMatch = assets.find((asset) =>
-      normalizeAssetText(asset.name) === assetMatch
-    );
+  const topScore = scored[0]?.score ?? -Infinity;
+  const candidates = scored.filter((s) => s.score === topScore && s.score > 0);
 
-    if (exactMatch) return exactMatch;
+  if (candidates.length === 1) return candidates[0].asset;
 
-    const partialMatches = assets.filter((asset) =>
-      normalizeAssetText(asset.name).includes(assetMatch)
-    );
-
-    if (partialMatches.length) {
-      return findApkAsset({ assets: partialMatches }, { preferredAbi });
-    }
-
-    return null;
-  }
-
-  return (
-    assets.find((asset) => normalizeAssetText(asset.name).includes(preferredAbi)) ||
-    assets.find((asset) => normalizeAssetText(asset.name).includes("arm64")) ||
-    assets.find((asset) => normalizeAssetText(asset.name).includes("universal")) ||
-    assets[0] ||
-    null
+  const preferred = candidates.find((c) =>
+    /arm64-v8a|aarch64/.test(normalizeAssetText(c.asset.name))
   );
+  if (preferred) return preferred.asset;
+
+  const generic = candidates.find((c) =>
+    !/armeabi-v7a|x86|x86_64|mips|universal|noarch/.test(normalizeAssetText(c.asset.name))
+  );
+  if (generic) return generic.asset;
+
+  return candidates[0]?.asset || null;
 };
 
 const tagToVersionCode = (tag) => {
@@ -738,9 +660,9 @@ const versionNameToVersionCode = (versionName) => {
   }
 
   if (major < 0 || minor < 0 || patch < 0 || build < 0) return null;
-  if (major > 9999 || minor > 999 || patch > 999 || build > 9999) return null;
+  if (major > 9999 || minor > 999 || patch > 999 || build > 99) return null;
 
-  return major * 1000000000 + minor * 1000000 + patch * 10000 + build;
+  return major * 100000000 + minor * 100000 + patch * 100 + build;
 };
 
 const CATEGORY_RULES = [
@@ -979,54 +901,28 @@ const uploadBufferToStaging = async (env, packageName, versionCode, buffer) => {
   if (!res.ok) throw new Error(`staging_upload_failed:${res.status}`);
 };
 
-const uploadIconFromUrl = async (env, packageName, iconUrl) => {
-  if (!iconUrl) return null;
-
-  let res;
-
-  try {
-    res = await fetch(iconUrl, {
-      headers: { "user-agent": "SafeHaven-Store/1.0" },
-    });
-  } catch {
-    return null;
-  }
-
-  if (!res.ok) return null;
-
-  const contentType = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-
-  if (!["image/png", "image/jpeg", "image/webp"].includes(contentType)) {
-    return null;
-  }
-
-  const buffer = await res.arrayBuffer();
-  if (buffer.byteLength > MAX_ICON_BYTES) return null;
-
-  const url = await getPresignedImageUploadUrl(env, packageName, "icon", 300);
-
-  const uploadRes = await fetch(url, {
-    method:  "PUT",
-    headers: { "content-type": contentType },
-    body:    buffer,
-  });
-
-  if (!uploadRes.ok) return null;
-
-  return imageKey(packageName, "icon");
-};
+const uploadIconFromUrl = (env, packageName, iconUrl) =>
+  iconUrl ? uploadImageFromUrl(env, packageName, "icon", iconUrl, MAX_ICON_BYTES) : Promise.resolve(null);
 
 const createUnclaimedStoreApp = async (env, { packageName, name, summary, description, repoUrl, iconKey, category }) => {
-  const id  = cryptoRandomHex(16);
   const now = nowUnix();
+
+  const existing = await env.api_control_db
+    .prepare("SELECT id FROM store_apps WHERE package_name = ?1 LIMIT 1")
+    .bind(packageName)
+    .first();
+
+  if (existing) return existing.id;
+
+  const id = cryptoRandomHex(16);
 
   await env.api_control_db
     .prepare(
       `INSERT INTO store_apps
         (id, developer_id, package_name, name, summary, description,
          repo_url, repo_token, repo_verified, trust_level, status,
-         claimed, auto_tracked, icon_key, category, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', 0, 'unverified', 'active', 0, 1, ?8, ?9, ?10, ?10)`
+         claimed, auto_tracked, icon_key, category, created_at, updated_at, upstream)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', 0, 'unverified', 'active', 0, 1, ?8, ?9, ?10, ?10, NULL)`
     )
     .bind(
       id,
@@ -1075,6 +971,10 @@ const importCandidate = async (env, rawCandidate) => {
   const byRepo = await getAppByRepoUrl(env, repoUrl);
 
   if (byRepo) {
+    if (byRepo.upstream === "fdroid") {
+      return { skipped: true, reason: "upstream_is_fdroid" };
+    }
+
     const status      = (byRepo.status || "").toString().trim();
     const developerId = (byRepo.developer_id || "").toString().trim();
     const autoTracked = Number(byRepo.auto_tracked || 0) === 1;
@@ -1134,30 +1034,6 @@ const importCandidate = async (env, rawCandidate) => {
   const byPkg       = await getAppByPackage(env, packageName);
   if (byPkg) return { skipped: true, reason: "placeholder_collision" };
 
-  let apkBuffer;
-
-  try {
-    const apkRes = await fetch(asset.browser_download_url, {
-      headers: { "user-agent": "SafeHaven-Store/1.0" },
-    });
-
-    if (!apkRes.ok) return { skipped: true, reason: `apk_download_failed:${apkRes.status}` };
-
-    apkBuffer = await apkRes.arrayBuffer();
-  } catch (e) {
-    return { skipped: true, reason: `apk_download_error:${String(e?.message || e)}` };
-  }
-
-  if (apkBuffer.byteLength > maxApkBytes) {
-    return {
-      skipped: true,
-      reason: "apk_too_large_post_download",
-      assetSize: apkBuffer.byteLength,
-      maxApkBytes,
-      adminImport: rawCandidate.adminImport === true,
-    };
-  }
-
   let rawReadme = null;
   let readmeDescription = null;
 
@@ -1190,6 +1066,35 @@ const importCandidate = async (env, rawCandidate) => {
   if (rawReadme) {
     const createdApp = await getStoreAppById(env, appId);
     screenshotKeys = await saveReadmeScreenshotsIfMissing(env, createdApp, owner, repo, rawReadme);
+  }
+
+  let apkBuffer;
+
+  try {
+    const apkRes = await fetch(asset.browser_download_url, {
+      headers: { "user-agent": "SafeHaven-Store/1.0" },
+    });
+
+    if (!apkRes.ok) {
+      await deleteAppById(env, appId);
+      return { skipped: true, reason: `apk_download_failed:${apkRes.status}` };
+    }
+
+    apkBuffer = await apkRes.arrayBuffer();
+  } catch (e) {
+    await deleteAppById(env, appId);
+    return { skipped: true, reason: `apk_download_error:${String(e?.message || e)}` };
+  }
+
+  if (apkBuffer.byteLength > maxApkBytes) {
+    await deleteAppById(env, appId);
+    return {
+      skipped: true,
+      reason: "apk_too_large_post_download",
+      assetSize: apkBuffer.byteLength,
+      maxApkBytes,
+      adminImport: rawCandidate.adminImport === true,
+    };
   }
 
   try {

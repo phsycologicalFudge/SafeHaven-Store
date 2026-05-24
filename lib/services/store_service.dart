@@ -275,6 +275,8 @@ class PublicStoreApp {
     required this.screenshots,
   });
 
+  static final _vRegex = RegExp(r'^v', caseSensitive: false);
+
   final String packageName;
   final String name;
   final String summary;
@@ -363,7 +365,7 @@ class PublicStoreApp {
   String get displayVersion {
     final latest = latestVersion;
     if (latest == null || latest.versionName.isEmpty) return 'No live version';
-    final name = latest.versionName.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
+    final name = latest.versionName.replaceFirst(_vRegex, '');
     return 'v$name';
   }
 

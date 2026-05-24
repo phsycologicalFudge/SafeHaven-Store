@@ -22,6 +22,57 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  late List<_SearchableApp> _searchableApps;
+  late List<PublicStoreApp> _displayedApps;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSearchables();
+  }
+
+  @override
+  void didUpdateWidget(SeeMoreAppsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.apps != oldWidget.apps) {
+      _initSearchables();
+    }
+  }
+
+  void _initSearchables() {
+    _searchableApps = widget.apps.map((a) => _SearchableApp(a)).toList();
+    _filterApps();
+  }
+
+  void _filterApps() {
+    final query = _searchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      _displayedApps = widget.apps;
+      return;
+    }
+
+    _displayedApps = _searchableApps
+        .where((a) => a.searchString.contains(query))
+        .map((a) => a.app)
+        .toList();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value;
+      _filterApps();
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _displayedApps = widget.apps;
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -31,19 +82,9 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
-    List<PublicStoreApp> displayedApps = widget.apps;
-
-    if (_searchQuery.trim().isNotEmpty) {
-      final query = _searchQuery.trim().toLowerCase();
-      displayedApps = displayedApps.where((app) {
-        return app.name.toLowerCase().contains(query) ||
-            app.developerName.toLowerCase().contains(query) ||
-            app.packageName.toLowerCase().contains(query);
-      }).toList();
-    }
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundFrost,
       body: SafeArea(
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -83,7 +124,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '(${displayedApps.length})',
+                            '(${_displayedApps.length})',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -128,11 +169,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                       Expanded(
                         child: TextField(
                           controller: _searchController,
-                          onChanged: (value) {
-                            setState(() {
-                              _searchQuery = value;
-                            });
-                          },
+                          onChanged: _onSearchChanged,
                           style: TextStyle(
                             fontSize: 15,
                             color: colors.text,
@@ -151,12 +188,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                       ),
                       if (_searchQuery.isNotEmpty)
                         GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                            });
-                          },
+                          onTap: _clearSearch,
                           child: Padding(
                             padding: const EdgeInsets.only(right: 14),
                             child: Icon(
@@ -174,7 +206,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            if (displayedApps.isEmpty)
+            if (_displayedApps.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.only(top: 40),
@@ -183,9 +215,9 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
               )
             else
               SliverList.builder(
-                itemCount: displayedApps.length,
+                itemCount: _displayedApps.length,
                 itemBuilder: (context, index) {
-                  return CatalogueAppWideRow(app: displayedApps[index]);
+                  return CatalogueAppWideRow(app: _displayedApps[index]);
                 },
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
@@ -194,4 +226,12 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
       ),
     );
   }
+}
+
+class _SearchableApp {
+  _SearchableApp(this.app)
+      : searchString = '${app.name} ${app.developerName} ${app.packageName}'.toLowerCase();
+
+  final PublicStoreApp app;
+  final String searchString;
 }

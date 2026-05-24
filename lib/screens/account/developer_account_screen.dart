@@ -44,7 +44,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
 
   void _listenForAuthLinks() {
     _linkSub = _appLinks.uriLinkStream.listen(
-      (uri) async {
+          (uri) async {
         if (uri.scheme != 'safehaven') return;
         if (uri.host != 'auth') return;
 
@@ -180,95 +180,95 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
     final colors = SafeHavenTheme.of(context);
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colors.backgroundFrost,
       body: RefreshIndicator(
         onRefresh: () => _load(showLoading: false),
         child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: _AccountHeader(
-              account: _account,
-              loading: _loading,
-              openingLogin: _openingLogin,
-              openingDashboard: _openingDashboard,
-              onLogin: _login,
-              onDashboard: _openDashboard,
-              onLogout: _logout,
-            ),
-          ),
-          if (_error != null)
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Color(0xFFE85D75),
-                    height: 1.35,
+              child: _AccountHeader(
+                account: _account,
+                loading: _loading,
+                openingLogin: _openingLogin,
+                openingDashboard: _openingDashboard,
+                onLogin: _login,
+                onDashboard: _openDashboard,
+                onLogout: _logout,
+              ),
+            ),
+            if (_error != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFFE85D75),
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (_loading)
-            const SliverToBoxAdapter(child: _LoadingBlock()),
-          if (!_loading && _account != null) ...[
-            SliverToBoxAdapter(
-              child: _SectionHeader(
-                title: 'Your apps',
-                count: _account!.developerEnabled ? _apps.length : null,
-              ),
-            ),
-            if (!_account!.developerEnabled)
+            if (_loading)
+              const SliverToBoxAdapter(child: _LoadingBlock()),
+            if (!_loading && _account != null) ...[
               SliverToBoxAdapter(
-                child: _MessageBlock(
-                  message:
-                      'Developer access is not enabled. Open the dashboard to agree to the developer terms.',
-                  actionLabel: 'Open dashboard',
-                  onAction: _openDashboard,
-                ),
-              )
-            else if (_apps.isEmpty)
-              SliverToBoxAdapter(
-                child: _MessageBlock(
-                  message:
-                      'No apps registered yet. Open the dashboard to register your first app.',
-                  actionLabel: 'Open dashboard',
-                  onAction: _openDashboard,
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final app = _apps[index];
-                    return _DeveloperAppRow(
-                      app: app,
-                      publicApp: _publicApps[app.packageName],
-                    );
-                  },
-                  childCount: _apps.length,
+                child: _SectionHeader(
+                  title: 'Your apps',
+                  count: _account!.developerEnabled ? _apps.length : null,
                 ),
               ),
+              if (!_account!.developerEnabled)
+                SliverToBoxAdapter(
+                  child: _MessageBlock(
+                    message:
+                    'Developer access is not enabled. Open the dashboard to agree to the developer terms.',
+                    actionLabel: 'Open dashboard',
+                    onAction: _openDashboard,
+                  ),
+                )
+              else if (_apps.isEmpty)
+                SliverToBoxAdapter(
+                  child: _MessageBlock(
+                    message:
+                    'No apps registered yet. Open the dashboard to register your first app.',
+                    actionLabel: 'Open dashboard',
+                    onAction: _openDashboard,
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                      final app = _apps[index];
+                      return _DeveloperAppRow(
+                        app: app,
+                        publicApp: _publicApps[app.packageName],
+                      );
+                    },
+                    childCount: _apps.length,
+                  ),
+                ),
+            ],
+            if (!_loading && _account == null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
+                  child: Text(
+                    'Sign in to manage developer submissions, review status, signing keys, and dashboard access.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.45,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 28)),
           ],
-          if (!_loading && _account == null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
-                child: Text(
-                  'Sign in to manage developer submissions, review status, signing keys, and dashboard access.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.45,
-                    color: colors.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 28)),
-        ],
         ),
       ),
     );
@@ -303,10 +303,10 @@ class _AccountHeader extends StatelessWidget {
     final label = displayName.isNotEmpty
         ? displayName
         : email.isNotEmpty
-            ? email
-            : signedIn
-                ? 'Developer account'
-                : 'Developer account';
+        ? email
+        : signedIn
+        ? 'Developer account'
+        : 'Developer account';
     final initial = label.isNotEmpty ? label.substring(0, 1).toUpperCase() : 'S';
 
     final safeTop = MediaQuery.of(context).padding.top;
@@ -326,26 +326,28 @@ class _AccountHeader extends StatelessWidget {
             ),
             child: loading
                 ? SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: colors.accentEnd,
-                    ),
-                  )
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: colors.accentEnd,
+              ),
+            )
                 : Text(
-                    signedIn ? initial : 'S',
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                      color: colors.text,
-                    ),
-                  ),
+              signedIn ? initial : 'S',
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w800,
+                color: colors.text,
+              ),
+            ),
           ),
           const SizedBox(height: 14),
           Text(
             signedIn ? label : 'Not signed in',
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 21,
               fontWeight: FontWeight.w800,
@@ -358,6 +360,8 @@ class _AccountHeader extends StatelessWidget {
             Text(
               email,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 13, color: colors.textMuted),
             ),
           ],
@@ -550,30 +554,30 @@ class _DeveloperAppRowState extends State<_DeveloperAppRow> {
           child: !_expanded
               ? const SizedBox.shrink()
               : Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                  child: _loading
-                      ? LinearProgressIndicator(
-                          minHeight: 2,
-                          color: colors.textMuted,
-                          backgroundColor: colors.border,
-                        )
-                      : _error != null
-                          ? Text(
-                              _error!,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Color(0xFFE85D75),
-                                height: 1.35,
-                              ),
-                            )
-                          : _detail != null
-                              ? _DeveloperAppDetail(
-                                  app: app,
-                                  detail: _detail!,
-                                  publicApp: publicApp,
-                                )
-                              : const SizedBox.shrink(),
-                ),
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+            child: _loading
+                ? LinearProgressIndicator(
+              minHeight: 2,
+              color: colors.textMuted,
+              backgroundColor: colors.border,
+            )
+                : _error != null
+                ? Text(
+              _error!,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFFE85D75),
+                height: 1.35,
+              ),
+            )
+                : _detail != null
+                ? _DeveloperAppDetail(
+              app: app,
+              detail: _detail!,
+              publicApp: publicApp,
+            )
+                : const SizedBox.shrink(),
+          ),
         ),
         const SizedBox(height: 2),
       ],
@@ -867,23 +871,23 @@ class _AppIcon extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: iconUrl.isEmpty
           ? Icon(
-              Icons.android_rounded,
-              size: size * 0.42,
-              color: colors.textMuted,
-            )
+        Icons.android_rounded,
+        size: size * 0.42,
+        color: colors.textMuted,
+      )
           : Image.network(
-              iconUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.android_rounded,
-                size: size * 0.42,
-                color: colors.textMuted,
-              ),
-              loadingBuilder: (_, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const SizedBox.shrink();
-              },
-            ),
+        iconUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.android_rounded,
+          size: size * 0.42,
+          color: colors.textMuted,
+        ),
+        loadingBuilder: (_, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const SizedBox.shrink();
+        },
+      ),
     );
   }
 }

@@ -10,16 +10,18 @@ import '../catalogue_navigation.dart';
 import 'catalogue_shared_widgets.dart';
 
 class CatalogueAppSmallTile extends StatelessWidget {
-  const CatalogueAppSmallTile({required this.app});
+  const CatalogueAppSmallTile({required this.app, required this.width});
 
   final PublicStoreApp app;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final double iconSize = width > 76 ? 76.0 : width - 6;
 
     return SizedBox(
-      width: 82,
+      width: width,
       child: AnimatedTap(
         borderRadius: 14,
         onTap: () {
@@ -28,7 +30,7 @@ class CatalogueAppSmallTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CatalogueRawAppIcon(app: app, size: 76, radius: 18),
+            CatalogueRawAppIcon(app: app, size: iconSize, radius: 18),
             const SizedBox(height: 8),
             Text(
               compactAppName(app.name),
@@ -37,7 +39,7 @@ class CatalogueAppSmallTile extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.15,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
                 color: colors.text,
               ),
             ),
@@ -52,6 +54,7 @@ class CatalogueAppSmallTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
+                      fontWeight: FontWeight.w500,
                       color: colors.textMuted,
                     ),
                   ),
@@ -76,16 +79,17 @@ class CatalogueAppSmallTile extends StatelessWidget {
 }
 
 class CatalogueSeeMoreTile extends StatelessWidget {
-  const CatalogueSeeMoreTile({required this.onTap});
+  const CatalogueSeeMoreTile({required this.onTap, required this.width});
 
   final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
     return SizedBox(
-      width: 85,
+      width: width,
       child: AnimatedTap(
         borderRadius: 12,
         scale: 0.96,
@@ -143,11 +147,11 @@ class CatalogueAppWideRow extends StatelessWidget {
         Navigator.of(context).push(pushRoute(AppScreen(app: app)));
       },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            CatalogueRawAppIcon(app: app, size: 66, radius: 18),
-            const SizedBox(width: 16),
+            CatalogueRawAppIcon(app: app, size: 48, radius: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,8 +163,8 @@ class CatalogueAppWideRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16.5,
                       height: 1.12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.25,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.4,
                       color: colors.text,
                     ),
                   ),
@@ -175,7 +179,7 @@ class CatalogueAppWideRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: colors.textMuted,
                           ),
                         ),
@@ -198,7 +202,7 @@ class CatalogueAppWideRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: colors.textMuted,
                       ),
                     ),
@@ -230,6 +234,8 @@ class CatalogueHorizontalSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibleApps = apps.take(limit).toList();
     final showSeeMore = onSeeMore != null && apps.length > visibleApps.length;
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double cardWidth = (screenWidth - 68) / 4;
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -241,14 +247,14 @@ class CatalogueHorizontalSection extends StatelessWidget {
             height: 136,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: visibleApps.length + (showSeeMore ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 if (index < visibleApps.length) {
-                  return CatalogueAppSmallTile(app: visibleApps[index]);
+                  return CatalogueAppSmallTile(app: visibleApps[index], width: cardWidth);
                 }
-                return CatalogueSeeMoreTile(onTap: onSeeMore!);
+                return CatalogueSeeMoreTile(onTap: onSeeMore!, width: cardWidth);
               },
             ),
           ),

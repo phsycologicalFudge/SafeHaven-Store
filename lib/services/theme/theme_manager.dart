@@ -44,6 +44,7 @@ class SafeHavenThemeManager extends ChangeNotifier {
 class SafeHavenColors {
   const SafeHavenColors({
     required this.background,
+    required this.backgroundFrost,
     required this.surface,
     required this.surfaceSoft,
     required this.border,
@@ -59,6 +60,7 @@ class SafeHavenColors {
   });
 
   final Color background;
+  final Color backgroundFrost;
   final Color surface;
   final Color surfaceSoft;
   final Color border;
@@ -91,13 +93,14 @@ class SafeHavenColors {
 class SafeHavenTheme {
   static const light = SafeHavenColors(
     background: Color(0xFFFFFFFF),
+    backgroundFrost: Color(0xFFF2F2F6),
     surface: Color(0xFFFFFFFF),
     surfaceSoft: Color(0xFFF7F7FA),
     border: Color(0xFFE7E8EE),
     text: Color(0xFF18181C),
     textSoft: Color(0xFF4D515C),
     textMuted: Color(0xFF8E929E),
-    navBackground: Color(0xFFFFFFFF),
+    navBackground: Color(0xFFF2F2F6),
     navBorder: Color(0xFFE7E8EE),
     accentStart: Color(0xFF5A92FF),
     accentEnd: Color(0xFF8EBCFF),
@@ -107,13 +110,14 @@ class SafeHavenTheme {
 
   static const dark = SafeHavenColors(
     background: Color(0xFF0B0B10),
+    backgroundFrost: Color(0xFF111118),
     surface: Color(0xFF12131A),
     surfaceSoft: Color(0xFF191B24),
     border: Color(0xFF272A34),
     text: Color(0xFFF6F7FB),
     textSoft: Color(0xFFD8DBE3),
     textMuted: Color(0xFF9BA0AD),
-    navBackground: Color(0xFF0F1016),
+    navBackground: Color(0xFF111118),
     navBorder: Color(0xFF232632),
     accentStart: Color(0xFF3B71E8),
     accentEnd: Color(0xFF6A97FF),

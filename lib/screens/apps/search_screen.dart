@@ -5,30 +5,7 @@ import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
 import 'app_screen/app_screen.dart';
-
-PageRouteBuilder<void> _pushRoute(Widget page) {
-  return PageRouteBuilder<void>(
-    pageBuilder: (_, __, ___) => page,
-    transitionDuration: const Duration(milliseconds: 260),
-    reverseTransitionDuration: const Duration(milliseconds: 210),
-    transitionsBuilder: (_, animation, __, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
-}
+import 'catalogue_screen/catalogue_navigation.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -88,99 +65,79 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
-        backgroundColor: colors.background,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: colors.text),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Search',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: colors.text,
-          ),
-        ),
-      ),
-      body: FutureBuilder<StoreIndex>(
-        future: _future,
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          final index = snapshot.data;
-          final filtered = _filtered(index?.apps ?? []);
-          final categories = index?.categories ?? {};
+    return FutureBuilder<StoreIndex>(
+      future: _future,
+      builder: (context, snapshot) {
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+        final index = snapshot.data;
+        final filtered = _filtered(index?.apps ?? []);
+        final categories = index?.categories ?? {};
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SearchBar(controller: _searchController),
-              _FilterRow(
-                categories: categories,
-                selectedCategory: _selectedCategory,
-                minRating: _minRating,
-                allCategoriesValue: _allCategoriesValue,
-                onCategoryChanged: (v) {
-                  setState(() {
-                    _selectedCategory =
-                    v == _allCategoriesValue ? null : v;
-                  });
-                },
-                onRatingChanged: (v) => setState(() => _minRating = v),
-              ),
-              Expanded(
-                child: loading
-                    ? Center(
-                  child: CircularProgressIndicator(
-                    color: colors.accentEnd,
-                  ),
-                )
-                    : snapshot.hasError
-                    ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ),
-                )
-                    : filtered.isEmpty
-                    ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      !_hasActiveSearch
-                          ? 'Search for an app to begin.'
-                          : 'No apps matched your filters.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ),
-                )
-                    : ListView.builder(
-                  padding:
-                  const EdgeInsets.only(top: 4, bottom: 18),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) =>
-                      _AppRow(app: filtered[index]),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SearchBar(controller: _searchController),
+            _FilterRow(
+              categories: categories,
+              selectedCategory: _selectedCategory,
+              minRating: _minRating,
+              allCategoriesValue: _allCategoriesValue,
+              onCategoryChanged: (v) {
+                setState(() {
+                  _selectedCategory =
+                  v == _allCategoriesValue ? null : v;
+                });
+              },
+              onRatingChanged: (v) => setState(() => _minRating = v),
+            ),
+            Expanded(
+              child: loading
+                  ? Center(
+                child: CircularProgressIndicator(
+                  color: colors.accentEnd,
                 ),
+              )
+                  : snapshot.hasError
+                  ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    snapshot.error.toString(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ),
+              )
+                  : filtered.isEmpty
+                  ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    !_hasActiveSearch
+                        ? 'Search for an app to begin.'
+                        : 'No apps matched your filters.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ),
+              )
+                  : ListView.builder(
+                padding:
+                const EdgeInsets.only(top: 4, bottom: 18),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) =>
+                    _AppRow(app: filtered[index]),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -205,7 +162,7 @@ class _SearchBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Icon(
               Icons.search_rounded,
               size: 22,
@@ -241,7 +198,7 @@ class _SearchBar extends StatelessWidget {
                 ),
               )
             else
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
           ],
         ),
       ),
@@ -469,14 +426,14 @@ class _AppRow extends StatelessWidget {
     return AnimatedTap(
       borderRadius: 18,
       onTap: () {
-        Navigator.of(context).push(_pushRoute(AppScreen(app: app)));
+        Navigator.of(context).push(pushRoute(AppScreen(app: app)));
       },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
         child: Row(
           children: [
-            _AppIcon(app: app, size: 66),
-            const SizedBox(width: 14),
+            _AppIcon(app: app, size: 48),
+            const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
                 height: 52,
@@ -489,7 +446,7 @@ class _AppRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
                         color: colors.text,

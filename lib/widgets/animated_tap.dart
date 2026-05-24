@@ -28,6 +28,12 @@ class _AnimatedTapState extends State<AnimatedTap> {
     setState(() => _pressed = value);
   }
 
+  void _onPointerDown(PointerDownEvent event) => _setPressed(true);
+
+  void _onPointerUp(PointerUpEvent event) => _setPressed(false);
+
+  void _onPointerCancel(PointerCancelEvent event) => _setPressed(false);
+
   Future<void> _handleTap() async {
     _setPressed(true);
 
@@ -42,9 +48,9 @@ class _AnimatedTapState extends State<AnimatedTap> {
   @override
   Widget build(BuildContext context) {
     return Listener(
-      onPointerDown: widget.onTap == null ? null : (_) => _setPressed(true),
-      onPointerUp: widget.onTap == null ? null : (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
+      onPointerDown: widget.onTap == null ? null : _onPointerDown,
+      onPointerUp: widget.onTap == null ? null : _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: AnimatedScale(
         scale: _pressed ? widget.scale : 1,
         duration: widget.duration,

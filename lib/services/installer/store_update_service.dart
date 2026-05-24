@@ -46,17 +46,18 @@ class StoreUpdateService {
         packageName: app.packageName,
       );
 
-      if (state.installed && state.canUpdateTo(app.latestVersion)) {
-        final downloadUrl = await StoreService.instance.getDownloadUrl(
-          packageName: app.packageName,
-          versionCode: app.latestVersion!.versionCode,
-        );
+      if (!state.installed || !state.isInstalledBySafeHaven) continue;
+      if (!state.canUpdateTo(app.latestVersion)) continue;
 
-        updates.add({
-          'packageName': app.packageName,
-          'downloadUrl': downloadUrl,
-        });
-      }
+      final downloadUrl = await StoreService.instance.getDownloadUrl(
+        packageName: app.packageName,
+        versionCode: app.latestVersion!.versionCode,
+      );
+
+      updates.add({
+        'packageName': app.packageName,
+        'downloadUrl': downloadUrl,
+      });
     }
 
     if (updates.isNotEmpty) {
@@ -84,11 +85,7 @@ class StoreUpdateService {
   }
 
   Future<List<StoreUpdateCheck>> checkApps(List<PublicStoreApp> apps) async {
-    final checks = <StoreUpdateCheck>[];
-    for (final app in apps) {
-      checks.add(await checkApp(app));
-    }
-    return checks;
+    return Future.wait(apps.map(checkApp));
   }
 
   Future<List<StoreUpdateCheck>> availableUpdates(List<PublicStoreApp> apps) async {

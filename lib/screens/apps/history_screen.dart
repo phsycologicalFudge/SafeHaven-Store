@@ -6,30 +6,7 @@ import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
 import 'app_screen/app_screen.dart';
-
-PageRouteBuilder<void> _pushRoute(Widget page) {
-  return PageRouteBuilder<void>(
-    pageBuilder: (_, __, ___) => page,
-    transitionDuration: const Duration(milliseconds: 260),
-    reverseTransitionDuration: const Duration(milliseconds: 210),
-    transitionsBuilder: (_, animation, __, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
-}
+import 'catalogue_screen/catalogue_navigation.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -215,14 +192,14 @@ class _AppRow extends StatelessWidget {
     return AnimatedTap(
       borderRadius: 18,
       onTap: () {
-        Navigator.of(context).push(_pushRoute(AppScreen(app: app)));
+        Navigator.of(context).push(pushRoute(AppScreen(app: app)));
       },
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
         child: Row(
           children: [
-            _AppIcon(app: app, size: 66),
-            const SizedBox(width: 14),
+            _AppIcon(app: app, size: 48),
+            const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
                 height: 52,

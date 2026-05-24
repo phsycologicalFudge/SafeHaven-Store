@@ -7,13 +7,16 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.io.File
+import java.net.HttpURLConnection
 import java.net.URL
 import android.content.pm.PackageInstaller
+import org.json.JSONArray
 
 class UpdateForegroundService : Service() {
     private val CHANNEL_ID = "safehaven_update_channel"
     private val NOTIFICATION_ID = 888
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val activeFiles = mutableListOf<File>()
 
     override fun onCreate() {
         super.onCreate()
@@ -31,22 +34,20 @@ class UpdateForegroundService : Service() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        @Suppress("DEPRECATION")
-        val updates: ArrayList<HashMap<String, String>>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent?.getSerializableExtra("updates", ArrayList::class.java) as? ArrayList<HashMap<String, String>>
-        } else {
-            intent?.getSerializableExtra("updates") as? ArrayList<HashMap<String, String>>
+        val updatesJson = intent?.getStringExtra("updates_json")
+        if (updatesJson.isNullOrEmpty()) {
+            stopSelf(startId)
+            return START_NOT_STICKY
         }
 
-        if (updates.isNullOrEmpty()) {
+        val updates = parseUpdatesJson(updatesJson)
+        if (updates.isEmpty()) {
             stopSelf(startId)
             return START_NOT_STICKY
         }
 
         scope.launch {
-            for (update in updates) {
-                val packageName = update["packageName"] ?: continue
-                val downloadUrl = update["downloadUrl"] ?: continue
+            for ((packageName, downloadUrl) in updates) {
                 processUpdate(packageName, downloadUrl)
             }
             stopSelf(startId)
@@ -55,18 +56,43 @@ class UpdateForegroundService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun parseUpdatesJson(json: String): List<Pair<String, String>> {
+        return try {
+            val array = JSONArray(json)
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.getJSONObject(i)
+                val packageName = obj.optString("packageName").takeIf { it.isNotBlank() }
+                val downloadUrl = obj.optString("downloadUrl").takeIf { it.isNotBlank() }
+                if (packageName != null && downloadUrl != null) packageName to downloadUrl else null
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     private suspend fun processUpdate(packageName: String, downloadUrl: String) {
-        val file = File(cacheDir, "${packageName}_update.apk")
+        val file = File(cacheDir, "${packageName}_update_${System.currentTimeMillis()}.apk")
+        synchronized(activeFiles) { activeFiles.add(file) }
         try {
-            URL(downloadUrl).openStream().use { input ->
+            val connection = URL(downloadUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 60_000
+            connection.inputStream.use { input ->
                 file.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
             installApk(packageName, file)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            val intent = Intent(this, UpdateReceiver::class.java).apply {
+                putExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+                putExtra(PackageInstaller.EXTRA_PACKAGE_NAME, packageName)
+                putExtra(PackageInstaller.EXTRA_STATUS_MESSAGE, e.message)
+            }
+            sendBroadcast(intent)
         } finally {
             file.delete()
+            synchronized(activeFiles) { activeFiles.remove(file) }
         }
     }
 
@@ -119,6 +145,10 @@ class UpdateForegroundService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        synchronized(activeFiles) {
+            activeFiles.forEach { it.delete() }
+            activeFiles.clear()
+        }
         super.onDestroy()
     }
 

@@ -21,16 +21,17 @@ class CatalogueCategoryTabs extends StatelessWidget {
 
     return Container(
       height: 44,
+      margin: const EdgeInsets.only(top: 8),
       alignment: Alignment.bottomLeft,
       decoration: BoxDecoration(
-        color: colors.background,
+        color: colors.backgroundFrost,
         border: Border(
           bottom: BorderSide(color: colors.border),
         ),
       ),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         children: [
           _CategoryTabItem(
             label: 'For you',

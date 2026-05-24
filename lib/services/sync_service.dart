@@ -52,21 +52,23 @@ class SyncService {
       final updates = body['updates'] as List? ?? [];
       final removes = body['removes'] as List? ?? [];
 
-      final appsList = List<Map<String, dynamic>>.from(localData['apps'] ?? []);
+      var appsList = List<Map<String, dynamic>>.from(localData['apps'] ?? []);
 
-      for (final pkg in removes) {
-        appsList.removeWhere((a) => a['packageName'] == pkg);
+      if (removes.isNotEmpty) {
+        final removeSet = Set<String>.from(removes);
+        appsList.removeWhere((a) => removeSet.contains(a['packageName']));
       }
 
-      for (final update in updates) {
-        final pkg = update['packageName'];
-        final idx = appsList.indexWhere((a) => a['packageName'] == pkg);
+      if (updates.isNotEmpty) {
+        final appMap = {
+          for (var a in appsList) a['packageName'] as String: a
+        };
 
-        if (idx != -1) {
-          appsList[idx] = update as Map<String, dynamic>;
-        } else {
-          appsList.add(update as Map<String, dynamic>);
+        for (final update in updates) {
+          appMap[update['packageName'] as String] = update as Map<String, dynamic>;
         }
+
+        appsList = appMap.values.toList();
       }
 
       localData['timestamp'] = newTimestamp;

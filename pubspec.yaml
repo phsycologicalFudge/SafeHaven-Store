@@ -1,7 +1,7 @@
 name: safehaven
 description: "A new Flutter project."
 publish_to: 'none'
-version: 2.0.0+4
+version: 2.0.1+5
 
 environment:
   sdk: ^3.9.2
@@ -33,4 +33,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/
 

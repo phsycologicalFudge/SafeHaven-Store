@@ -19,24 +19,38 @@ class CatalogueTopChartsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double cardWidth = (screenWidth - 56) / 3;
+
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
           const CatalogueSectionHeader(title: 'Top charts'),
-          const SizedBox(height: 8),
-          ...apps.map((app) => _TopChartWideRow(app: app)),
-          CatalogueAllAppsTextButton(onTap: onAllApps),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 186,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: apps.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                return _TopChartGalleryCard(app: apps[index], cardWidth: cardWidth);
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _TopChartWideRow extends StatelessWidget {
-  const _TopChartWideRow({required this.app});
+class _TopChartGalleryCard extends StatelessWidget {
+  const _TopChartGalleryCard({required this.app, required this.cardWidth});
 
   final PublicStoreApp app;
+  final double cardWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -47,72 +61,81 @@ class _TopChartWideRow extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(pushRoute(AppScreen(app: app)));
       },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
-        child: Row(
+      child: Container(
+        width: cardWidth,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: colors.surfaceSoft,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: colors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CatalogueAppIcon(app: app, size: 66),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            CatalogueRawAppIcon(app: app, size: 64, radius: 16),
+            const SizedBox(height: 8),
+            Text(
+              app.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.2,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                color: colors.text,
+              ),
+            ),
+            if (app.ratingCount > 0) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    app.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    app.displayRating,
                     style: TextStyle(
-                      fontSize: 16.5,
-                      height: 1.12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.25,
-                      color: colors.text,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  if (app.ratingCount > 0)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          app.displayRating,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: colors.textMuted,
-                          ),
-                        ),
-                        Transform.translate(
-                          offset: const Offset(0, -2),
-                          child: Text(
-                            '★',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colors.textMuted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Text(
-                      app.developerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  Transform.translate(
+                    offset: const Offset(0, -1),
+                    child: Text(
+                      '★',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 9,
                         color: colors.textMuted,
                       ),
                     ),
+                  ),
                 ],
               ),
-            ),
-            CatalogueDownloadButton(app: app),
+            ],
+            const Spacer(),
+            _PillDownloadButton(app: app),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PillDownloadButton extends StatelessWidget {
+  const _PillDownloadButton({required this.app});
+
+  final PublicStoreApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      height: 26,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(99),
+        child: CatalogueDownloadButton(app: app),
       ),
     );
   }

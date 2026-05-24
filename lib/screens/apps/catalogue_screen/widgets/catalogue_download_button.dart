@@ -104,86 +104,87 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
     final colors = SafeHavenTheme.of(context);
 
     if (_state == CatalogueDlState.checking) {
-      return const SizedBox(width: 44);
+      return const SizedBox(width: 68, height: 32);
     }
 
-    Widget content;
+    Widget inner;
     VoidCallback? onTap;
 
     switch (_state) {
       case CatalogueDlState.idle:
-        content = Icon(
-          Icons.download_rounded,
-          size: 20,
-          color: colors.textMuted,
+        inner = Text(
+          'Get',
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: colors.text,
+          ),
         );
         onTap = _startDownload;
       case CatalogueDlState.downloading:
-        content = SizedBox(
-          width: 22,
-          height: 22,
+        inner = SizedBox(
+          width: 18,
+          height: 18,
           child: CircularProgressIndicator(
             value: _progress > 0 ? _progress : null,
-            strokeWidth: 1.8,
+            strokeWidth: 2.2,
             color: colors.text,
           ),
         );
         onTap = _cancelDownload;
       case CatalogueDlState.cancelling:
-        content = SizedBox(
-          width: 22,
-          height: 22,
-          child: Transform.scale(
-            scaleX: -1,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.8,
-              color: colors.textMuted,
-            ),
+        inner = SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: colors.textMuted,
           ),
         );
         onTap = null;
       case CatalogueDlState.done:
-        content = Text(
+        inner = Text(
           'Open',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 13.5,
             fontWeight: FontWeight.w700,
             color: colors.text,
           ),
         );
         onTap = _open;
       case CatalogueDlState.checking:
-        content = const SizedBox.shrink();
+        inner = const SizedBox.shrink();
         onTap = null;
     }
 
     return AnimatedTap(
-      borderRadius: 12,
+      borderRadius: 10,
       scale: 0.94,
       onTap: onTap,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.7, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutBack,
-                  ),
-                ),
-                child: child,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutBack,
               ),
-            );
-          },
-          child: Center(
-            key: ValueKey(_state),
-            child: content,
+            ),
+            child: child,
           ),
+        ),
+        child: Container(
+          key: ValueKey(_state),
+          width: 68,
+          height: 32,
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colors.border, width: 1.5),
+          ),
+          child: Center(child: inner),
         ),
       ),
     );

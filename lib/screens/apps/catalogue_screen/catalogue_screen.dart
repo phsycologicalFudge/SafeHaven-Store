@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:safehaven/screens/apps/catalogue_screen/sections/catalogue_top_charts_section.dart';
-import 'package:safehaven/screens/apps/catalogue_screen/widgets/catalogue_search_button.dart';
 import 'package:safehaven/screens/apps/catalogue_screen/widgets/catalogue_shared_widgets.dart';
 import '../../../services/index_service.dart';
 import '../../../services/store_service.dart';
@@ -9,6 +8,7 @@ import '../../../widgets/identity_setup_dialog.dart';
 import 'sections/catalogue_category_tabs.dart';
 import 'catalogue_navigation.dart';
 import 'sections/catalogue_recommended_section.dart';
+import 'sections/catalogue_extra_sections.dart';
 import 'sections/see_more_apps_screen.dart';
 
 class CatalogueScreen extends StatefulWidget {
@@ -83,6 +83,17 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
     return _recommendedFuture!;
   }
 
+  void _openAllApps(List<PublicStoreApp> allApps) {
+    Navigator.of(context).push(
+      pushRoute(
+        SeeMoreAppsScreen(
+          title: 'All apps',
+          apps: allApps,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<StoreIndex>(
@@ -97,6 +108,24 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
           _selectedCategory,
         );
         final topCharts = IndexService.instance.topCharts(filtered);
+        final newArrivals = IndexService.instance.newArrivals(filtered);
+
+        // Take first 2 shuffled category keys for "Top in..." rows.
+        // When no category is selected these use the global shuffled list.
+        // When a category is selected there's only one category so we skip them.
+        final showCategoryRows = _selectedCategory == null &&
+            _shuffledCategoryKeys.length >= 2;
+        final catKeyA = showCategoryRows ? _shuffledCategoryKeys[0] : null;
+        final catKeyB = showCategoryRows ? _shuffledCategoryKeys[1] : null;
+        final catLabelA = catKeyA != null ? (index?.categories[catKeyA] ?? catKeyA) : null;
+        final catLabelB = catKeyB != null ? (index?.categories[catKeyB] ?? catKeyB) : null;
+        final topInA = catKeyA != null
+            ? IndexService.instance.topInCategory(allApps, catKeyA)
+            : const <PublicStoreApp>[];
+        final topInB = catKeyB != null
+            ? IndexService.instance.topInCategory(allApps, catKeyB)
+            : const <PublicStoreApp>[];
+
         final Future<List<PublicStoreApp>>? recommendedFuture =
         filtered.isEmpty ? null : _recommendedFor(filtered, topCharts);
         final Widget? recommendedSection = recommendedFuture == null
@@ -108,7 +137,6 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              const SliverToBoxAdapter(child: CatalogueSearchButton()),
               if (index != null && index.categories.isNotEmpty)
                 SliverToBoxAdapter(
                   child: CatalogueCategoryTabs(
@@ -133,27 +161,41 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                 ),
               if (!loading && !snapshot.hasError && filtered.isEmpty)
                 const SliverToBoxAdapter(child: CatalogueEmptyBlock()),
-              if (!loading && !snapshot.hasError && filtered.isNotEmpty)
-                ...[
-                  if (recommendedSection != null)
-                    SliverToBoxAdapter(child: recommendedSection),
-                  if (topCharts.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: CatalogueTopChartsSection(
-                        apps: topCharts.take(10).toList(),
-                        onAllApps: () {
-                          Navigator.of(context).push(
-                            pushRoute(
-                              SeeMoreAppsScreen(
-                                title: 'All apps',
-                                apps: allApps,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+              if (!loading && !snapshot.hasError && filtered.isNotEmpty) ...[
+                if (recommendedSection != null)
+                  SliverToBoxAdapter(child: recommendedSection),
+                if (topCharts.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: CatalogueTopChartsSection(
+                      apps: topCharts.take(10).toList(),
+                      onAllApps: () => _openAllApps(allApps),
                     ),
-                ],
+                  ),
+                if (showCategoryRows && topInA.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: CatalogueTopInCategorySection(
+                      categoryLabel: catLabelA!,
+                      apps: topInA.take(10).toList(),
+                    ),
+                  ),
+                if (showCategoryRows && topInB.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: CatalogueTopInCategorySection(
+                      categoryLabel: catLabelB!,
+                      apps: topInB.take(10).toList(),
+                    ),
+                  ),
+                if (newArrivals.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: CatalogueNewArrivalsSection(apps: newArrivals),
+                  ),
+                SliverToBoxAdapter(
+                  child: CatalogueSeeAllBlock(
+                    count: allApps.length,
+                    onTap: () => _openAllApps(allApps),
+                  ),
+                ),
+              ],
               const SliverToBoxAdapter(child: SizedBox(height: 18)),
             ],
           ),

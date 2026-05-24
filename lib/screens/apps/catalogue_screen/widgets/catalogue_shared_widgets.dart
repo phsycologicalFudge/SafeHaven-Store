@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/animated_tap.dart';
@@ -5,8 +6,8 @@ import '../../../../widgets/animated_tap.dart';
 
 String compactAppName(String name) {
   final trimmed = name.trim();
-  if (trimmed.length <= 6) return trimmed;
-  return '${trimmed.substring(0, 6)}...';
+  if (trimmed.length <= 12) return trimmed;
+  return '${trimmed.substring(0, 12)}...';
 }
 
 class CatalogueSectionHeader extends StatelessWidget {
@@ -19,7 +20,7 @@ class CatalogueSectionHeader extends StatelessWidget {
     final colors = SafeHavenTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
           Expanded(
@@ -53,7 +54,7 @@ class CatalogueAllAppsTextButton extends StatelessWidget {
       scale: 0.96,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 4),
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 4),
         child: Row(
           children: [
             Text(
@@ -72,6 +73,141 @@ class CatalogueAllAppsTextButton extends StatelessWidget {
               color: colors.accentStart,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class CatalogueSeeAllBlock extends StatefulWidget {
+  const CatalogueSeeAllBlock({
+    required this.count,
+    required this.onTap,
+  });
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  State<CatalogueSeeAllBlock> createState() => _CatalogueSeeAllBlockState();
+}
+
+class _CatalogueSeeAllBlockState extends State<CatalogueSeeAllBlock>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmer;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmer = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3800),
+    )..repeat(reverse: false);
+  }
+
+  @override
+  void dispose() {
+    _shimmer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 20, 14, 4),
+      child: AnimatedTap(
+        borderRadius: 16,
+        scale: 0.975,
+        onTap: widget.onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.border),
+            ),
+            child: AnimatedBuilder(
+              animation: _shimmer,
+              builder: (context, child) {
+                // Sweep starts fully off-screen left (-1.0) and ends fully off-screen right (2.0)
+                // so the wrap-around is always invisible
+                final t = Curves.easeInOut.transform(_shimmer.value);
+                final x = (t * 3.0 - 1.0); // -1.0 to 2.0 normalised
+                final screenWidth = MediaQuery.of(context).size.width - 36;
+                final shimmerColor = colors.text.withOpacity(0.08);
+
+                return Stack(
+                  children: [
+                    child!,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Transform.translate(
+                          offset: Offset(x * screenWidth, 0),
+                          child: Container(
+                            width: 90,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  shimmerColor,
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.5, 1.0],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Browse all apps',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: colors.text,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: colors.accentStart.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${widget.count}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: colors.accentStart,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 17,
+                      color: colors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

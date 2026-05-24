@@ -275,7 +275,16 @@ export async function getSubmissionsDueForAutoApproval(env) {
 export async function getAllLiveApps(env) {
   const rows = await db(env)
     .prepare(
-      "SELECT sa.*, ss.id AS submission_id, ss.version_name, ss.version_code, ss.apk_key, ss.apk_size, ss.apk_sha256, ss.scanned_at FROM store_apps sa JOIN store_submissions ss ON ss.app_id = sa.id AND ss.status = 'live' WHERE sa.status = 'active' ORDER BY sa.package_name ASC, ss.version_code DESC"
+      `SELECT sa.*, ss.id AS submission_id, ss.version_name, ss.version_code, ss.apk_key, ss.apk_size, ss.apk_sha256, ss.scanned_at
+       FROM store_apps sa
+       JOIN store_submissions ss ON ss.id = (
+         SELECT id FROM store_submissions
+         WHERE app_id = sa.id AND status = 'live'
+         ORDER BY version_code DESC
+         LIMIT 1
+       )
+       WHERE sa.status = 'active'
+       ORDER BY sa.package_name ASC`
     )
     .all();
   return rows.results || [];

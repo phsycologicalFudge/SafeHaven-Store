@@ -280,7 +280,6 @@ export const addOrUpdateApp = async (env, appEntry) => {
     };
   }
   index.apps.sort((a, b) => a.packageName.localeCompare(b.packageName));
-  await putIndex(env, index);
   await putIndexWithChangelog(env, index);
 };
 
@@ -299,7 +298,6 @@ export const addVersionToApp = async (env, packageName, versionEntry) => {
   app.versions.sort((a, b) => b.versionCode - a.versionCode);
   app.lastUpdated = nowUnix();
 
-  await putIndex(env, index);
   await putIndexWithChangelog(env, index);
 };
 
@@ -399,30 +397,16 @@ export const deleteApk = async (env, packageName, versionCode) => {
 
 export const headStagingObject = async (env, packageName, versionCode) => {
   const key = stagingKey(packageName, versionCode);
-
-  const res = await s3Fetch(env, "GET", key, null, {
-    range: "bytes=0-0",
-  });
-
-  const contentRange = res.headers.get("content-range") || "";
+  const res = await s3Fetch(env, "HEAD", key);
   const contentLengthHeader = res.headers.get("content-length");
   const etag = res.headers.get("etag");
-
-  let contentLength = null;
-
-  const rangeMatch = contentRange.match(/\/(\d+)$/);
-  if (rangeMatch) {
-    contentLength = Number(rangeMatch[1]);
-  } else if (res.ok && contentLengthHeader !== null) {
-    contentLength = Number(contentLengthHeader);
-  }
-
+  const contentLength = contentLengthHeader !== null ? Number(contentLengthHeader) : null;
   return {
-    ok: res.ok || res.status === 206,
+    ok: res.ok,
     status: res.status,
     key,
     contentLength: Number.isFinite(contentLength) ? contentLength : null,
     etag,
-    contentRange,
+    contentRange: "",
   };
 };

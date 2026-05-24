@@ -21,6 +21,8 @@ class InstalledPackageState {
   final String? signingCertificateSha256;
   final String? installer;
 
+  bool get isInstalledBySafeHaven => installer == 'com.colourswift.safehaven';
+
   bool canUpdateTo(StoreVersion? version) {
     if (!installed || version == null) return false;
     return version.versionCode > versionCode;
@@ -146,6 +148,7 @@ class ApkInstallService {
     _activeFile = file;
 
     final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 15);
     _client = client;
 
     final request = await client.getUrl(Uri.parse(downloadUrl));
@@ -167,7 +170,7 @@ class ApkInstallService {
     _downloadCompleter = completer;
 
     _subscription = response.listen(
-      (chunk) {
+          (chunk) {
         if (_cancelled) return;
 
         received += chunk.length;
@@ -223,9 +226,10 @@ class ApkInstallService {
 
     await _channel.invokeMethod('installApk', {
       'path': file.path,
+      'packageName': app.packageName,
     });
 
-    _scheduleInstallCacheCleanup(installDir);
+    _scheduleInstallCacheCleanup(installDir, file);
   }
 
   Future<Directory> _installCacheDirectory() async {
@@ -242,16 +246,17 @@ class ApkInstallService {
   Future<void> _clearInstallCache(Directory installDir) async {
     if (!await installDir.exists()) return;
 
+    final active = _activeFile;
     await for (final entity in installDir.list()) {
+      if (active != null && entity.path == active.path) continue;
       await _deleteEntity(entity);
     }
   }
 
-  void _scheduleInstallCacheCleanup(Directory installDir) {
+  void _scheduleInstallCacheCleanup(Directory installDir, File installedFile) {
     _cleanupTimer?.cancel();
     _cleanupTimer = Timer(_installCacheTtl, () async {
-      await _clearInstallCache(installDir);
-      _activeFile = null;
+      await _deleteFile(installedFile);
     });
   }
 

@@ -1,0 +1,42 @@
+{
+  "verdict": "LIKELY_CLEAN",
+  "confidence": 1.0,
+  "source_apk": "/bep/BEP_env/source/app-release-unsigned.apk",
+  "binary_apk": "/bep/BEP_env/binary/eu.veldsoft.vitoshadm.apk",
+  "token_analysis": {
+    "source_token_count": 52882,
+    "binary_token_count": 52882,
+    "intersection_count": 52882,
+    "forward_coverage": 1.0,
+    "reverse_coverage": 1.0,
+    "tokens_only_in_binary": 0,
+    "tokens_only_in_source": 0
+  },
+  "permission_analysis": {
+    "source_count": 0,
+    "binary_count": 0,
+    "added": [],
+    "removed": [],
+    "dangerous_added": [],
+    "delta": 0,
+    "dangerous_delta": 0
+  },
+  "component_analysis": {
+    "added": {},
+    "removed": {},
+    "total_added": 0
+  },
+  "so_analysis": {
+    "source_count": 0,
+    "binary_count": 0,
+    "count_delta": 0,
+    "added_libs": [],
+    "removed_libs": []
+  },
+  "manifest_meta": {
+    "source_package": null,
+    "binary_package": null,
+    "source_version_code": null,
+    "binary_version_code": null
+  }
+}

@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:safehaven/screens/apps/app_screen/sections/app_screen_details.dart';
@@ -19,12 +20,18 @@ class AppScreen extends StatefulWidget {
 }
 
 class _AppScreenState extends State<AppScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<double> _scrollOffset = ValueNotifier(0.0);
+
   Color _iconColor = const Color(0xFF161A24);
   int _iconColorRequestId = 0;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      _scrollOffset.value = _scrollController.offset;
+    });
     _recordHistory();
     _loadIconColor();
   }
@@ -41,6 +48,13 @@ class _AppScreenState extends State<AppScreen> {
       _iconColor = const Color(0xFF161A24);
       _loadIconColor();
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _scrollOffset.dispose();
+    super.dispose();
   }
 
   void _recordHistory() {
@@ -110,6 +124,7 @@ class _AppScreenState extends State<AppScreen> {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
     final accent = polishAccentColor(_iconColor);
+    final topPadding = MediaQuery.paddingOf(context).top;
 
     final isDark = SafeHavenThemeManager.instance.isDark;
     final topGlowOpacity = isDark ? 0.08 : 0.10;
@@ -118,22 +133,6 @@ class _AppScreenState extends State<AppScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: colors.background,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: colors.text,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            onPressed: _showActionsSheet,
-            icon: Icon(
-              Icons.more_vert_rounded,
-              color: colors.textSoft,
-            ),
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           Positioned.fill(
@@ -177,10 +176,11 @@ class _AppScreenState extends State<AppScreen> {
             ),
           ),
           CustomScrollView(
+            controller: _scrollController,
             slivers: [
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: MediaQuery.paddingOf(context).top + kToolbarHeight + 8,
+                  height: topPadding + 56 + 8,
                 ),
               ),
               SliverToBoxAdapter(child: AppScreenHeader(app: widget.app)),
@@ -193,6 +193,69 @@ class _AppScreenState extends State<AppScreen> {
               SliverToBoxAdapter(child: AppScreenRateButton(app: widget.app)),
               const SliverToBoxAdapter(child: SizedBox(height: 28)),
             ],
+          ),
+          ValueListenableBuilder<double>(
+            valueListenable: _scrollOffset,
+            builder: (context, offset, _) {
+              final t = ((offset - 320) / 40).clamp(0.0, 1.0);
+
+              if (t == 0) return const SizedBox.shrink();
+
+              return Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Transform.translate(
+                  offset: Offset(0, -16 * (1 - t)),
+                  child: Opacity(
+                    opacity: t,
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                        child: Container(
+                          height: topPadding + 56,
+                          color: colors.surface.withOpacity(isDark ? 0.75 : 0.85),
+                          padding: EdgeInsets.only(
+                            top: topPadding,
+                            left: 64,
+                            right: 64,
+                          ),
+                          alignment: Alignment.center,
+                          child: AppScreenInstallButton(
+                            app: widget.app,
+                            compact: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: topPadding + 4,
+            left: 8,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(Icons.arrow_back_rounded, color: colors.text),
+              ),
+            ),
+          ),
+          Positioned(
+            top: topPadding + 4,
+            right: 8,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                onPressed: _showActionsSheet,
+                icon: Icon(Icons.more_vert_rounded, color: colors.textSoft),
+              ),
+            ),
           ),
         ],
       ),

@@ -13,6 +13,15 @@ class CatalogueService {
 
   static const int _maxGradientCacheEntries = 160;
 
+  static final double _log80 = math.log(80);
+
+  static const List<List<Color>> _fallbackPalettes = [
+    [Color(0xFF135DFF), Color(0xFF8A32F4)],
+    [Color(0xFF0F766E), Color(0xFF2563EB)],
+    [Color(0xFF7C3AED), Color(0xFFDB2777)],
+    [Color(0xFF0891B2), Color(0xFF4F46E5)],
+  ];
+
   final LinkedHashMap<String, LinearGradient> _gradientCache =
   LinkedHashMap<String, LinearGradient>();
 
@@ -174,13 +183,16 @@ class CatalogueService {
 
     final isMuddyBrown =
         hue >= 18 && hue <= 48 && saturation < 0.52 && lightness < 0.58;
+
+    if (isMuddyBrown) return 0;
+
     final isWeakWarmNeutral =
         hue >= 12 && hue <= 62 && saturation < 0.34;
 
-    if (isMuddyBrown || isWeakWarmNeutral) return 0;
+    if (isWeakWarmNeutral) return 0;
 
     final vividness = saturation * (1 - (lightness - 0.48).abs());
-    final populationWeight = math.log(population + 1) / math.log(80);
+    final populationWeight = math.log(population + 1) / _log80;
 
     return vividness * populationWeight.clamp(0.35, 1.4);
   }
@@ -219,19 +231,12 @@ class CatalogueService {
   }
 
   LinearGradient _fallbackGradient(String seed) {
-    final palettes = [
-      const [Color(0xFF135DFF), Color(0xFF8A32F4)],
-      const [Color(0xFF0F766E), Color(0xFF2563EB)],
-      const [Color(0xFF7C3AED), Color(0xFFDB2777)],
-      const [Color(0xFF0891B2), Color(0xFF4F46E5)],
-    ];
-
     final hash = seed.codeUnits.fold<int>(
       0,
           (value, code) => ((value * 31) + code) & 0x7fffffff,
     );
 
-    final colors = palettes[hash % palettes.length];
+    final colors = _fallbackPalettes[hash % _fallbackPalettes.length];
 
     return LinearGradient(
       begin: Alignment.bottomLeft,
