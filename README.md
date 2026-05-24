@@ -1,10 +1,10 @@
-<p>
-  <img src="assets/gitImages/logo.png" width="92" alt="SafeHaven logo">
+<p align="center">
+  <img src="assets/gitImages/logo.png" width="200" alt="SafeHaven logo">
 </p>
 
-# SafeHaven
+<h1 align="center">SafeHaven</h1>
 
-### Open Android app distribution with source links, verification, and transparent security signals.
+### Where open Android apps belong.
 
 SafeHaven is an Android app store that is focused on trust, source visibility, and very clear app metadata. Apps can be linked to their source repositories, verified against developer ownership, scanned before release, and rechecked after being made available.
 
