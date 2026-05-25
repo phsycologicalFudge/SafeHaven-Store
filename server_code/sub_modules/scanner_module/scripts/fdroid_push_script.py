@@ -7,7 +7,7 @@ import math
 import os
 
 FDROID_INDEX_URL = "https://f-droid.org/repo/index-v1.json"
-WORKER_URL       = "https://YOUR_WORKER_URL"
+WORKER_URL       = "https://api.colourswift.com/admin/store/fdroid-index-chunk"
 
 SECRET           = os.environ.get("WORKER_SECRET", "")
 

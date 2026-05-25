@@ -135,7 +135,7 @@ After=network.target
 Type=simple
 WorkingDirectory=$SCRIPTS_DIR
 Environment=WORKER_SECRET=$WORKER_SECRET
-ExecStart=/bin/bash -c "while true; do $VENV_DIR/bin/python3 fdroid_sync.py; sleep 3600; done"
+ExecStart=/bin/bash -c "while true; do $VENV_DIR/bin/python3 fdroid_push_script.py; sleep 3600; done"
 Restart=always
 RestartSec=10
 

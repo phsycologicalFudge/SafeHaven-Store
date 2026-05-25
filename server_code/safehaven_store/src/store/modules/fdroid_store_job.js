@@ -366,7 +366,6 @@ export const importOrUpdateFdroidApp = async (env, fdroidApp) => {
 };
 
 const FDROID_OFFSET_KEY = "fdroid_sync_offset";
-const FDROID_INDEX_CACHE_KEY = "fdroid_index_cache";
 
 const getSyncState = async (env, key) => {
   try {
@@ -387,8 +386,101 @@ const setSyncState = async (env, key, value) => {
     .run();
 };
 
+export async function runFdroidUpdateCheck(env) {
+  const results = {
+    checked: 0,
+    updated: 0,
+    skipped: 0,
+    skipReasons: {},
+    errors: [],
+  };
+
+  let index;
+  try {
+    const obj = await env.SH_BUCKET.get("fdroid/index-v1.json");
+    if (!obj) return { error: "fdroid_index_not_cached" };
+    index = await obj.json();
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+
+  const appsMap = Object.fromEntries(
+    (index.apps || []).map((a) => [a.packageName, a])
+  );
+
+  const latestByPackage = new Map();
+  for (const [packageName, versions] of Object.entries(index.packages || {})) {
+    if (!Array.isArray(versions) || !versions.length) continue;
+    const latest = versions.reduce((a, b) => b.versionCode > a.versionCode ? b : a);
+    latestByPackage.set(packageName, latest);
+  }
+
+  const PAGE_SIZE = 500;
+  let offset = 0;
+
+  while (true) {
+    const rows = await env.api_control_db
+      .prepare(
+        `SELECT id, package_name
+         FROM store_apps
+         WHERE upstream = 'fdroid'
+           AND status = 'active'
+           AND claimed = 0
+         ORDER BY id ASC
+         LIMIT ?1 OFFSET ?2`
+      )
+      .bind(PAGE_SIZE, offset)
+      .all();
+
+    const apps = rows.results || [];
+    if (!apps.length) break;
+
+    for (const app of apps) {
+      results.checked++;
+
+      const latest = latestByPackage.get(app.package_name);
+      if (!latest) {
+        results.skipped++;
+        results.skipReasons["not_in_fdroid_index"] = (results.skipReasons["not_in_fdroid_index"] || 0) + 1;
+        continue;
+      }
+
+      const appMeta = appsMap[app.package_name] || {};
+      const fdroidApp = { packageName: app.package_name, ...appMeta, ...latest };
+
+      try {
+        const outcome = await importOrUpdateFdroidApp(env, fdroidApp);
+        if (outcome.imported) {
+          results.updated++;
+        } else {
+          results.skipped++;
+          const reason = outcome.reason || "unknown";
+          results.skipReasons[reason] = (results.skipReasons[reason] || 0) + 1;
+        }
+      } catch (e) {
+        results.errors.push({ packageName: app.package_name, error: String(e?.message || e) });
+      }
+    }
+
+    offset += apps.length;
+    if (apps.length < PAGE_SIZE) break;
+  }
+
+  console.log(JSON.stringify({
+    tag: "fdroid_update_check_complete",
+    checked: results.checked,
+    updated: results.updated,
+    skipped: results.skipped,
+    skipReasons: results.skipReasons,
+    errorCount: results.errors.length,
+    errors: results.errors.slice(0, 20),
+  }));
+
+  return results;
+}
+
 export async function runFdroidSync(env, options = {}) {
-  const batchSize   = options.batchSize   || FDROID_SYNC_LIMIT;
+  const batchSize    = options.batchSize   || FDROID_SYNC_LIMIT;
   const timeBudgetMs = options.timeBudgetMs ?? 25_000;
   const forceOffset  = options.offset ?? null;
 
@@ -407,15 +499,15 @@ export async function runFdroidSync(env, options = {}) {
     wrapped: false,
   };
 
-let index;
-try {
-  const obj = await env.SH_BUCKET.get("fdroid/index-v1.json");
-  if (!obj) return { error: "fdroid_index_not_cached" };
-  index = await obj.json();
-} catch (e) {
-  console.error(JSON.stringify({ tag: "fdroid_index_error", error: String(e?.message || e) }));
-  return { error: String(e?.message || e) };
-}
+  let index;
+  try {
+    const obj = await env.SH_BUCKET.get("fdroid/index-v1.json");
+    if (!obj) return { error: "fdroid_index_not_cached" };
+    index = await obj.json();
+  } catch (e) {
+    console.error(JSON.stringify({ tag: "fdroid_index_error", error: String(e?.message || e) }));
+    return { error: String(e?.message || e) };
+  }
 
   const appsMap = Object.fromEntries(
     (index.apps || []).map((a) => [a.packageName, a])
@@ -438,7 +530,7 @@ try {
   if (!Number.isFinite(offset) || offset < 0 || offset >= total) offset = 0;
   results.offsetStart = offset;
 
-const deadline = Date.now() + timeBudgetMs;
+  const deadline = Date.now() + timeBudgetMs;
   const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
   const cutoffDateMs = Date.now() - ONE_YEAR_MS;
 
@@ -446,6 +538,7 @@ const deadline = Date.now() + timeBudgetMs;
     if (offset >= total) {
       offset = 0;
       results.wrapped = true;
+      break;
     }
 
     const end = Math.min(offset + batchSize, total);
@@ -529,36 +622,39 @@ const deadline = Date.now() + timeBudgetMs;
 }
 
 const FDROID_CRON_STATE_KEY = "fdroid_cron_state";
+const UPDATE_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
+const DISCOVERY_INTERVAL_SECONDS = 24 * 60 * 60;
 
 export async function runFdroidCronJob(env) {
-  let state = await getSyncState(env, FDROID_CRON_STATE_KEY) || { 
-    status: "sleeping", 
-    lastFullSync: 0 
+  let state = await getSyncState(env, FDROID_CRON_STATE_KEY) || {
+    lastUpdateCheck: 0,
+    lastDiscovery: 0,
+    discoveryStatus: "idle",
   };
-  
+
   const now = Math.floor(Date.now() / 1000);
-  const WAKE_INTERVAL_SECONDS = 86400;
+  const output = { now };
 
-  if (state.status === "sleeping") {
-    if (now - state.lastFullSync >= WAKE_INTERVAL_SECONDS) {
-      state.status = "syncing";
-      await setSyncState(env, "fdroid_sync_offset", 0);
-      await setSyncState(env, FDROID_CRON_STATE_KEY, state);
-    } else {
-      return { status: "sleeping", message: "Not time to sync yet." };
+  if (now - (state.lastUpdateCheck || 0) >= UPDATE_CHECK_INTERVAL_SECONDS) {
+    output.updateCheck = await runFdroidUpdateCheck(env);
+    state.lastUpdateCheck = now;
+  }
+
+  if (state.discoveryStatus === "syncing" || now - (state.lastDiscovery || 0) >= DISCOVERY_INTERVAL_SECONDS) {
+    if (state.discoveryStatus !== "syncing") {
+      await setSyncState(env, FDROID_OFFSET_KEY, 0);
+      state.discoveryStatus = "syncing";
+    }
+
+    const discoveryResult = await runFdroidSync(env);
+    output.discovery = discoveryResult;
+
+    if (discoveryResult.error || discoveryResult.wrapped) {
+      state.discoveryStatus = "idle";
+      state.lastDiscovery = now;
     }
   }
 
-  if (state.status === "syncing") {
-    const results = await runFdroidSync(env);
-
-    if (results.wrapped) {
-      state.status = "sleeping";
-      state.lastFullSync = now;
-      await setSyncState(env, FDROID_CRON_STATE_KEY, state);
-      return { status: "finished_sweep", ...results };
-    }
-
-    return { status: "syncing", ...results };
-  }
+  await setSyncState(env, FDROID_CRON_STATE_KEY, state);
+  return output;
 }

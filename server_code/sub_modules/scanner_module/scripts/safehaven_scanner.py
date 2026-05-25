@@ -629,6 +629,30 @@ async def startup() -> None:
     asyncio.create_task(rescan_loop())
 
 
+MONITORED_SERVICES = [
+    "safehaven-hash",
+    "safehaven-defs",
+    "safehaven-scanner",
+    "safehaven-fdroid",
+]
+
+
+def _check_services() -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for svc in MONITORED_SERVICES:
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", svc],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            statuses[svc] = result.stdout.strip()
+        except Exception as exc:
+            statuses[svc] = f"error: {exc}"
+    return statuses
+
+
 @app.get("/health")
 async def health() -> dict[str, Any]:
     engine_status: dict[str, Any] = {"available": False}
@@ -641,6 +665,8 @@ async def health() -> dict[str, Any]:
             engine_status["engine"] = _engine_mod._backend.ENGINE_NAME
             engine_status["version"] = _engine_mod._backend.version()
 
+    services = await asyncio.to_thread(_check_services)
+
     return {
         "ok":            True,
         "hash_api_url":  HASH_API_URL,
@@ -650,4 +676,5 @@ async def health() -> dict[str, Any]:
         "force_rescan":  FORCE_RESCAN,
         "force_done":    len(_force_rescan_done),
         "engine":        engine_status,
+        "services":      services,
     }

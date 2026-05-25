@@ -58,10 +58,10 @@ import { normaliseIcon } from "./modules/images/icon_normalise.js";
 import { normaliseScreenshot } from "./modules/images/screenshot_normalise.js";
 import { uploadImageFromBuffer } from "./modules/images/image_upload.js";
 import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, refreshGitHubMetadataForApp } from "./modules/git_store_job.js";
-import { runFdroidSync, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
+import { runFdroidSync, runFdroidUpdateCheck, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "./helpers/store_helpers.js";
 
-export { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, runFdroidSync, runFdroidCronJob };
+export { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, runFdroidSync, runFdroidUpdateCheck, runFdroidCronJob };
 
 const corsHeaders = {
   "access-control-allow-origin":  "*",
@@ -290,6 +290,8 @@ const getAppsForRepoPolling = async (env, maxAgeSeconds = 21600) => {
       `SELECT * FROM store_apps
        WHERE auto_tracked = 1
          AND status = 'active'
+         AND (upstream IS NULL OR upstream != 'fdroid')
+         AND repo_url LIKE 'https://github.com/%'
          AND (last_repo_check IS NULL OR last_repo_check <= ?1)
        ORDER BY last_repo_check ASC
        LIMIT 50`
@@ -301,7 +303,7 @@ const getAppsForRepoPolling = async (env, maxAgeSeconds = 21600) => {
 
 const setAppLastRepoCheck = async (env, appId) => {
   await env.api_control_db
-    .prepare("UPDATE store_apps SET last_repo_check = ?2, updated_at = ?2 WHERE id = ?1")
+    .prepare("UPDATE store_apps SET last_repo_check = ?2 WHERE id = ?1")
     .bind((appId || "").toString().trim(), nowUnix())
     .run();
 };
@@ -334,10 +336,16 @@ const parseGitHubRepo = (repoUrl) => {
   return m ? { owner: m[1], repo: m[2] } : null;
 };
 
-const githubLatestRelease = async (owner, repo) => {
+const githubLatestRelease = async (env, owner, repo) => {
+  const token = (env.GITHUB_TOKEN || "").trim();
+  const headers = {
+    "user-agent": "SafeHaven-Store/1.0",
+    accept: "application/vnd.github+json",
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+  };
   const res = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/releases/latest`,
-    { headers: { "user-agent": "SafeHaven-Store/1.0", accept: "application/vnd.github+json" } }
+    { headers }
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`github_api_error:${res.status}`);
@@ -346,10 +354,74 @@ const githubLatestRelease = async (owner, repo) => {
   return data;
 };
 
-const findApkAsset = (release) =>
-  (release.assets || []).find((a) =>
-    a.name.endsWith(".apk") && a.state === "uploaded" && a.browser_download_url
-  ) || null;
+const normalizeAssetText = (value) =>
+  (value || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+const apkAssetsOf = (release) =>
+  (release?.assets || []).filter((asset) =>
+    asset?.name?.toLowerCase().endsWith(".apk") &&
+    asset.state === "uploaded" &&
+    asset.browser_download_url &&
+    !/debug|beta|alpha|snapshot|unsigned|source|src/i.test(asset.name)
+  );
+
+const scoreApkAsset = (asset, options = {}) => {
+  const name = normalizeAssetText(asset.name);
+  let score = 0;
+
+  if (options.assetMatch) {
+    const match = normalizeAssetText(options.assetMatch);
+    if (name === match) return 1000;
+    if (name.includes(match)) score += 50;
+  }
+
+  if (/arm64-v8a|aarch64/.test(name)) score += 30;
+  else if (/-arm64[-_]/.test(name)) score += 25;
+  else if (/universal|noarch|all|generic/.test(name)) score += 15;
+  else if (!/armeabi-v7a|x86|x86_64|mips/.test(name)) score += 10;
+
+  if (/release|stable|prod/.test(name)) score += 5;
+  if (/signed/.test(name)) score += 3;
+
+  if (/armeabi-v7a/.test(name)) score -= 20;
+  if (/x86|x86_64|mips/.test(name)) score -= 30;
+  if (/debug|beta|alpha|snapshot|unsigned/.test(name)) score -= 50;
+
+  if (asset.size) {
+    if (asset.size > 5 * 1024 * 1024 && asset.size < 150 * 1024 * 1024) score += 2;
+  }
+
+  return score;
+};
+
+const findApkAsset = (release, options = {}) => {
+  const assets = apkAssetsOf(release);
+  if (!assets.length) return null;
+
+  const scored = assets
+    .map((asset) => ({ asset, score: scoreApkAsset(asset, options) }))
+    .sort((a, b) => b.score - a.score);
+
+  const topScore = scored[0]?.score ?? -Infinity;
+  const candidates = scored.filter((s) => s.score === topScore && s.score > 0);
+
+  if (candidates.length === 1) return candidates[0].asset;
+
+  const preferred = candidates.find((c) =>
+    /arm64-v8a|aarch64/.test(normalizeAssetText(c.asset.name))
+  );
+  if (preferred) return preferred.asset;
+
+  const generic = candidates.find((c) =>
+    !/armeabi-v7a|x86|x86_64|mips|universal|noarch/.test(normalizeAssetText(c.asset.name))
+  );
+  if (generic) return generic.asset;
+
+  return candidates[0]?.asset || null;
+};
 
 const tagToVersionCode = (tag) => {
   const raw = (tag || "").toString().trim();
@@ -391,18 +463,22 @@ const uploadBufferToStaging = async (env, packageName, versionCode, buffer) => {
   if (!res.ok) throw new Error(`staging_upload_failed:${res.status}`);
 };
 
+const MAX_APK_BYTES = 100 * 1024 * 1024;
+
 const pollAppRepo = async (env, app) => {
   const gh = parseGitHubRepo(app.repo_url);
   if (!gh) { await setAppLastRepoCheck(env, app.id); return; }
 
   await refreshGitHubMetadataForApp(env, app, gh.owner, gh.repo);
 
-  const release = await githubLatestRelease(gh.owner, gh.repo);
+  const release = await githubLatestRelease(env, gh.owner, gh.repo);
   await setAppLastRepoCheck(env, app.id);
   if (!release) return;
 
   const asset = findApkAsset(release);
   if (!asset) return;
+
+  if (asset.size && asset.size > MAX_APK_BYTES) return;
 
   const versionCode = tagToVersionCode(release.tag_name);
   if (!versionCode) return;
@@ -416,6 +492,8 @@ const pollAppRepo = async (env, app) => {
   });
   if (!apkRes.ok) throw new Error(`apk_download_failed:${apkRes.status}`);
   const apkBuffer = await apkRes.arrayBuffer();
+
+  if (apkBuffer.byteLength > MAX_APK_BYTES) return;
 
   await uploadBufferToStaging(env, app.package_name, versionCode, apkBuffer);
 
@@ -1245,6 +1323,15 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       return json({ ok: true, result });
     }
 
+    if (method === "POST" && path === "/admin/store/fdroid-update-check") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const result = await runFdroidUpdateCheck(env);
+      return json({ ok: true, result });
+    }
+
     if (method === "POST" && path === "/admin/store/readme-sweep") {
       const me = await requireUser();
       if (!me) return unauthorized();
@@ -1447,7 +1534,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
       let release;
       try {
-        release = await githubLatestRelease(gh.owner, gh.repo);
+        release = await githubLatestRelease(env, gh.owner, gh.repo);
       } catch (e) {
         return json({ error: "github_fetch_failed", detail: String(e?.message || e) }, 502);
       }
@@ -1456,8 +1543,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const asset = findApkAsset(release);
       if (!asset) return json({ error: "no_apk_asset_in_release" }, 422);
 
-      const MAX_APK_BYTES = 100 * 1024 * 1024;
-      if (asset.size > MAX_APK_BYTES) return json({ error: "apk_too_large" }, 422);
+      if (asset.size && asset.size > MAX_APK_BYTES) return json({ error: "apk_too_large" }, 422);
 
       const versionName = release.tag_name;
       const versionCode = tagToVersionCode(release.tag_name);
