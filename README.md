@@ -5,7 +5,7 @@
 <h1 align="center">SafeHaven</h1>
 
 ### Want a specific app on SafeHaven? Submit it here!
-[Submit an app](api.colourswift.com/submit)
+[Submit an app](https://api.colourswift.com/submit)
 
 ### Where open Android apps belong.
 
