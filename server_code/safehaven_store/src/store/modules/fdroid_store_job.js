@@ -416,7 +416,7 @@ export async function runFdroidUpdateCheck(env) {
   }
 
   const PAGE_SIZE = 500;
-  let offset = 0;
+  let lastId = "";
 
   while (true) {
     const rows = await env.api_control_db
@@ -426,10 +426,11 @@ export async function runFdroidUpdateCheck(env) {
          WHERE upstream = 'fdroid'
            AND status = 'active'
            AND claimed = 0
+           AND id > ?1
          ORDER BY id ASC
-         LIMIT ?1 OFFSET ?2`
+         LIMIT ?2`
       )
-      .bind(PAGE_SIZE, offset)
+      .bind(lastId, PAGE_SIZE)
       .all();
 
     const apps = rows.results || [];
@@ -462,7 +463,7 @@ export async function runFdroidUpdateCheck(env) {
       }
     }
 
-    offset += apps.length;
+    lastId = apps[apps.length - 1].id;
     if (apps.length < PAGE_SIZE) break;
   }
 

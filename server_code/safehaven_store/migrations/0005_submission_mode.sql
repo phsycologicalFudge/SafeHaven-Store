@@ -1,0 +1,1 @@
+ALTER TABLE store_apps ADD COLUMN submission_mode_manual INTEGER NOT NULL DEFAULT 0;

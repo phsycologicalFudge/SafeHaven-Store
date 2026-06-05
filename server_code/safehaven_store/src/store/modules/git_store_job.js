@@ -1,35 +1,14 @@
-import { createSubmission, advanceSubmissionToScan, setAppImages } from "../store_db.js";
-import { getPresignedStagingUploadUrl, addOrUpdateApp } from "../storage.js";
+import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../store_db.js";
+import { addOrUpdateApp } from "../storage.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
+import { githubHeaders, normalizeGitHubRepoUrl, repoUrlVariants, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "../helpers/github_helpers.js";
 
 const IMPORT_LIMIT           = 50;
 const MAX_APK_BYTES          = 100 * 1024 * 1024;
 const ADMIN_MAX_APK_BYTES    = 200 * 1024 * 1024;
 const MAX_ICON_BYTES         = 4 * 1024 * 1024;
 const MAX_SCREENSHOT_BYTES   = 4 * 1024 * 1024;
-
-const githubHeaders = (env) => {
-  const token = (env.GITHUB_TOKEN || "").trim();
-  return {
-    "user-agent": "SafeHaven-Store/1.0",
-    accept:       "application/vnd.github+json",
-    ...(token ? { authorization: `Bearer ${token}` } : {}),
-  };
-};
-
-const normalizeGitHubRepoUrl = (repoUrl) => {
-  const clean = (repoUrl || "").toString().trim().replace(/\.git$/, "").replace(/\/$/, "");
-  const m = clean.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)$/i);
-  if (!m) return null;
-  return `https://github.com/${m[1]}/${m[2]}`;
-};
-
-const repoUrlVariants = (repoUrl) => {
-  const normal = normalizeGitHubRepoUrl(repoUrl);
-  if (!normal) return [];
-  return [normal, `${normal}/`, `${normal}.git`];
-};
 
 const githubSearch = async (env, query, perPage = 50) => {
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=${perPage}`;
@@ -72,20 +51,6 @@ const githubRepoDetails = async (env, owner, repo) => {
   };
 };
 
-const githubLatestRelease = async (env, owner, repo) => {
-  const res = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/releases/latest`,
-    { headers: githubHeaders(env) }
-  );
-
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  if (data.prerelease || data.draft) return null;
-
-  return data;
-};
 
 const decodeBase64Utf8 = (value) => {
   try {
@@ -527,105 +492,6 @@ const openHubSearch = async (env, query, page = 1) => {
   return parseOpenHubXml(xml);
 };
 
-const normalizeAssetText = (value) =>
-  (value || "")
-    .toString()
-    .trim()
-    .toLowerCase();
-
-const apkAssetsOf = (release) =>
-  (release?.assets || []).filter((asset) =>
-    asset?.name?.toLowerCase().endsWith(".apk") &&
-    asset.state === "uploaded" &&
-    asset.browser_download_url &&
-    !/debug|beta|alpha|snapshot|unsigned|source|src/i.test(asset.name)
-  );
-
-const scoreApkAsset = (asset, options = {}) => {
-  const name = normalizeAssetText(asset.name);
-  let score = 0;
-
-  if (options.assetMatch) {
-    const match = normalizeAssetText(options.assetMatch);
-    if (name === match) return 1000;
-    if (name.includes(match)) score += 50;
-  }
-
-  if (/arm64-v8a|aarch64/.test(name)) score += 30;
-  else if (/-arm64[-_]/.test(name)) score += 25;
-  else if (/universal|noarch|all|generic/.test(name)) score += 15;
-  else if (!/armeabi-v7a|x86|x86_64|mips/.test(name)) score += 10;
-
-  if (/release|stable|prod/.test(name)) score += 5;
-  if (/signed/.test(name)) score += 3;
-
-  if (/armeabi-v7a/.test(name)) score -= 20;
-  if (/x86|x86_64|mips/.test(name)) score -= 30;
-  if (/debug|beta|alpha|snapshot|unsigned/.test(name)) score -= 50;
-
-  if (asset.size) {
-    if (asset.size > 5 * 1024 * 1024 && asset.size < 150 * 1024 * 1024) score += 2;
-  }
-
-  return score;
-};
-
-const findApkAsset = (release, options = {}) => {
-  const assets = apkAssetsOf(release);
-  if (!assets.length) return null;
-
-  const scored = assets
-    .map((asset) => ({ asset, score: scoreApkAsset(asset, options) }))
-    .sort((a, b) => b.score - a.score);
-
-  const topScore = scored[0]?.score ?? -Infinity;
-  const candidates = scored.filter((s) => s.score === topScore && s.score > 0);
-
-  if (candidates.length === 1) return candidates[0].asset;
-
-  const preferred = candidates.find((c) =>
-    /arm64-v8a|aarch64/.test(normalizeAssetText(c.asset.name))
-  );
-  if (preferred) return preferred.asset;
-
-  const generic = candidates.find((c) =>
-    !/armeabi-v7a|x86|x86_64|mips|universal|noarch/.test(normalizeAssetText(c.asset.name))
-  );
-  if (generic) return generic.asset;
-
-  return candidates[0]?.asset || null;
-};
-
-const tagToVersionCode = (tag) => {
-  const clean = (tag || "")
-    .toString()
-    .trim()
-    .replace(/^release[-_/]*/i, "")
-    .replace(/^version[-_/]*/i, "")
-    .replace(/^v/i, "");
-
-  const match = clean.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[-._](\d+))?$/);
-  if (!match) return null;
-
-  const major = Number(match[1] || 0);
-  const minor = Number(match[2] || 0);
-  const patch = Number(match[3] || 0);
-  const build = Number(match[4] || 0);
-
-  if (
-    !Number.isSafeInteger(major) ||
-    !Number.isSafeInteger(minor) ||
-    !Number.isSafeInteger(patch) ||
-    !Number.isSafeInteger(build)
-  ) {
-    return null;
-  }
-
-  if (major < 0 || minor < 0 || patch < 0 || build < 0) return null;
-  if (major > 9999 || minor > 999 || patch > 999 || build > 99) return null;
-
-  return major * 100000000 + minor * 100000 + patch * 100 + build;
-};
 
 const assetNameToVersionName = (assetName) => {
   const name = (assetName || "").toString().trim();
@@ -846,17 +712,6 @@ const updateAutoTrackedAppDescription = async (env, appId, summary, description,
     .run();
 };
 
-const getStoreAppById = async (env, appId) =>
-  env.api_control_db
-    .prepare("SELECT * FROM store_apps WHERE id = ?1 LIMIT 1")
-    .bind((appId || "").toString().trim())
-    .first();
-
-const getAppByPackage = (env, packageName) =>
-  env.api_control_db
-    .prepare("SELECT id FROM store_apps WHERE package_name = ?1 LIMIT 1")
-    .bind(packageName)
-    .first();
 
 const deleteAppById = async (env, appId) => {
   const id = (appId || "").toString().trim();
@@ -889,17 +744,6 @@ const displayNameOf = (candidate) =>
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 
-const uploadBufferToStaging = async (env, packageName, versionCode, buffer) => {
-  const url = await getPresignedStagingUploadUrl(env, packageName, versionCode, 300);
-
-  const res = await fetch(url, {
-    method:  "PUT",
-    headers: { "content-type": "application/vnd.android.package-archive" },
-    body:    buffer,
-  });
-
-  if (!res.ok) throw new Error(`staging_upload_failed:${res.status}`);
-};
 
 const uploadIconFromUrl = (env, packageName, iconUrl) =>
   iconUrl ? uploadImageFromUrl(env, packageName, "icon", iconUrl, MAX_ICON_BYTES) : Promise.resolve(null);
@@ -990,7 +834,12 @@ const importCandidate = async (env, rawCandidate) => {
   const [owner, repo] = candidate.fullName.split("/");
   if (!owner || !repo) return { skipped: true, reason: "invalid_full_name" };
 
-  const release = await githubLatestRelease(env, owner, repo);
+  let release;
+  try {
+    release = await githubLatestRelease(env, owner, repo);
+  } catch {
+    return { skipped: true, reason: "no_stable_release" };
+  }
   if (!release) return { skipped: true, reason: "no_stable_release" };
 
   const asset = findApkAsset(release, {
@@ -1031,7 +880,7 @@ const importCandidate = async (env, rawCandidate) => {
   }
 
   const packageName = makePlaceholderPackageName(candidate.fullName);
-  const byPkg       = await getAppByPackage(env, packageName);
+  const byPkg       = await getStoreAppByPackage(env, packageName);
   if (byPkg) return { skipped: true, reason: "placeholder_collision" };
 
   let rawReadme = null;
@@ -1224,6 +1073,58 @@ const repoCandidateFromUrl = async (env, repoUrl, input = {}) => {
     preferredAbi: input.preferredAbi || "arm64-v8a",
     adminImport: input.adminImport === true,
   };
+};
+
+export const pollGitHubApp = async (env, app) => {
+  const normalized = normalizeGitHubRepoUrl(app.repo_url);
+  if (!normalized) return null;
+
+  await refreshGitHubMetadataForApp(env, app).catch(() => {});
+
+  const parsed = repoUrlVariants(normalized);
+  if (!parsed) return null;
+
+  const release = await githubLatestRelease(env, parsed.owner, parsed.repo);
+  if (!release) return null;
+
+  const asset = findApkAsset(release);
+  if (!asset) return null;
+
+  if (asset.size && asset.size > MAX_APK_BYTES) return null;
+
+  const versionCode = tagToVersionCode(release.tag_name);
+  if (!versionCode) return null;
+  const versionName = release.tag_name;
+
+  const existing = await env.api_control_db
+    .prepare("SELECT id FROM store_submissions WHERE app_id = ?1 AND version_code = ?2 LIMIT 1")
+    .bind(app.id, versionCode)
+    .first();
+  if (existing) return null;
+
+  if (Number(app.submission_mode_manual || 0) === 1) return null;
+
+  const apkRes = await fetch(asset.browser_download_url, { headers: { "user-agent": "SafeHaven-Store/1.0" } });
+  if (!apkRes.ok) throw new Error(`apk_download_failed:${apkRes.status}`);
+  const apkBuffer = await apkRes.arrayBuffer();
+
+  if (apkBuffer.byteLength > MAX_APK_BYTES) return null;
+
+  await uploadBufferToStaging(env, app.package_name, versionCode, apkBuffer);
+
+  const submissionId = await createSubmission(env, {
+    appId:       app.id,
+    developerId: COMMUNITY_DEVELOPER_ID,
+    packageName: app.package_name,
+    versionName,
+    versionCode,
+    stagingKey:  `staging/${app.package_name}/${versionCode}/app.apk`,
+  });
+
+  if (!submissionId) throw new Error("submission_create_failed");
+  await advanceSubmissionToScan(env, submissionId);
+
+  return true;
 };
 
 export async function runGitHubDirectImport(env, input = {}) {

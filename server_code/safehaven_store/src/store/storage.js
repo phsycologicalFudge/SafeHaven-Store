@@ -231,16 +231,16 @@ export const putIndexWithChangelog = async (env, newIndex) => {
     oldIndex = emptyIndex();
   }
 
-  const updates = [];
-  for (const newApp of newIndex.apps) {
-    const oldApp = oldIndex.apps.find((a) => a.packageName === newApp.packageName);
-    if (!oldApp || JSON.stringify(oldApp) !== JSON.stringify(newApp)) {
-      updates.push(newApp);
-    }
-  }
+  const oldMap = new Map(oldIndex.apps.map((a) => [a.packageName, a]));
+  const newSet = new Set(newIndex.apps.map((a) => a.packageName));
+
+  const updates = newIndex.apps.filter((newApp) => {
+    const oldApp = oldMap.get(newApp.packageName);
+    return !oldApp || JSON.stringify(oldApp) !== JSON.stringify(newApp);
+  });
 
   const removes = oldIndex.apps
-    .filter((oa) => !newIndex.apps.find((na) => na.packageName === oa.packageName))
+    .filter((oa) => !newSet.has(oa.packageName))
     .map((oa) => oa.packageName);
 
   if (updates.length > 0 || removes.length > 0) {

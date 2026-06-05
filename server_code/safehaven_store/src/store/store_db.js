@@ -1,10 +1,4 @@
-const nowUnix = () => Math.floor(Date.now() / 1000);
-
-const cryptoRandomHex = (bytes) => {
-  const a = new Uint8Array(bytes);
-  crypto.getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-};
+import { nowUnix, cryptoRandomHex } from "./helpers/store_helpers.js";
 
 const db = (env) => env.api_control_db;
 
@@ -105,7 +99,7 @@ export async function setAppSigningKeyHash(env, appId, signingKeyHash) {
 }
 
 export async function setAppTrustLevel(env, appId, trustLevel) {
-  if (!Object.values(TRUST_LEVEL).includes(trustLevel)) return;
+  if (trustLevel !== null && !Object.values(TRUST_LEVEL).includes(trustLevel)) return;
   await db(env)
     .prepare("UPDATE store_apps SET trust_level = ?2, updated_at = ?3 WHERE id = ?1")
     .bind((appId || "").toString().trim(), trustLevel, nowUnix())

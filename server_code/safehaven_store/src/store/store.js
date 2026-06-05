@@ -39,8 +39,6 @@ import {
   getPresignedImageUploadUrl,
   publicImageUrl,
   headStagingObject,
-  copyToProduction,
-  copyStagingToProduction,
   promoteStagingToProduction,
   putImageObject,
   deleteStagingApk,
@@ -58,10 +56,24 @@ import { normaliseIcon } from "./modules/images/icon_normalise.js";
 import { normaliseScreenshot } from "./modules/images/screenshot_normalise.js";
 import { uploadImageFromBuffer } from "./modules/images/image_upload.js";
 import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, refreshGitHubMetadataForApp } from "./modules/git_store_job.js";
+import { runGitLabDirectImport, normalizeGitLabRepoUrl } from "./modules/gitlab_store_job.js";
+import { runCodebergDirectImport, normalizeCodebergRepoUrl } from "./modules/codeberg_store_job.js";
+import { runUpstreamPolls } from "./modules/upstream_orchestrator.js";
 import { runFdroidSync, runFdroidUpdateCheck, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "./helpers/store_helpers.js";
+import { parseGitHubRepo, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "./helpers/github_helpers.js";
 
-export { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, runFdroidSync, runFdroidUpdateCheck, runFdroidCronJob };
+export {
+  runGitHubBootstrapImport,
+  runGitHubDirectImport,
+  runGitHubReadmeSweep,
+  runGitLabDirectImport,
+  runCodebergDirectImport,
+  runFdroidSync,
+  runFdroidUpdateCheck,
+  runFdroidCronJob,
+  runUpstreamPolls,
+};
 
 const corsHeaders = {
   "access-control-allow-origin":  "*",
@@ -99,7 +111,7 @@ const buildRawFileUrl = (repoUrl) => {
   const gh  = url.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)$/);
   if (gh) return `https://raw.githubusercontent.com/${gh[1]}/HEAD/${REPO_VERIFY_FILE}`;
   const gl  = url.match(/^https?:\/\/gitlab\.com\/([^/]+\/[^/]+)$/);
-  if (gl) return `https://gitlab.com/${gl[1]}/-/raw/main/${REPO_VERIFY_FILE}`;
+  if (gl) return `https://gitlab.com/${gl[1]}/-/raw/HEAD/${REPO_VERIFY_FILE}`;
   return null;
 };
 
@@ -330,138 +342,6 @@ const deleteSubmissionById = async (env, submissionId) => {
     .run();
 };
 
-const parseGitHubRepo = (repoUrl) => {
-  const url = (repoUrl || "").toString().trim().replace(/\/$/, "").replace(/\.git$/, "");
-  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)$/);
-  return m ? { owner: m[1], repo: m[2] } : null;
-};
-
-const githubLatestRelease = async (env, owner, repo) => {
-  const token = (env.GITHUB_TOKEN || "").trim();
-  const headers = {
-    "user-agent": "SafeHaven-Store/1.0",
-    accept: "application/vnd.github+json",
-    ...(token ? { authorization: `Bearer ${token}` } : {}),
-  };
-  const res = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/releases/latest`,
-    { headers }
-  );
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`github_api_error:${res.status}`);
-  const data = await res.json();
-  if (data.prerelease || data.draft) return null;
-  return data;
-};
-
-const normalizeAssetText = (value) =>
-  (value || "")
-    .toString()
-    .trim()
-    .toLowerCase();
-
-const apkAssetsOf = (release) =>
-  (release?.assets || []).filter((asset) =>
-    asset?.name?.toLowerCase().endsWith(".apk") &&
-    asset.state === "uploaded" &&
-    asset.browser_download_url &&
-    !/debug|beta|alpha|snapshot|unsigned|source|src/i.test(asset.name)
-  );
-
-const scoreApkAsset = (asset, options = {}) => {
-  const name = normalizeAssetText(asset.name);
-  let score = 0;
-
-  if (options.assetMatch) {
-    const match = normalizeAssetText(options.assetMatch);
-    if (name === match) return 1000;
-    if (name.includes(match)) score += 50;
-  }
-
-  if (/arm64-v8a|aarch64/.test(name)) score += 30;
-  else if (/-arm64[-_]/.test(name)) score += 25;
-  else if (/universal|noarch|all|generic/.test(name)) score += 15;
-  else if (!/armeabi-v7a|x86|x86_64|mips/.test(name)) score += 10;
-
-  if (/release|stable|prod/.test(name)) score += 5;
-  if (/signed/.test(name)) score += 3;
-
-  if (/armeabi-v7a/.test(name)) score -= 20;
-  if (/x86|x86_64|mips/.test(name)) score -= 30;
-  if (/debug|beta|alpha|snapshot|unsigned/.test(name)) score -= 50;
-
-  if (asset.size) {
-    if (asset.size > 5 * 1024 * 1024 && asset.size < 150 * 1024 * 1024) score += 2;
-  }
-
-  return score;
-};
-
-const findApkAsset = (release, options = {}) => {
-  const assets = apkAssetsOf(release);
-  if (!assets.length) return null;
-
-  const scored = assets
-    .map((asset) => ({ asset, score: scoreApkAsset(asset, options) }))
-    .sort((a, b) => b.score - a.score);
-
-  const topScore = scored[0]?.score ?? -Infinity;
-  const candidates = scored.filter((s) => s.score === topScore && s.score > 0);
-
-  if (candidates.length === 1) return candidates[0].asset;
-
-  const preferred = candidates.find((c) =>
-    /arm64-v8a|aarch64/.test(normalizeAssetText(c.asset.name))
-  );
-  if (preferred) return preferred.asset;
-
-  const generic = candidates.find((c) =>
-    !/armeabi-v7a|x86|x86_64|mips|universal|noarch/.test(normalizeAssetText(c.asset.name))
-  );
-  if (generic) return generic.asset;
-
-  return candidates[0]?.asset || null;
-};
-
-const tagToVersionCode = (tag) => {
-  const raw = (tag || "").toString().trim();
-  const clean = raw
-    .replace(/^release[-_/]*/i, "")
-    .replace(/^version[-_/]*/i, "")
-    .replace(/^v/i, "");
-
-  const match = clean.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[-._](\d+))?$/);
-  if (!match) return null;
-
-  const major = Number(match[1] || 0);
-  const minor = Number(match[2] || 0);
-  const patch = Number(match[3] || 0);
-  const build = Number(match[4] || 0);
-
-  if (
-    !Number.isSafeInteger(major) ||
-    !Number.isSafeInteger(minor) ||
-    !Number.isSafeInteger(patch) ||
-    !Number.isSafeInteger(build)
-  ) {
-    return null;
-  }
-
-  if (major < 0 || minor < 0 || patch < 0 || build < 0) return null;
-  if (major > 9999 || minor > 999 || patch > 999 || build > 99) return null;
-
-  return major * 100000000 + minor * 100000 + patch * 100 + build;
-};
-
-const uploadBufferToStaging = async (env, packageName, versionCode, buffer) => {
-  const url = await getPresignedStagingUploadUrl(env, packageName, versionCode, 300);
-  const res = await fetch(url, {
-    method:  "PUT",
-    headers: { "content-type": "application/vnd.android.package-archive" },
-    body:    buffer,
-  });
-  if (!res.ok) throw new Error(`staging_upload_failed:${res.status}`);
-};
 
 const MAX_APK_BYTES = 100 * 1024 * 1024;
 
@@ -1519,15 +1399,55 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const body = await readJson(request);
       if (!body) return badRequest("json_required");
 
-      const repoUrl     = (body.repoUrl || "").toString().trim();
+      const repoUrl  = (body.repoUrl || "").toString().trim();
+      if (!repoUrl) return badRequest("repoUrl_required");
+
+      const urlLower   = repoUrl.toLowerCase();
+      const isGitHub   = urlLower.includes("github.com");
+      const isGitLab   = urlLower.includes("gitlab.com");
+      const isCodeberg = urlLower.includes("codeberg.org");
+
+      if (!isGitHub && !isGitLab && !isCodeberg) {
+        return badRequest("unsupported_platform");
+      }
+
+      if (isGitLab || isCodeberg) {
+        const outcome = isGitLab
+          ? await runGitLabDirectImport(env, { repoUrl })
+          : await runCodebergDirectImport(env, { repoUrl });
+
+        if (outcome.imported) {
+          return json({
+            ok:           true,
+            appId:        outcome.appId,
+            submissionId: outcome.submissionId,
+            packageName:  outcome.packageName,
+            versionCode:  outcome.versionCode,
+          }, 201);
+        }
+
+        const reasonMap = {
+          already_tracked:             [409, "already_tracked"],
+          placeholder_collision:       [409, "already_tracked"],
+          no_stable_release:           [422, "no_stable_release_found"],
+          no_matching_apk_asset:       [422, "no_apk_asset_in_release"],
+          apk_too_large:               [422, "apk_too_large"],
+          apk_too_large_post_download: [422, "apk_too_large"],
+          invalid_gitlab_url:          [400, "invalid_repo_url"],
+          invalid_codeberg_url:        [400, "invalid_repo_url"],
+          unparseable_version:         [422, "unsupported_release_tag"],
+        };
+
+        const [status, error] = reasonMap[outcome.reason] || [422, outcome.reason || "import_failed"];
+        return json({ error, reason: outcome.reason }, status);
+      }
+
       const summary     = normalizeStoreText(body.summary);
       const description = normalizeStoreText(body.description);
       const category    = (body.category || "").toString().trim() || null;
 
-      if (!repoUrl) return badRequest("repoUrl_required");
-
       const gh = parseGitHubRepo(repoUrl);
-      if (!gh) return badRequest("only_github_repos_supported");
+      if (!gh) return badRequest("invalid_repo_url");
 
       const name        = (body.name        || "").toString().trim() || gh.repo;
       const packageName = (body.packageName || "").toString().trim() || `pending.${gh.owner}.${gh.repo}`;
@@ -1815,9 +1735,14 @@ if (method === "POST" && path === "/admin/store/normalise-images") {
     const ratingsResponse = await handleRatingsRoute(request, env, path, method);
     if (ratingsResponse) return ratingsResponse;
 
-    const me2 = await requireUser();
-    const adminRatingsResponse = await handleAdminRatingsRoute(request, env, path, method, me2);
-    if (adminRatingsResponse) return adminRatingsResponse;
+    if (
+      (method === "GET"    && path === "/admin/store/ratings") ||
+      (method === "DELETE" && path.startsWith("/admin/store/ratings/"))
+    ) {
+      const me2 = await requireUser();
+      const adminRatingsResponse = await handleAdminRatingsRoute(request, env, path, method, me2);
+      if (adminRatingsResponse) return adminRatingsResponse;
+    }
 
     return notFound();
 

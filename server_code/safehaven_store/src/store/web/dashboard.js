@@ -26,7 +26,7 @@ export const renderDashboardHtml = () => `<!doctype html>
   .ok { color: #4ade80; }
   .bad { color: #f87171; }
 
-  .app { min-height: 100vh; display: grid; grid-template-columns: 200px 1fr; }
+  .app { min-height: 100vh; display: grid; grid-template-columns: 210px 1fr; }
   .side { border-right: 1px solid rgba(255,255,255,.06); padding: 20px 12px; height: 100vh; overflow: auto; position: sticky; top: 0; display: flex; flex-direction: column; }
   .brandTitle { font-size: 13px; font-weight: 800; margin: 0 0 2px 6px; }
   .brandSub { font-size: 11px; color: rgba(234,241,255,.35); margin: 0 0 22px 6px; }
@@ -47,12 +47,8 @@ export const renderDashboardHtml = () => `<!doctype html>
   .pgSub { font-size: 13px; color: rgba(234,241,255,.38); margin: 0 0 18px; }
 
   .surface { background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.065); border-radius: 9px; padding: 16px; margin-bottom: 12px; }
+  .surfaceTitle { font-size: 13px; font-weight: 700; margin: 0 0 12px; }
   .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; margin-top: 12px; }
-
-  .subtabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .subtab { padding: 9px 14px; font-size: 13px; font-weight: 600; color: rgba(234,241,255,.4); background: transparent; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; }
-  .subtab:hover { color: rgba(234,241,255,.75); }
-  .subtab.active { color: #EAF1FF; border-bottom-color: #78a8ff; }
 
   .mrwrap { border-bottom: 1px solid rgba(255,255,255,.045); }
   .mrwrap:last-child { border-bottom: none; }
@@ -63,6 +59,27 @@ export const renderDashboardHtml = () => `<!doctype html>
   .abtn.primary:hover { background: rgba(120,168,255,.2); }
   .abtn.danger { border-color: rgba(248,113,113,.18); color: #f87171; }
   .abtn.danger:hover { background: rgba(248,113,113,.07); }
+  .abtn.ok { border-color: rgba(74,222,128,.2); color: #4ade80; }
+  .abtn.ok:hover { background: rgba(74,222,128,.07); }
+
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+  .badge-github   { background: rgba(255,255,255,.06); color: rgba(234,241,255,.5); }
+  .badge-gitlab   { background: rgba(252,109,38,.12); color: #fc6d26; }
+  .badge-codeberg { background: rgba(47,128,237,.12); color: #2f80ed; }
+  .badge-fdroid   { background: rgba(74,222,128,.1); color: #4ade80; }
+  .badge-unverified { background: rgba(251,191,36,.1); color: #fbbf24; }
+  .badge-verified   { background: rgba(120,168,255,.12); color: #78a8ff; }
+  .badge-reviewed   { background: rgba(74,222,128,.12); color: #4ade80; }
+  .badge-claimed    { background: rgba(255,255,255,.07); color: rgba(234,241,255,.5); }
+
+  .filterBar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filterBar select { width: auto; padding: 6px 10px; font-size: 12px; }
+  .filterBar input  { width: auto; flex: 1; min-width: 160px; padding: 6px 10px; font-size: 12px; }
+
+  .toolGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .toolCard { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 14px; }
+  .toolCardTitle { font-size: 12px; font-weight: 700; margin: 0 0 4px; }
+  .toolCardSub { font-size: 11px; color: rgba(234,241,255,.38); margin: 0 0 10px; line-height: 1.45; }
 
   .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 40; }
   .scrim.open { display: block; }
@@ -85,7 +102,7 @@ export const renderDashboardHtml = () => `<!doctype html>
     <p class="loginSub">Enter your admin token to continue.</p>
     <div>
       <label>Admin Token</label>
-      <input id="tokenInput" type="password" placeholder="admin-token-change-me" />
+      <input id="tokenInput" type="password" placeholder="admin-token" />
     </div>
     <button class="btn full" id="loginBtn">Sign in</button>
     <div id="loginStatus" class="st"></div>
@@ -101,7 +118,9 @@ export const renderDashboardHtml = () => `<!doctype html>
       <div class="nav">
         <button class="navBtn active" id="navSubmissions">Submissions</button>
         <button class="navBtn" id="navApps">Apps</button>
+        <button class="navBtn" id="navImport">Import</button>
         <button class="navBtn" id="navRatings">Ratings</button>
+        <button class="navBtn" id="navTools">Tools</button>
       </div>
       <div class="sideFoot">
         <button class="btn danger" style="width:100%;font-size:12px;padding:7px;" id="logoutBtn">Sign out</button>
@@ -116,10 +135,16 @@ export const renderDashboardHtml = () => `<!doctype html>
 
       <div class="section show" id="secSubmissions">
         <p class="pgTitle">Submissions</p>
-        <p class="pgSub">Approve or reject apps waiting for manual review.</p>
+        <p class="pgSub">Review, approve, or reject app submissions.</p>
         <div class="surface">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="font-size:13px;font-weight:700;">Pending review</span>
+          <div class="filterBar">
+            <select id="submissionStatusFilter">
+              <option value="pending_review">Pending review</option>
+              <option value="scanning">Scanning</option>
+              <option value="pending_scan">Pending scan</option>
+              <option value="live">Live</option>
+              <option value="rejected">Rejected</option>
+            </select>
             <button class="abtn" id="refreshSubmissions">Refresh</button>
           </div>
           <div id="submissionsStatus" class="st"></div>
@@ -129,14 +154,43 @@ export const renderDashboardHtml = () => `<!doctype html>
 
       <div class="section" id="secApps">
         <p class="pgTitle">Apps</p>
-        <p class="pgSub">Manage category, trust level, and status for live apps.</p>
+        <p class="pgSub">Manage category, trust level, and status.</p>
         <div class="surface">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="font-size:13px;font-weight:700;">All apps</span>
+          <div class="filterBar">
+            <input id="appsSearch" placeholder="Search by name or package…" />
+            <select id="appsUpstreamFilter">
+              <option value="">All upstreams</option>
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+              <option value="codeberg">Codeberg</option>
+              <option value="fdroid">F-Droid</option>
+            </select>
             <button class="abtn" id="refreshApps">Refresh</button>
           </div>
           <div id="appsStatus" class="st"></div>
           <div id="appsList"></div>
+        </div>
+      </div>
+
+      <div class="section" id="secImport">
+        <p class="pgTitle">Import</p>
+        <p class="pgSub">Directly import a GitHub, GitLab, or Codeberg repository with admin privileges.</p>
+        <div class="surface">
+          <p class="surfaceTitle">Import repository</p>
+          <div style="display:grid;gap:10px;max-width:560px;">
+            <div>
+              <label>Repository URL</label>
+              <input id="importRepoUrl" placeholder="https://github.com/user/repo" autocomplete="off" />
+            </div>
+            <div>
+              <label>Asset match (optional)</label>
+              <input id="importAssetMatch" placeholder="arm64, universal, …" autocomplete="off" />
+            </div>
+            <div>
+              <button class="abtn primary" id="importRepoBtn">Import</button>
+            </div>
+          </div>
+          <div id="importStatus" class="st"></div>
         </div>
       </div>
 
@@ -152,6 +206,43 @@ export const renderDashboardHtml = () => `<!doctype html>
           <div id="ratingsList"></div>
         </div>
       </div>
+
+      <div class="section" id="secTools">
+        <p class="pgTitle">Tools</p>
+        <p class="pgSub">Admin operations for store maintenance.</p>
+        <div class="toolGrid">
+          <div class="toolCard">
+            <p class="toolCardTitle">Upstream Poll</p>
+            <p class="toolCardSub">Check GitHub, GitLab, and Codeberg apps for new releases.</p>
+            <button class="abtn primary" id="toolPollBtn">Run poll</button>
+            <div id="toolPollStatus" class="st"></div>
+          </div>
+          <div class="toolCard">
+            <p class="toolCardTitle">F-Droid Sync</p>
+            <p class="toolCardSub">Pull latest F-Droid index and import new apps.</p>
+            <button class="abtn primary" id="toolFdroidSyncBtn">Run sync</button>
+            <div id="toolFdroidSyncStatus" class="st"></div>
+          </div>
+          <div class="toolCard">
+            <p class="toolCardTitle">F-Droid Update Check</p>
+            <p class="toolCardSub">Check tracked F-Droid apps for version updates.</p>
+            <button class="abtn primary" id="toolFdroidUpdateBtn">Run check</button>
+            <div id="toolFdroidUpdateStatus" class="st"></div>
+          </div>
+          <div class="toolCard">
+            <p class="toolCardTitle">Readme Sweep</p>
+            <p class="toolCardSub">Refresh descriptions and screenshots from GitHub READMEs.</p>
+            <button class="abtn primary" id="toolReadmeBtn">Run sweep</button>
+            <div id="toolReadmeStatus" class="st"></div>
+          </div>
+          <div class="toolCard">
+            <p class="toolCardTitle">Clear Index</p>
+            <p class="toolCardSub">Wipe the public store index. Use with caution.</p>
+            <button class="abtn danger" id="toolClearIndexBtn">Clear index</button>
+            <div id="toolClearIndexStatus" class="st"></div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </div>
@@ -163,22 +254,23 @@ let TOKEN = "";
 const escHtml = (s) => String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
 const setStatus = (el, msg, ok) => { if (!el) return; el.textContent = msg || ""; el.className = "st " + (ok === true ? "ok" : ok === false ? "bad" : ""); };
 const apiFetch = (path, opts = {}) => fetch(apiBase + path, { ...opts, headers: { authorization: "Bearer " + TOKEN, "content-type": "application/json", ...(opts.headers || {}) } });
+const byId = (id) => document.getElementById(id);
 
-const loginScreen = document.getElementById("loginScreen");
-const adminScreen = document.getElementById("adminScreen");
-const tokenInput  = document.getElementById("tokenInput");
-const loginBtn    = document.getElementById("loginBtn");
-const loginStatus = document.getElementById("loginStatus");
-const side        = document.getElementById("side");
-const scrim       = document.getElementById("scrim");
-const burger      = document.getElementById("burger");
+const loginScreen = byId("loginScreen");
+const adminScreen = byId("adminScreen");
+const tokenInput  = byId("tokenInput");
+const loginBtn    = byId("loginBtn");
+const loginStatus = byId("loginStatus");
+const side        = byId("side");
+const scrim       = byId("scrim");
+const burger      = byId("burger");
 
 const showAdmin = (token) => {
   TOKEN = token;
   try { localStorage.setItem("sh_admin_token", token); } catch {}
   loginScreen.style.display = "none";
   adminScreen.style.display = "";
-  document.getElementById("meLabel").textContent = "admin";
+  byId("meLabel").textContent = "admin";
   setTab("submissions");
 };
 
@@ -201,7 +293,7 @@ const tryLogin = async () => {
 loginBtn.onclick = tryLogin;
 tokenInput.onkeydown = (e) => { if (e.key === "Enter") tryLogin(); };
 
-document.getElementById("logoutBtn").onclick = () => {
+byId("logoutBtn").onclick = () => {
   TOKEN = "";
   try { localStorage.removeItem("sh_admin_token"); } catch {}
   adminScreen.style.display = "none";
@@ -210,39 +302,55 @@ document.getElementById("logoutBtn").onclick = () => {
   setStatus(loginStatus, "", null);
 };
 
-burger.onclick  = () => { side.classList.add("open"); scrim.classList.add("open"); };
-scrim.onclick   = () => { side.classList.remove("open"); scrim.classList.remove("open"); };
+burger.onclick = () => { side.classList.add("open"); scrim.classList.add("open"); };
+scrim.onclick  = () => { side.classList.remove("open"); scrim.classList.remove("open"); };
 
-const navSubmissions = document.getElementById("navSubmissions");
-const navApps        = document.getElementById("navApps");
-const navRatings     = document.getElementById("navRatings");
-const secSubmissions = document.getElementById("secSubmissions");
-const secApps        = document.getElementById("secApps");
-const secRatings     = document.getElementById("secRatings");
+const TABS = ["submissions", "apps", "import", "ratings", "tools"];
 
 const setTab = (tab) => {
-  [navSubmissions, navApps, navRatings].forEach((b, i) => b.classList.toggle("active", ["submissions","apps","ratings"][i] === tab));
-  [secSubmissions, secApps, secRatings].forEach((s, i) => s.classList.toggle("show", ["submissions","apps","ratings"][i] === tab));
-  side.classList.remove("open"); scrim.classList.remove("open");
+  TABS.forEach((t) => {
+    byId("nav" + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle("active", t === tab);
+    byId("sec"  + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle("show",   t === tab);
+  });
+  side.classList.remove("open");
+  scrim.classList.remove("open");
   if (tab === "submissions") loadSubmissions();
   if (tab === "apps")        loadApps();
   if (tab === "ratings")     loadRatings();
 };
 
-navSubmissions.onclick = () => setTab("submissions");
-navApps.onclick        = () => setTab("apps");
-navRatings.onclick     = () => setTab("ratings");
+TABS.forEach((t) => {
+  byId("nav" + t.charAt(0).toUpperCase() + t.slice(1)).onclick = () => setTab(t);
+});
+
+const CATEGORIES   = { security:"Security", productivity:"Productivity", utilities:"Utilities", communication:"Communication", entertainment:"Entertainment", finance:"Finance", health:"Health & Fitness", education:"Education", tools:"Tools", other:"Other" };
+const TRUST_LEVELS = { unverified:"Unverified", verified_source:"Verified Source", security_reviewed:"Security Reviewed" };
+const APP_STATUSES = { active:"Active", suspended:"Suspended", removed:"Removed" };
+
+const upstreamBadge = (u) => {
+  if (!u) return "";
+  const cls = { github:"badge-github", gitlab:"badge-gitlab", codeberg:"badge-codeberg", fdroid:"badge-fdroid" }[u] || "badge-github";
+  return \`<span class="badge \${cls}">\${escHtml(u)}</span>\`;
+};
+
+const trustBadge = (t) => {
+  if (!t || t === "unverified") return \`<span class="badge badge-unverified">Unverified</span>\`;
+  if (t === "verified_source")  return \`<span class="badge badge-verified">Verified</span>\`;
+  if (t === "security_reviewed") return \`<span class="badge badge-reviewed">Reviewed</span>\`;
+  return \`<span class="badge badge-unverified">\${escHtml(t)}</span>\`;
+};
 
 const loadSubmissions = async () => {
-  const st   = document.getElementById("submissionsStatus");
-  const list = document.getElementById("submissionsList");
+  const st     = byId("submissionsStatus");
+  const list   = byId("submissionsList");
+  const status = byId("submissionStatusFilter").value || "pending_review";
   setStatus(st, "Loading...", null);
   list.innerHTML = "";
-  const res  = await apiFetch("/admin/store/submissions?status=pending_review");
+  const res  = await apiFetch("/admin/store/submissions?status=" + encodeURIComponent(status));
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
   const submissions = Array.isArray(data.submissions) ? data.submissions : [];
-  if (!submissions.length) { setStatus(st, "No submissions pending.", null); return; }
+  if (!submissions.length) { setStatus(st, "No submissions for this status.", null); return; }
   setStatus(st, "", null);
   list.innerHTML = submissions.map((s) => {
     const id          = escHtml(s.id);
@@ -252,22 +360,25 @@ const loadSubmissions = async () => {
     const sha         = escHtml(s.apk_sha256 || "");
     const size        = Number(s.apk_size || 0);
     const mb          = size > 0 ? (size / 1024 / 1024).toFixed(2) + " MB" : "Unknown size";
+    const scanResult  = escHtml(s.scan_result || "");
+    const isPending   = s.status === "pending_review";
     return \`<div class="mrwrap"><div class="mr">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:800;">\${packageName}</div>
-        <div style="font-size:12px;opacity:.42;margin-top:3px;">v\${versionName} · code \${versionCode}</div>
-        <div style="font-size:11px;opacity:.32;margin-top:4px;">\${mb}\${sha ? " · " + sha.slice(0,24) + "..." : ""}</div>
+        <div style="font-size:12px;opacity:.42;margin-top:3px;">v\${versionName} · code \${versionCode} · \${mb}</div>
+        \${sha ? \`<div style="font-size:11px;opacity:.28;margin-top:3px;font-family:monospace;">\${sha.slice(0,32)}…</div>\` : ""}
+        \${scanResult ? \`<div style="font-size:11px;opacity:.38;margin-top:3px;">\${scanResult.slice(0,120)}</div>\` : ""}
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
+      \${isPending ? \`<div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="abtn primary" onclick="approveSubmission('\${id}')">Approve</button>
         <button class="abtn danger"  onclick="rejectSubmission('\${id}')">Reject</button>
-      </div>
+      </div>\` : \`<div style="font-size:12px;opacity:.38;">\${escHtml(s.status || "")}</div>\`}
     </div></div>\`;
   }).join("");
 };
 
 const approveSubmission = async (id) => {
-  const st = document.getElementById("submissionsStatus");
+  const st = byId("submissionsStatus");
   setStatus(st, "Approving...", null);
   const res  = await apiFetch("/admin/store/submissions/" + encodeURIComponent(id) + "/approve", { method: "POST" });
   const data = await res.json().catch(() => ({}));
@@ -279,7 +390,7 @@ const approveSubmission = async (id) => {
 const rejectSubmission = async (id) => {
   const reason = prompt("Reject reason?", "Rejected during manual review");
   if (reason === null) return;
-  const st   = document.getElementById("submissionsStatus");
+  const st   = byId("submissionsStatus");
   setStatus(st, "Rejecting...", null);
   const res  = await apiFetch("/admin/store/submissions/" + encodeURIComponent(id) + "/reject", { method: "POST", body: JSON.stringify({ reason }) });
   const data = await res.json().catch(() => ({}));
@@ -288,120 +399,141 @@ const rejectSubmission = async (id) => {
   await loadSubmissions();
 };
 
-document.getElementById("refreshSubmissions").onclick = loadSubmissions;
-
-const CATEGORIES = { security:"Security", productivity:"Productivity", utilities:"Utilities", communication:"Communication", entertainment:"Entertainment", finance:"Finance", health:"Health & Fitness", education:"Education", tools:"Tools", other:"Other" };
-const TRUST_LEVELS = { verified_source:"Verified Source", security_reviewed:"Security Reviewed" };
-const APP_STATUSES = { active:"Active", suspended:"Suspended", removed:"Removed" };
+byId("refreshSubmissions").onclick = loadSubmissions;
+byId("submissionStatusFilter").onchange = loadSubmissions;
 
 let appsData = [];
 
 const loadApps = async () => {
-  const st   = document.getElementById("appsStatus");
-  const list = document.getElementById("appsList");
+  const st   = byId("appsStatus");
+  const list = byId("appsList");
   setStatus(st, "Loading...", null);
   list.innerHTML = "";
-  const res  = await apiFetch("/store/index.json");
+  const res  = await apiFetch("/admin/store/apps");
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
   appsData = Array.isArray(data.apps) ? data.apps : [];
-  if (!appsData.length) { setStatus(st, "No apps in the store yet.", null); return; }
+  if (!appsData.length) { setStatus(st, "No apps yet.", null); return; }
   setStatus(st, "", null);
   renderApps();
 };
 
 const renderApps = () => {
-  const list = document.getElementById("appsList");
-  list.innerHTML = appsData.map((app) => {
-    const pkg        = escHtml(app.packageName || "");
+  const list     = byId("appsList");
+  const search   = (byId("appsSearch").value || "").toLowerCase();
+  const upstream = byId("appsUpstreamFilter").value || "";
+
+  const filtered = appsData.filter((app) => {
+    if (upstream && (app.upstream || "") !== upstream) return false;
+    if (search) {
+      const hay = ((app.name || "") + " " + (app.package_name || "")).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) { list.innerHTML = \`<div style="padding:12px 0;font-size:13px;opacity:.4;">No apps match the current filter.</div>\`; return; }
+
+  list.innerHTML = filtered.map((app) => {
+    const id         = escHtml(app.id);
+    const pkg        = escHtml(app.package_name || "");
     const name       = escHtml(app.name || "");
-    const category   = escHtml(app.category || "");
-    const trustLevel = escHtml(app.trustLevel || "");
-    const catOptions = Object.entries(CATEGORIES).map(([k,v]) => \`<option value="\${k}" \${category===k?"selected":""}>\${escHtml(v)}</option>\`).join("");
+    const category   = app.category || "";
+    const trustLevel = app.trust_level || "unverified";
+    const status     = app.status || "active";
+    const catOptions   = Object.entries(CATEGORIES).map(([k,v]) => \`<option value="\${k}" \${category===k?"selected":""}>\${escHtml(v)}</option>\`).join("");
     const trustOptions = Object.entries(TRUST_LEVELS).map(([k,v]) => \`<option value="\${k}" \${trustLevel===k?"selected":""}>\${escHtml(v)}</option>\`).join("");
+    const repoUrl    = escHtml(app.repo_url || "");
+    const isClaimed  = Number(app.claimed || 0) === 1;
+    const isActive   = status === "active";
+
     return \`<div class="mrwrap"><div class="mr" style="align-items:flex-start;flex-direction:column;gap:8px;padding:14px 0;">
-      <div>
-        <div style="font-size:13px;font-weight:800;">\${name}</div>
-        <div style="font-size:11px;opacity:.38;margin-top:2px;">\${pkg}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:13px;font-weight:800;">\${name}</div>
+          <div style="font-size:11px;opacity:.38;margin-top:2px;">\${pkg}</div>
+        </div>
+        \${upstreamBadge(app.upstream)}
+        \${trustBadge(trustLevel)}
+        \${isClaimed ? \`<span class="badge badge-claimed">Claimed</span>\` : ""}
+        \${!isActive ? \`<span class="badge" style="background:rgba(248,113,113,.1);color:#f87171;">\${escHtml(status)}</span>\` : ""}
       </div>
+      \${repoUrl ? \`<div style="font-size:11px;opacity:.32;">\${repoUrl}</div>\` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
-        <div style="flex:1;min-width:140px;">
+        <div style="flex:1;min-width:130px;">
           <label>Category</label>
-          <select id="cat_\${pkg}" onchange="setCategory('\${pkg}', this.value)">
+          <select id="cat_\${id}" onchange="setCategory('\${id}', this.value)">
             <option value="" \${!category?"selected":""}>— unset —</option>
             \${catOptions}
           </select>
         </div>
         <div style="flex:1;min-width:160px;">
           <label>Trust Level</label>
-          <select id="trust_\${pkg}" onchange="setTrustLevel('\${pkg}', this.value)">\${trustOptions}</select>
+          <select id="trust_\${id}" onchange="setTrustLevel('\${id}', this.value)">\${trustOptions}</select>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:6px;">
-          <button class="abtn danger" onclick="suspendApp('\${pkg}')">Suspend</button>
-          <button class="abtn" style="border-color:rgba(248,113,113,.18);color:#f87171;" onclick="removeApp('\${pkg}')">Remove</button>
+        <div style="display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;">
+          \${isActive
+            ? \`<button class="abtn danger" onclick="setAppStatus('\${id}', 'suspended')">Suspend</button>
+               <button class="abtn danger" onclick="setAppStatus('\${id}', 'removed')">Remove</button>\`
+            : \`<button class="abtn ok" onclick="setAppStatus('\${id}', 'active')">Activate</button>\`
+          }
         </div>
       </div>
     </div></div>\`;
   }).join("");
 };
 
-const resolveAppId = async (packageName) => {
-  const res  = await apiFetch("/admin/store/apps");
+const setCategory = async (appId, category) => {
+  const st  = byId("appsStatus");
+  const res = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/category", { method: "POST", body: JSON.stringify({ category: category || null }) });
   const data = await res.json().catch(() => ({}));
-  const apps = Array.isArray(data.apps) ? data.apps : [];
-  const match = apps.find((a) => (a.package_name || "") === packageName);
-  return match ? match.id : null;
+  setStatus(st, res.ok ? "Category updated." : (data.error || "Failed"), res.ok || false);
 };
 
-const setCategory = async (packageName, category) => {
-  const st    = document.getElementById("appsStatus");
-  const appId = await resolveAppId(packageName);
-  if (!appId) { setStatus(st, "Could not resolve app ID.", false); return; }
-  const res  = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/category", { method: "POST", body: JSON.stringify({ category: category || null }) });
+const setTrustLevel = async (appId, trustLevel) => {
+  const st  = byId("appsStatus");
+  const res = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/trust-level", { method: "POST", body: JSON.stringify({ trustLevel }) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
-  setStatus(st, "Category updated.", true);
+  setStatus(st, res.ok ? "Trust level updated." : (data.error || "Failed"), res.ok || false);
 };
 
-const setTrustLevel = async (packageName, trustLevel) => {
-  const st    = document.getElementById("appsStatus");
-  const appId = await resolveAppId(packageName);
-  if (!appId) { setStatus(st, "Could not resolve app ID.", false); return; }
-  const res  = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/trust-level", { method: "POST", body: JSON.stringify({ trustLevel }) });
+const setAppStatus = async (appId, status) => {
+  if (status === "removed" && !confirm("Permanently remove this app?")) return;
+  const st  = byId("appsStatus");
+  setStatus(st, "Updating...", null);
+  const res = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/status", { method: "POST", body: JSON.stringify({ status }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
-  setStatus(st, "Trust level updated.", true);
-};
-
-const suspendApp = async (packageName) => {
-  if (!confirm("Suspend " + packageName + "? It will be removed from the public index.")) return;
-  const st    = document.getElementById("appsStatus");
-  const appId = await resolveAppId(packageName);
-  if (!appId) { setStatus(st, "Could not resolve app ID.", false); return; }
-  const res  = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/status", { method: "POST", body: JSON.stringify({ status: "suspended" }) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
-  setStatus(st, "App suspended.", true);
+  setStatus(st, "Status updated.", true);
   await loadApps();
 };
 
-const removeApp = async (packageName) => {
-  if (!confirm("Permanently remove " + packageName + "? This cannot be undone.")) return;
-  const st    = document.getElementById("appsStatus");
-  const appId = await resolveAppId(packageName);
-  if (!appId) { setStatus(st, "Could not resolve app ID.", false); return; }
-  const res  = await apiFetch("/admin/store/apps/" + encodeURIComponent(appId) + "/status", { method: "POST", body: JSON.stringify({ status: "removed" }) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
-  setStatus(st, "App removed.", true);
-  await loadApps();
-};
+byId("refreshApps").onclick = loadApps;
+byId("appsSearch").oninput  = renderApps;
+byId("appsUpstreamFilter").onchange = renderApps;
 
-document.getElementById("refreshApps").onclick = loadApps;
+byId("importRepoBtn").onclick = async () => {
+  const st       = byId("importStatus");
+  const repoUrl  = (byId("importRepoUrl").value || "").trim();
+  const assetMatch = (byId("importAssetMatch").value || "").trim() || undefined;
+  if (!repoUrl) { setStatus(st, "Enter a repository URL.", false); return; }
+  setStatus(st, "Importing...", null);
+  const res  = await apiFetch("/admin/store/import-repo", { method: "POST", body: JSON.stringify({ repoUrl, assetMatch }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = data?.result?.reason || data.error || "Failed";
+    setStatus(st, "Failed: " + reason, false);
+    return;
+  }
+  const r = data.result || {};
+  setStatus(st, \`Imported \${escHtml(r.packageName || "")} v\${r.versionCode || "?"}\`, true);
+  byId("importRepoUrl").value = "";
+  byId("importAssetMatch").value = "";
+};
 
 const loadRatings = async () => {
-  const st   = document.getElementById("ratingsStatus");
-  const list = document.getElementById("ratingsList");
+  const st   = byId("ratingsStatus");
+  const list = byId("ratingsList");
   setStatus(st, "Loading...", null);
   list.innerHTML = "";
   const res  = await apiFetch("/admin/store/ratings");
@@ -425,8 +557,8 @@ const loadRatings = async () => {
 };
 
 const resetRating = async (packageName) => {
-  if (!confirm("Reset all ratings for " + packageName + "? This cannot be undone.")) return;
-  const st  = document.getElementById("ratingsStatus");
+  if (!confirm("Reset all ratings for " + packageName + "?")) return;
+  const st  = byId("ratingsStatus");
   setStatus(st, "Resetting...", null);
   const res  = await apiFetch("/admin/store/ratings/" + encodeURIComponent(packageName), { method: "DELETE" });
   const data = await res.json().catch(() => ({}));
@@ -435,7 +567,34 @@ const resetRating = async (packageName) => {
   await loadRatings();
 };
 
-document.getElementById("refreshRatings").onclick = loadRatings;
+byId("refreshRatings").onclick = loadRatings;
+
+const runTool = async (endpoint, btnId, statusId, confirm_msg) => {
+  if (confirm_msg && !confirm(confirm_msg)) return;
+  const btn = byId(btnId);
+  const st  = byId(statusId);
+  btn.disabled = true;
+  setStatus(st, "Running...", null);
+  const res  = await apiFetch(endpoint, { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  btn.disabled = false;
+  if (!res.ok) { setStatus(st, data.error || "Failed", false); return; }
+  const r = data.result || {};
+  const summary = [
+    r.checked   != null ? \`checked \${r.checked}\`   : null,
+    r.submitted != null ? \`submitted \${r.submitted}\` : null,
+    r.imported  != null ? \`imported \${r.imported}\`  : null,
+    r.updated   != null ? \`updated \${r.updated}\`    : null,
+    r.errors?.length    ? \`\${r.errors.length} error(s)\` : null,
+  ].filter(Boolean).join(" · ");
+  setStatus(st, summary || "Done.", true);
+};
+
+byId("toolPollBtn").onclick       = () => runTool("/admin/store/upstream-poll",      "toolPollBtn",       "toolPollStatus");
+byId("toolFdroidSyncBtn").onclick  = () => runTool("/admin/store/fdroid-sync",        "toolFdroidSyncBtn", "toolFdroidSyncStatus");
+byId("toolFdroidUpdateBtn").onclick = () => runTool("/admin/store/fdroid-update-check","toolFdroidUpdateBtn","toolFdroidUpdateStatus");
+byId("toolReadmeBtn").onclick      = () => runTool("/admin/store/readme-sweep",       "toolReadmeBtn",     "toolReadmeStatus");
+byId("toolClearIndexBtn").onclick  = () => runTool("/admin/store/clear-index",        "toolClearIndexBtn", "toolClearIndexStatus", "This will wipe the public store index. Are you sure?");
 
 try {
   const saved = localStorage.getItem("sh_admin_token");

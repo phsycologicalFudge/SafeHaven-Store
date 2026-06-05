@@ -9,16 +9,11 @@ const badRequest = (msg = "bad_request") => json({ error: msg }, 400);
 const notFound   = () => json({ error: "not_found" }, 404);
 
 async function checkAndInsertRatingToken(env, hashedToken, packageName) {
-  const existing = await db(env)
-    .prepare("SELECT 1 FROM store_rating_tokens WHERE hashed_token = ?1 AND package_name = ?2 LIMIT 1")
-    .bind(hashedToken, packageName)
-    .first();
-  if (existing) return false;
-  await db(env)
+  const result = await db(env)
     .prepare("INSERT OR IGNORE INTO store_rating_tokens (hashed_token, package_name, rated_at) VALUES (?1, ?2, ?3)")
     .bind(hashedToken, packageName, nowUnix())
     .run();
-  return true;
+  return result.meta.changes === 1;
 }
 
 async function upsertAggregatedRating(env, packageName, value) {
