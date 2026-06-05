@@ -545,7 +545,7 @@ const loadRatings = async () => {
   list.innerHTML = ratings.map((r) => {
     const pkg   = escHtml(r.package_name || "");
     const count = Number(r.rating_count || 0);
-    const avg   = count > 0 ? (Number(r.rating_sum) / count).toFixed(1) : "—";
+    const avg   = count > 0 ? (Number(r.rating_sum) / count).toFixed(1) : "-";
     return \`<div class="mrwrap"><div class="mr">
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:800;">\${pkg}</div>
