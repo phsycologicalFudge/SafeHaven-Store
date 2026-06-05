@@ -39,7 +39,7 @@ try:
 except Exception as e:
     print(f"Fetch failed: {e}")
     sys.exit(1)
-    
+
 print("Uploading full index to R2 cache...")
 req = urllib.request.Request(
     WORKER_URL.replace("/fdroid-index-chunk", "/fdroid-index"),
@@ -58,12 +58,23 @@ except urllib.error.HTTPError as e:
     print(f"R2 cache upload failed: {e.code} - {e.read().decode()}")
     sys.exit(1)
 
-index = json.loads(raw_data)
-apps = index.get("apps", [])
-repo_data = index.get("repo", {})
+index      = json.loads(raw_data)
+apps       = index.get("apps", [])
+packages   = index.get("packages", {})
+repo_data  = index.get("repo", {})
 total_apps = len(apps)
 
-CHUNK_SIZE = 100  
+merged_apps = []
+for app in apps:
+    pkg_name     = app.get("packageName", "")
+    pkg_versions = packages.get(pkg_name, [])
+    if not pkg_versions:
+        continue
+    latest = max(pkg_versions, key=lambda x: x.get("versionCode", 0))
+    merged_apps.append({**app, **latest})
+
+total_apps   = len(merged_apps)
+CHUNK_SIZE   = 100
 total_chunks = math.ceil(total_apps / CHUNK_SIZE)
 
 print("Signaling start...")
@@ -81,22 +92,22 @@ print(f"Splitting {total_apps} apps into {total_chunks} chunks of {CHUNK_SIZE}..
 
 for i in range(0, total_apps, CHUNK_SIZE):
     chunk_index = i // CHUNK_SIZE
-    chunk_apps = apps[i : i + CHUNK_SIZE]
-    
+    chunk_apps  = merged_apps[i : i + CHUNK_SIZE]
+
     status, body = send_chunk({
         "type": "apps",
         "chunkIndex": chunk_index,
         "totalChunks": total_chunks,
         "apps": chunk_apps
     })
-    
+
     if status == 200:
         imported = body.get("imported", 0)
-        updated = body.get("updated", 0)
+        updated  = body.get("updated", 0)
         print(f"Chunk {chunk_index + 1}/{total_chunks}: OK (Imported: {imported}, Updated: {updated})")
     else:
         print(f"Chunk {chunk_index + 1}/{total_chunks}: FAILED - {body}")
-    
+
     time.sleep(0.5)
 
 print("Done!")
