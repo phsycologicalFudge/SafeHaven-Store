@@ -39,6 +39,24 @@ try:
 except Exception as e:
     print(f"Fetch failed: {e}")
     sys.exit(1)
+    
+print("Uploading full index to R2 cache...")
+req = urllib.request.Request(
+    WORKER_URL.replace("/fdroid-index-chunk", "/fdroid-index"),
+    data=raw_data,
+    method="PUT",
+    headers={
+        "authorization": SECRET,
+        "content-type": "application/json",
+        "user-agent": HEADERS["user-agent"],
+    }
+)
+try:
+    with urllib.request.urlopen(req, timeout=120) as res:
+        print(f"R2 cache: {res.status}")
+except urllib.error.HTTPError as e:
+    print(f"R2 cache upload failed: {e.code} - {e.read().decode()}")
+    sys.exit(1)
 
 index = json.loads(raw_data)
 apps = index.get("apps", [])
