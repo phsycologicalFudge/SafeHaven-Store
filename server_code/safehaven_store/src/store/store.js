@@ -112,6 +112,8 @@ const buildRawFileUrl = (repoUrl) => {
   if (gh) return `https://raw.githubusercontent.com/${gh[1]}/HEAD/${REPO_VERIFY_FILE}`;
   const gl  = url.match(/^https?:\/\/gitlab\.com\/([^/]+\/[^/]+)$/);
   if (gl) return `https://gitlab.com/${gl[1]}/-/raw/HEAD/${REPO_VERIFY_FILE}`;
+  const cb  = url.match(/^https?:\/\/codeberg\.org\/([^/]+\/[^/]+)$/);
+  if (cb) return `https://codeberg.org/${cb[1]}/raw/branch/main/${REPO_VERIFY_FILE}`;
   return null;
 };
 
@@ -764,13 +766,31 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       let versionChanged = false;
 
       if (Number.isFinite(realVersionCode) && realVersionCode > 0 && realVersionCode !== submission.version_code) {
-        await env.api_control_db.prepare(
-          "UPDATE store_submissions SET version_code = ?1, version_name = COALESCE(?2, version_name) WHERE id = ?3"
-        ).bind(realVersionCode, realVersionName, submission.id).run();
+        const conflicting = await getSubmissionByVersionCode(env, submission.app_id, realVersionCode);
+        if (!conflicting) {
+          await env.api_control_db.prepare(
+            "UPDATE store_submissions SET version_code = ?1, version_name = COALESCE(?2, version_name) WHERE id = ?3"
+          ).bind(realVersionCode, realVersionName, submission.id).run();
 
-        finalVersionCode = realVersionCode;
-        if (realVersionName) finalVersionName = realVersionName;
-        versionChanged = true;
+          finalVersionCode = realVersionCode;
+          if (realVersionName) finalVersionName = realVersionName;
+          versionChanged = true;
+        } else {
+          const index = await getIndex(env);
+          const idxApp = index?.apps?.find((a) => a.packageName === submission.package_name);
+          if (idxApp?.versions) {
+            const beforeLen = idxApp.versions.length;
+            idxApp.versions = idxApp.versions.filter((v) => v.versionCode !== submission.version_code);
+            if (idxApp.versions.length !== beforeLen) {
+              await putIndexWithChangelog(env, index);
+            }
+          }
+          await env.api_control_db
+            .prepare("UPDATE store_submissions SET status = 'retired', updated_at = ?2 WHERE id = ?1")
+            .bind(submission.id, nowUnix())
+            .run();
+          return json({ ok: true, retired: true });
+        }
       }
 
       const update = await recordRescanResult(env, submission.id, {
@@ -1104,7 +1124,26 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const realVersionCode = Number(body.manifestVersionCode);
       const realVersionName = body.manifestVersionName ? String(body.manifestVersionName).trim() : null;
 
+      if (body.apkSha256) {
+        const sha256Dupe = await env.api_control_db
+          .prepare("SELECT id FROM store_submissions WHERE app_id = ?1 AND apk_sha256 = ?2 AND status = 'live' AND id != ?3 LIMIT 1")
+          .bind(submission.app_id, body.apkSha256, submissionId)
+          .first();
+        if (sha256Dupe) {
+          await rejectSubmission(env, submissionId, "duplicate_apk_sha256", null);
+          return json({ ok: true, deduplicated: true });
+        }
+      }
+
       if (Number.isFinite(realVersionCode) && realVersionCode > 0) {
+        if (realVersionCode !== Number(submission.version_code)) {
+          const conflicting = await getSubmissionByVersionCode(env, submission.app_id, realVersionCode);
+          if (conflicting) {
+            await rejectSubmission(env, submissionId, "duplicate_version_code", null);
+            return json({ ok: true, deduplicated: true });
+          }
+        }
+
         await env.api_control_db.prepare(
           "UPDATE store_submissions SET version_code = ?1, version_name = COALESCE(?2, version_name) WHERE id = ?3"
         ).bind(realVersionCode, realVersionName, submissionId).run();
@@ -1238,22 +1277,42 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       const repoUrl = (body.repoUrl || "").toString().trim();
       if (!repoUrl) return badRequest("repoUrl_required");
 
-      const result = await runGitHubDirectImport(env, {
-        repoUrl,
-        name: body.name,
-        summary: body.summary,
-        description: body.description,
-        iconUrl: body.iconUrl,
-        assetMatch: body.assetMatch,
-        preferredAbi: body.preferredAbi || "arm64-v8a",
-        adminImport: true,
-      });
+      const urlLower   = repoUrl.toLowerCase();
+      const isGitLab   = urlLower.includes("gitlab.com");
+      const isCodeberg = urlLower.includes("codeberg.org");
+
+      let result;
+      if (isGitLab) {
+        result = await runGitLabDirectImport(env, { repoUrl, adminImport: true });
+      } else if (isCodeberg) {
+        result = await runCodebergDirectImport(env, { repoUrl, adminImport: true });
+      } else {
+        result = await runGitHubDirectImport(env, {
+          repoUrl,
+          name:         body.name,
+          summary:      body.summary,
+          description:  body.description,
+          iconUrl:      body.iconUrl,
+          assetMatch:   body.assetMatch,
+          preferredAbi: body.preferredAbi || "arm64-v8a",
+          adminImport:  true,
+        });
+      }
 
       if (result?.skipped && !result?.imported) {
         return json({ ok: false, result }, 422);
       }
 
       return json({ ok: true, result }, 201);
+    }
+
+    if (method === "POST" && path === "/admin/store/upstream-poll") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const result = await runUpstreamPolls(env);
+      return json({ ok: true, result });
     }
 
     if (method === "POST" && path.match(/^\/admin\/store\/submissions\/[^/]+\/approve$/)) {
@@ -1375,6 +1434,23 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
         await addOrUpdateApp(env, { ...buildIndexAppEntry(env, app), category });
       }
       return json({ ok: true });
+    }
+
+    if (method === "POST" && path.match(/^\/store\/apps\/[^/]+\/submission-mode$/)) {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      const appId = path.replace("/store/apps/", "").replace("/submission-mode", "").trim();
+      const app   = await getStoreAppById(env, appId);
+      if (!app) return notFound();
+      if (app.developer_id !== me.id) return forbidden();
+      const body = await readJson(request);
+      if (!body) return badRequest("json_required");
+      const manual = body.manual === true ? 1 : 0;
+      await env.api_control_db
+        .prepare("UPDATE store_apps SET submission_mode_manual = ?2, updated_at = ?3 WHERE id = ?1")
+        .bind(appId, manual, nowUnix())
+        .run();
+      return json({ ok: true, manual: manual === 1 });
     }
 
     if (method === "POST" && path.match(/^\/admin\/store\/apps\/[^/]+\/category$/)) {

@@ -24,6 +24,8 @@ RESCAN_COOLDOWN  = 7 * 86400
 RESCAN_BATCH     = 10
 RESCAN_IDLE      = 30
 FORCE_RESCAN     = os.getenv("FORCE_RESCAN", "").strip().lower() in ("1", "true", "yes") or "--force-rescan" in sys.argv
+_rescan_pkg_idx  = sys.argv.index("--rescan-pkg") if "--rescan-pkg" in sys.argv else -1
+RESCAN_PKG       = sys.argv[_rescan_pkg_idx + 1].strip() if _rescan_pkg_idx != -1 and _rescan_pkg_idx + 1 < len(sys.argv) else ""
 APKSIGNER_BIN    = os.getenv("APKSIGNER_BIN", "apksigner").strip()
 AAPT2_BIN        = os.getenv("AAPT2_BIN", "aapt2").strip()
 
@@ -621,10 +623,27 @@ async def rescan_loop() -> None:
         await asyncio.sleep(RESCAN_IDLE)
 
 
+async def rescan_single(package_name: str) -> None:
+    print(f"[rescan-single] targeting {package_name}")
+    try:
+        targets = await fetch_rescan_targets()
+        target = next((t for t in targets if t.get("packageName") == package_name), None)
+        if not target:
+            print(f"[rescan-single] no rescan target found for {package_name}")
+            return
+        _rescan_cache.pop(f"{package_name}@{target.get('versionCode')}", None)
+        await process_rescan(target)
+    except Exception as exc:
+        print(f"[rescan-single] error: {exc}")
+
+
 @app.on_event("startup")
 async def startup() -> None:
     if not VPS_AUTH_SECRET:
         raise RuntimeError("VPS_AUTH_SECRET is not set")
+    if RESCAN_PKG:
+        print(f"[scanner] --rescan-pkg set: will force rescan {RESCAN_PKG} on startup")
+        asyncio.create_task(rescan_single(RESCAN_PKG))
     asyncio.create_task(poll_loop())
     asyncio.create_task(rescan_loop())
 
