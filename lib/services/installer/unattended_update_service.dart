@@ -1,3 +1,8 @@
+/*
+Unattended update service. Triggers background APK updates via a MethodChannel
+without requiring user interaction, gated on SafeHaven being the recorded installer.
+Also runs as a periodic WorkManager task to catch updates while the app is closed.
+*/
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,37 +39,43 @@ class UnattendedUpdateService {
   static Future<void> performBackgroundCheck() async {
     final index = await IndexService.instance.fetchIndex(forceRefresh: true);
     final triggered = await _loadTriggeredUpdates();
-    final updates = <Map<String, dynamic>>[];
 
-    for (final app in index.apps) {
+    final candidates = index.apps.where((app) {
       final latestVersionCode = app.latestVersion?.versionCode;
-      if (latestVersionCode == null) continue;
+      if (latestVersionCode == null) return false;
+      return triggered[app.packageName] != latestVersionCode;
+    }).toList();
 
-      if (triggered[app.packageName] == latestVersionCode) continue;
+    final states = await Future.wait(
+      candidates.map((app) => ApkInstallService.instance.getPackageState(packageName: app.packageName)),
+    );
 
-      final state = await ApkInstallService.instance.getPackageState(
-        packageName: app.packageName,
-      );
-
+    final eligible = <({PublicStoreApp app, int versionCode})>[];
+    for (var i = 0; i < candidates.length; i++) {
+      final app = candidates[i];
+      final state = states[i];
       if (!state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
-
-      final downloadUrl = await StoreService.instance.getDownloadUrl(
-        packageName: app.packageName,
-        versionCode: latestVersionCode,
-      );
-
-      updates.add({
-        'packageName': app.packageName,
-        'downloadUrl': downloadUrl,
-      });
-
-      triggered[app.packageName] = latestVersionCode;
+      eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
     }
 
-    if (updates.isNotEmpty) {
-      await triggerManualBatchUpdate(updates);
-      await _saveTriggeredUpdates(triggered);
+    if (eligible.isEmpty) return;
+
+    final downloadUrls = await Future.wait(
+      eligible.map((e) => StoreService.instance.getDownloadUrl(
+        packageName: e.app.packageName,
+        versionCode: e.versionCode,
+      )),
+    );
+
+    final updates = <Map<String, dynamic>>[];
+    for (var i = 0; i < eligible.length; i++) {
+      final e = eligible[i];
+      updates.add({'packageName': e.app.packageName, 'downloadUrl': downloadUrls[i]});
+      triggered[e.app.packageName] = e.versionCode;
     }
+
+    await triggerManualBatchUpdate(updates);
+    await _saveTriggeredUpdates(triggered);
   }
 }

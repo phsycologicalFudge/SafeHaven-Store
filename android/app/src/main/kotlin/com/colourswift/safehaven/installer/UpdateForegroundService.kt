@@ -1,6 +1,7 @@
 package com.colourswift.safehaven
 
 import android.app.*
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
@@ -11,28 +12,57 @@ import java.net.HttpURLConnection
 import java.net.URL
 import android.content.pm.PackageInstaller
 import org.json.JSONArray
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 class UpdateForegroundService : Service() {
-    private val CHANNEL_ID = "safehaven_update_channel"
     private val NOTIFICATION_ID = 888
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeFiles = mutableListOf<File>()
+    private val activePackages = Collections.synchronizedSet(mutableSetOf<String>())
+
+    companion object {
+        const val PROGRESS_CHANNEL_ID = "safehaven_update_channel"
+        const val RESULT_CHANNEL_ID = "safehaven_manual_update"
+        const val SUMMARY_NOTIF_ID = 890
+
+        private val pendingInstalls = AtomicInteger(0)
+        private val failedCount = AtomicInteger(0)
+
+        fun reset(total: Int) {
+            pendingInstalls.set(total)
+            failedCount.set(0)
+        }
+
+        fun onInstallResult(context: Context, success: Boolean) {
+            if (!success) failedCount.incrementAndGet()
+            if (pendingInstalls.decrementAndGet() <= 0) {
+                val failed = failedCount.getAndSet(0)
+                if (failed > 0) showFailureSummary(context, failed)
+            }
+        }
+
+        private fun showFailureSummary(context: Context, count: Int) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notif = NotificationCompat.Builder(context, RESULT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_safehaven)
+                .setContentTitle("$count update${if (count != 1) "s" else ""} failed")
+                .setContentText("Open SafeHaven for details")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .build()
+            manager.notify(SUMMARY_NOTIF_ID, notif)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        createNotificationChannels()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Updating Apps")
-            .setContentText("SafeHaven is downloading updates in the background...")
-            .setSmallIcon(R.drawable.ic_notification_safehaven)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
-
-        startForeground(NOTIFICATION_ID, notification)
+        abandonStaleSessions()
+        startForeground(NOTIFICATION_ID, buildProgressNotification(0, 0))
 
         val updatesJson = intent?.getStringExtra("updates_json")
         if (updatesJson.isNullOrEmpty()) {
@@ -46,14 +76,62 @@ class UpdateForegroundService : Service() {
             return START_NOT_STICKY
         }
 
+        val pending = updates.filter { (packageName, _) -> activePackages.add(packageName) }
+        if (pending.isEmpty()) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        reset(pending.size)
+
+        val total = pending.size
+        val completed = AtomicInteger(0)
+        updateProgressNotification(0, total)
+
         scope.launch {
-            for ((packageName, downloadUrl) in updates) {
-                processUpdate(packageName, downloadUrl)
-            }
+            pending.map { (packageName, downloadUrl) ->
+                async {
+                    processUpdate(packageName, downloadUrl)
+                    val done = completed.incrementAndGet()
+                    withContext(Dispatchers.Main) {
+                        updateProgressNotification(done, total)
+                    }
+                }
+            }.awaitAll()
             stopSelf(startId)
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun buildProgressNotification(done: Int, total: Int): Notification {
+        val text = when {
+            total == 0 -> "Preparing updates..."
+            done < total -> "Updating apps ($done / $total)..."
+            else -> "All updates complete"
+        }
+        val builder = NotificationCompat.Builder(this, PROGRESS_CHANNEL_ID)
+            .setContentTitle("SafeHaven Updates")
+            .setContentText(text)
+            .setSmallIcon(R.drawable.ic_notification_safehaven)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(done < total || total == 0)
+        if (total > 0) builder.setProgress(total, done, false)
+        return builder.build()
+    }
+
+    private fun abandonStaleSessions() {
+        val packageInstaller = packageManager.packageInstaller
+        packageInstaller.mySessions.forEach { sessionInfo ->
+            try {
+                packageInstaller.openSession(sessionInfo.sessionId).abandon()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun updateProgressNotification(done: Int, total: Int) {
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(NOTIFICATION_ID, buildProgressNotification(done, total))
     }
 
     private fun parseUpdatesJson(json: String): List<Pair<String, String>> {
@@ -84,21 +162,19 @@ class UpdateForegroundService : Service() {
             }
             installApk(packageName, file)
         } catch (e: Exception) {
-            val intent = Intent(this, UpdateReceiver::class.java).apply {
-                putExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
-                putExtra(PackageInstaller.EXTRA_PACKAGE_NAME, packageName)
-                putExtra(PackageInstaller.EXTRA_STATUS_MESSAGE, e.message)
-            }
-            sendBroadcast(intent)
+            android.util.Log.e("UpdateForegroundService", "Update failed: pkg=$packageName msg=${e.message}")
+            onInstallResult(this, false)
         } finally {
             file.delete()
             synchronized(activeFiles) { activeFiles.remove(file) }
+            activePackages.remove(packageName)
         }
     }
 
     private fun installApk(packageName: String, file: File) {
         val packageInstaller = packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setInstallerPackageName(this.packageName)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
@@ -131,15 +207,15 @@ class UpdateForegroundService : Service() {
         }
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Safe Haven Update Service",
-                NotificationManager.IMPORTANCE_LOW
-            )
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
+            manager.createNotificationChannel(
+                NotificationChannel(PROGRESS_CHANNEL_ID, "SafeHaven Update Progress", NotificationManager.IMPORTANCE_LOW)
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(RESULT_CHANNEL_ID, "SafeHaven Update Results", NotificationManager.IMPORTANCE_DEFAULT)
+            )
         }
     }
 
@@ -149,6 +225,7 @@ class UpdateForegroundService : Service() {
             activeFiles.forEach { it.delete() }
             activeFiles.clear()
         }
+        activePackages.clear()
         super.onDestroy()
     }
 

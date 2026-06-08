@@ -5,8 +5,9 @@ import '../../../services/index_service.dart';
 import '../../../services/store_service.dart';
 import '../../../services/installer/store_update_service.dart';
 import '../../../widgets/identity_setup_dialog.dart';
-import 'sections/catalogue_category_tabs.dart';
+import '../../../widgets/refresh/pull_to_refresh.dart';
 import 'catalogue_navigation.dart';
+import 'sections/catalogue_category_tabs.dart';
 import 'sections/catalogue_recommended_section.dart';
 import 'sections/catalogue_extra_sections.dart';
 import 'sections/see_more_apps_screen.dart';
@@ -110,9 +111,6 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         final topCharts = IndexService.instance.topCharts(filtered);
         final newArrivals = IndexService.instance.newArrivals(filtered);
 
-        // Take first 2 shuffled category keys for "Top in..." rows.
-        // When no category is selected these use the global shuffled list.
-        // When a category is selected there's only one category so we skip them.
         final showCategoryRows = _selectedCategory == null &&
             _shuffledCategoryKeys.length >= 2;
         final catKeyA = showCategoryRows ? _shuffledCategoryKeys[0] : null;
@@ -132,7 +130,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
             ? null
             : CatalogueRecommendedSection(future: recommendedFuture);
 
-        return RefreshIndicator(
+        return PullRefresh(
           onRefresh: _reload,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),

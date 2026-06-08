@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/theme/theme_manager.dart';
@@ -14,12 +15,16 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _channel = MethodChannel('safehaven/installer');
+
   String _appVersion = 'Loading...';
+  bool _foregroundEnabled = true;
 
   @override
   void initState() {
     super.initState();
     _loadVersionInfo();
+    _loadForegroundPref();
   }
 
   Future<void> _loadVersionInfo() async {
@@ -35,6 +40,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _appVersion = 'Unknown';
       });
     }
+  }
+
+  Future<void> _loadForegroundPref() async {
+    try {
+      final enabled = await _channel.invokeMethod<bool>('getForegroundService');
+      if (!mounted) return;
+      setState(() {
+        _foregroundEnabled = enabled ?? true;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _setForegroundEnabled(bool value) async {
+    setState(() => _foregroundEnabled = value);
+    try {
+      await _channel.invokeMethod('setForegroundService', {'enabled': value});
+    } catch (_) {}
   }
 
   Future<void> _openLink(String url) async {
@@ -58,6 +80,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(
             child: _SettingsSection(
+              title: 'Options',
+              children: [
+                _SettingsActionTile(
+                  icon: Icons.palette_rounded,
+                  title: 'Theme',
+                  subtitle: 'Tap to change',
+                  showArrow: false,
+                  onTap: () => themeManager.toggle(),
+                ),
+                _SettingsToggleTile(
+                  icon: Icons.bolt_rounded,
+                  title: 'Flawless Updates',
+                  subtitle: 'Keeps the app running to apply updates quickly',
+                  value: _foregroundEnabled,
+                  onChanged: _setForegroundEnabled,
+                ),
+              ],
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _SettingsSection(
               title: 'Developer',
               children: [
                 _SettingsActionTile(
@@ -75,22 +118,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: 'Appearance',
-              children: [
-                _SettingsActionTile(
-                  icon: Icons.palette_rounded,
-                  title: 'Theme',
-                  subtitle: 'Tap to change',
-                  showArrow: false,
-                  onTap: () {
-                    themeManager.toggle();
-                  },
-                ),
-              ],
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _SettingsSection(
               title: 'About',
               children: [
                 _SettingsActionTile(
@@ -98,14 +125,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: 'How This Works',
                   subtitle: 'Tap to find out',
                   showArrow: false,
-                  onTap: () => _openLink('https://colourswift.com/safehaven'),
+                  onTap: () => _openLink('https://colourswift.com/safehaven/#overview'),
                 ),
                 _SettingsActionTile(
                   icon: Icons.upload_rounded,
-                  title: 'Want to submit your own app?',
+                  title: 'Want to submit an app?',
                   subtitle: 'Tap to find out how',
                   showArrow: false,
-                  onTap: () => _openLink('https://colourswift.com/safehaven/docs/#dev_submission'),
+                  onTap: () => _openLink('https://api.colourswift.com/submit'),
                 ),
                 _SettingsInfoTile(
                   icon: Icons.info_outline_rounded,
@@ -252,6 +279,86 @@ class _SettingsActionTile extends StatelessWidget {
                 size: 13,
                 color: colors.textMuted,
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsToggleTile extends StatelessWidget {
+  const _SettingsToggleTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 0,
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: colors.textMuted, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: colors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: colors.textSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Transform.scale(
+              scale: 0.78,
+              alignment: Alignment.centerRight,
+              child: Switch(
+                value: value,
+                onChanged: onChanged,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeTrackColor: colors.text,
+                activeColor: colors.surface,
+                inactiveTrackColor: colors.border,
+                inactiveThumbColor: colors.textMuted,
+              ),
+            ),
           ],
         ),
       ),

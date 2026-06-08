@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../services/installer/apk_install_service.dart';
+import '../../../../services/installer/install_sync.dart';
+import '../../../../services/installer/store_update_service.dart';
 import '../../../../widgets/animated_tap.dart';
 
-enum CatalogueDlState { checking, idle, downloading, cancelling, done }
-
 class CatalogueDownloadButton extends StatefulWidget {
-  const CatalogueDownloadButton({required this.app});
+  const CatalogueDownloadButton({
+    required this.app,
+    super.key,
+    this.compact = false,
+    this.borderRadius = 10.0,
+  });
 
   final PublicStoreApp app;
+  final bool compact;
+  final double borderRadius;
 
   @override
   State<CatalogueDownloadButton> createState() => _CatalogueDownloadButtonState();
@@ -17,15 +24,23 @@ class CatalogueDownloadButton extends StatefulWidget {
 
 class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
     with WidgetsBindingObserver {
-  CatalogueDlState _state = CatalogueDlState.checking;
-  double _progress = 0.0;
-  bool _cancelling = false;
+  String get _pkg => widget.app.packageName;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    InstallSync.register(_pkg);
     _checkInstalled();
+  }
+
+  @override
+  void didUpdateWidget(covariant CatalogueDownloadButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.app.packageName != widget.app.packageName) {
+      InstallSync.register(_pkg);
+      _checkInstalled();
+    }
   }
 
   @override
@@ -36,157 +51,196 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _state == CatalogueDlState.done) {
-      Future.delayed(const Duration(milliseconds: 600), _checkInstalled);
+    if (state == AppLifecycleState.resumed &&
+        !(InstallSync.active[_pkg]?.value ?? false)) {
+      Future.delayed(
+        const Duration(milliseconds: 600),
+            () {
+          if (mounted) _checkInstalled(invalidate: true);
+        },
+      );
     }
   }
 
-  Future<void> _checkInstalled() async {
-    if (widget.app.latestVersion == null) return;
+  Future<void> _checkInstalled({bool invalidate = false}) async {
+    if (widget.app.latestVersion == null) {
+      InstallSync.isChecking[_pkg]?.value = false;
+      return;
+    }
+
+    if (invalidate) {
+      InstallSync.cachedCheck[_pkg] = null;
+    } else if (InstallSync.cachedCheck[_pkg] != null) {
+      InstallSync.isChecking[_pkg]?.value = false;
+      return;
+    }
+
     try {
-      final pkg = await ApkInstallService.instance.getPackageState(
-        packageName: widget.app.packageName,
-      );
+      final check = await StoreUpdateService.instance.checkApp(widget.app);
       if (!mounted) return;
-      setState(() {
-        _state = pkg.installed ? CatalogueDlState.done : CatalogueDlState.idle;
-      });
+      InstallSync.cachedCheck[_pkg] = check;
+      InstallSync.bumpCheck();
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _state = CatalogueDlState.idle);
+    } finally {
+      if (mounted) {
+        InstallSync.isChecking[_pkg]?.value = false;
+      }
     }
   }
 
   Future<void> _startDownload() async {
-    setState(() {
-      _state = CatalogueDlState.downloading;
-      _progress = 0.0;
-      _cancelling = false;
-    });
+    if (InstallSync.active[_pkg]?.value ?? false) return;
+
+    InstallSync.active[_pkg]!.value = true;
+    InstallSync.progress[_pkg]!.value = 0.0;
+
     try {
       await ApkInstallService.instance.downloadAndInstall(
         app: widget.app,
         onProgress: (p) {
           if (!mounted) return;
-          setState(() => _progress = p);
+          InstallSync.progress[_pkg]?.value = p.clamp(0.0, 1.0);
         },
       );
-      if (!mounted) return;
-      setState(() => _state = CatalogueDlState.done);
     } catch (_) {
-      if (!mounted) return;
-      if (_cancelling) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        _cancelling = false;
-        if (!mounted) return;
+    } finally {
+      if (mounted) {
+        InstallSync.isChecking[_pkg]!.value = true;
+        InstallSync.active[_pkg]!.value = false;
+        InstallSync.progress[_pkg]!.value = 0.0;
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+        if (mounted) _checkInstalled(invalidate: true);
       }
-      setState(() => _state = CatalogueDlState.idle);
     }
   }
 
   Future<void> _cancelDownload() async {
-    if (_state != CatalogueDlState.downloading) return;
-    _cancelling = true;
-    setState(() => _state = CatalogueDlState.cancelling);
     await ApkInstallService.instance.cancelDownload();
   }
 
   Future<void> _open() async {
     try {
-      await ApkInstallService.instance.openApp(
-        packageName: widget.app.packageName,
-      );
+      await ApkInstallService.instance.openApp(packageName: widget.app.packageName);
     } catch (_) {}
+  }
+
+  Widget _buildButtonText(String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    if (_state == CatalogueDlState.checking) {
-      return const SizedBox(width: 68, height: 32);
-    }
+    final double w = widget.compact ? 58.0 : 64.0;
+    final double h = widget.compact ? 28.0 : 32.0;
 
-    Widget inner;
-    VoidCallback? onTap;
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        InstallSync.active[_pkg]!,
+        InstallSync.progress[_pkg]!,
+        InstallSync.isChecking[_pkg]!,
+        InstallSync.checkVersion,
+      ]),
+      builder: (context, _) {
+        final isChecking = InstallSync.isChecking[_pkg]?.value ?? true;
+        final isDownloading = InstallSync.active[_pkg]?.value ?? false;
+        final progress = InstallSync.progress[_pkg]?.value ?? 0.0;
 
-    switch (_state) {
-      case CatalogueDlState.idle:
-        inner = Text(
-          'Get',
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: colors.text,
-          ),
-        );
-        onTap = _startDownload;
-      case CatalogueDlState.downloading:
-        inner = SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(
-            value: _progress > 0 ? _progress : null,
-            strokeWidth: 2.2,
-            color: colors.text,
-          ),
-        );
-        onTap = _cancelDownload;
-      case CatalogueDlState.cancelling:
-        inner = SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.2,
-            color: colors.textMuted,
-          ),
-        );
-        onTap = null;
-      case CatalogueDlState.done:
-        inner = Text(
-          'Open',
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: colors.text,
-          ),
-        );
-        onTap = _open;
-      case CatalogueDlState.checking:
-        inner = const SizedBox.shrink();
-        onTap = null;
-    }
+        if (isChecking) {
+          return SizedBox(width: w, height: h);
+        }
 
-    return AnimatedTap(
-      borderRadius: 10,
-      scale: 0.94,
-      onTap: onTap,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
+        final cached = InstallSync.cachedCheck[_pkg];
+        final installed = cached?.installed ?? false;
+        final canUpdate = cached?.canUpdate ?? false;
+
+        Widget inner;
+        VoidCallback? onTap;
+        String stateKey;
+
+        if (isDownloading) {
+          stateKey = 'downloading';
+          inner = SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              value: progress > 0 ? progress : null,
+              strokeWidth: 2.2,
+              color: colors.text,
+            ),
+          );
+          onTap = _cancelDownload;
+        } else if (!installed) {
+          stateKey = 'get';
+          inner = _buildButtonText('Get', colors.text);
+          onTap = _startDownload;
+        } else if (canUpdate) {
+          stateKey = 'update';
+          inner = _buildButtonText('Update', colors.text);
+          onTap = _startDownload;
+        } else {
+          stateKey = 'open';
+          inner = _buildButtonText('Open', colors.text);
+          onTap = _open;
+        }
+
+        return AnimatedTap(
+          borderRadius: widget.borderRadius,
+          scale: 0.94,
+          onTap: onTap,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                ),
+                child: child,
               ),
             ),
-            child: child,
+            child: Container(
+              key: ValueKey(stateKey),
+              width: w,
+              height: h,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(widget.borderRadius),
+                border: Border.all(color: colors.border, width: 1.5),
+              ),
+              child: Center(child: inner),
+            ),
           ),
-        ),
-        child: Container(
-          key: ValueKey(_state),
-          width: 68,
-          height: 32,
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: colors.border, width: 1.5),
-          ),
-          child: Center(child: inner),
-        ),
-      ),
+        );
+      },
+    );
+  }
+}
+
+class CataloguePillDownloadButton extends StatelessWidget {
+  const CataloguePillDownloadButton({required this.app, super.key});
+
+  final PublicStoreApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    return CatalogueDownloadButton(
+      app: app,
+      compact: true,
     );
   }
 }

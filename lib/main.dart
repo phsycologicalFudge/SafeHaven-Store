@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:safehaven/services/installer/background_tasks.dart';
 import 'screens/boot_screen/boot.dart';
 import 'services/theme/theme_manager.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initBackgroundTasks();
   await SafeHavenThemeManager.instance.init();
   runApp(const SafeHavenApp());
 }

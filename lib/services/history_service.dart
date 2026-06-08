@@ -1,3 +1,7 @@
+/*
+History service. Persists the user's recently viewed apps and category interaction
+history to SharedPreferences. Used by RankingService to personalise recommendations.
+*/
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

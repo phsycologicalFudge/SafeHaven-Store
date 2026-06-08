@@ -38,6 +38,28 @@ class MainActivity : FlutterActivity() {
             channelName
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "setForegroundService" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    getSharedPreferences("safehaven_prefs", MODE_PRIVATE)
+                        .edit().putBoolean("foreground_service_enabled", enabled).apply()
+                    val serviceIntent = Intent(this, StoreKeepAliveService::class.java)
+                    if (enabled) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                    } else {
+                        stopService(serviceIntent)
+                    }
+                    result.success(true)
+                }
+
+                "getForegroundService" -> {
+                    val prefs = getSharedPreferences("safehaven_prefs", MODE_PRIVATE)
+                    result.success(prefs.getBoolean("foreground_service_enabled", true))
+                }
+
                 "installApk" -> {
                     val path = call.argument<String>("path")
                     if (path.isNullOrBlank()) {
@@ -69,9 +91,14 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    val updatesJson = validUpdates.joinToString(",", "[", "]") { update ->
-                        "{\"packageName\":\"${update["packageName"]}\",\"downloadUrl\":\"${update["downloadUrl"]}\"}"
-                    }
+                    val updatesJson = org.json.JSONArray().apply {
+                        validUpdates.forEach { update ->
+                            put(org.json.JSONObject().apply {
+                                put("packageName", update["packageName"])
+                                put("downloadUrl", update["downloadUrl"])
+                            })
+                        }
+                    }.toString()
 
                     val intent = Intent(this, UpdateForegroundService::class.java).apply {
                         putExtra("updates_json", updatesJson)

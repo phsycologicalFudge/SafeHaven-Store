@@ -1,3 +1,8 @@
+/*
+APK install service. Handles downloading, pausing, resuming, and cancelling APK
+installations via a MethodChannel to the Kotlin side. Also exposes package state
+queries (installed version, signing hash, installer attribution) used for update checks.
+*/
 import 'dart:async';
 import 'dart:io';
 import 'package:convert/convert.dart';

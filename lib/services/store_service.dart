@@ -1,3 +1,8 @@
+/*
+Store service. Central HTTP client for all API calls to the ColourSwift backend.
+Handles developer token storage, authentication, app submission, store index fetching,
+APK download URL resolution, and rating submission.
+*/
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';

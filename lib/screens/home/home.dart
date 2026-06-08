@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../services/index_service.dart';
+import '../../services/installer/store_update_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/footer.dart';
 import '../account/settings/settings_screen.dart';
@@ -17,12 +19,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _selectedIndex = 0;
   int _previousIndex = 0;
   late final AnimationController _tabController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  DateTime? _lastUpdateCheck;
 
   static const List<Widget> _screens = [
     CatalogueScreen(),
@@ -43,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -52,13 +56,35 @@ class _HomeScreenState extends State<HomeScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestNotificationPermission();
+      _checkForUpdates();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkForUpdates();
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    final now = DateTime.now();
+    if (_lastUpdateCheck != null &&
+        now.difference(_lastUpdateCheck!) < const Duration(minutes: 5)) {
+      return;
+    }
+    _lastUpdateCheck = now;
+    try {
+      final index = await IndexService.instance.fetchIndex(forceRefresh: true);
+      await StoreUpdateService.instance.syncAndTriggerAutoUpdates(index.apps);
+    } catch (_) {}
   }
 
   void _buildAnims({required bool forward}) {

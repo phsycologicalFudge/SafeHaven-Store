@@ -1,3 +1,8 @@
+/*
+Ranking service. Scores and sorts apps for top charts and personalised recommendations.
+Applies recency boosts, category affinity from history, and randomised tie-breaking
+to keep results fresh across sessions.
+*/
 import 'dart:math';
 
 import '../history_service.dart';

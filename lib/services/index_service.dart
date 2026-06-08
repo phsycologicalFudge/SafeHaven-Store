@@ -1,3 +1,8 @@
+/*
+Index service. In-memory cache layer over SyncService.
+Provides a single fetchIndex entry point with a 5-minute TTL, deduplicates in-flight
+requests, and exposes derived helpers for filtering, ranking, and category operations.
+*/
 import 'package:safehaven/services/ratings/ranking_service.dart';
 import 'store_service.dart';
 import 'sync_service.dart';

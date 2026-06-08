@@ -1,3 +1,7 @@
+/*
+Rating service. Submits star ratings to the backend on behalf of the current device
+identity. Maps API error codes to typed RatingResult values for the UI to handle.
+*/
 import 'dart:developer';
 import '../device_identity_service.dart';
 import '../store_service.dart';

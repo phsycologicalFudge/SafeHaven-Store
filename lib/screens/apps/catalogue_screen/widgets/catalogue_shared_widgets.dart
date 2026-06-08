@@ -133,10 +133,8 @@ class _CatalogueSeeAllBlockState extends State<CatalogueSeeAllBlock>
             child: AnimatedBuilder(
               animation: _shimmer,
               builder: (context, child) {
-                // Sweep starts fully off-screen left (-1.0) and ends fully off-screen right (2.0)
-                // so the wrap-around is always invisible
                 final t = Curves.easeInOut.transform(_shimmer.value);
-                final x = (t * 3.0 - 1.0); // -1.0 to 2.0 normalised
+                final x = (t * 3.0 - 1.0);
                 final screenWidth = MediaQuery.of(context).size.width - 36;
                 final shimmerColor = colors.text.withOpacity(0.08);
 

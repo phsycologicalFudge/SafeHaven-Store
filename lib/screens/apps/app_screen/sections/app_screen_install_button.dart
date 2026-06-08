@@ -2,27 +2,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../services/installer/apk_install_service.dart';
+import '../../../../services/installer/install_sync.dart';
 import '../../../../services/installer/store_update_service.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
-
-class _InstallSync {
-  static final active = <String, ValueNotifier<bool>>{};
-  static final paused = <String, ValueNotifier<bool>>{};
-  static final progress = <String, ValueNotifier<double>>{};
-  static final preparing = <String, ValueNotifier<bool>>{};
-  static final isChecking = <String, ValueNotifier<bool>>{};
-
-  static final cachedCheck = <String, StoreUpdateCheck?>{};
-
-  static void register(String pkg) {
-    active.putIfAbsent(pkg, () => ValueNotifier(false));
-    paused.putIfAbsent(pkg, () => ValueNotifier(false));
-    progress.putIfAbsent(pkg, () => ValueNotifier(0.0));
-    preparing.putIfAbsent(pkg, () => ValueNotifier(false));
-    isChecking.putIfAbsent(pkg, () => ValueNotifier(true));
-  }
-}
 
 class AppScreenInstallButton extends StatefulWidget {
   const AppScreenInstallButton({
@@ -49,7 +32,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _InstallSync.register(_pkg);
+    InstallSync.register(_pkg);
     _loadPackageState(showChecking: true);
   }
 
@@ -57,7 +40,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   void didUpdateWidget(covariant AppScreenInstallButton oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.app.packageName != widget.app.packageName) {
-      _InstallSync.register(_pkg);
+      InstallSync.register(_pkg);
     }
     if (oldWidget.app.packageName != widget.app.packageName ||
         oldWidget.app.latestVersion?.versionCode !=
@@ -80,34 +63,35 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   }
 
   Future<void> _loadPackageState({bool showChecking = false}) async {
-    if (_InstallSync.cachedCheck[_pkg] != null && showChecking) {
+    if (InstallSync.cachedCheck[_pkg] != null && showChecking) {
       showChecking = false;
     }
 
     if (showChecking && mounted) {
-      _InstallSync.isChecking[_pkg]!.value = true;
+      InstallSync.isChecking[_pkg]!.value = true;
     }
 
     try {
       final check = await StoreUpdateService.instance.checkApp(widget.app);
       if (!mounted) return;
 
-      _InstallSync.cachedCheck[_pkg] = check;
-      _InstallSync.isChecking[_pkg]!.value = false;
+      InstallSync.cachedCheck[_pkg] = check;
+      InstallSync.isChecking[_pkg]!.value = false;
+      InstallSync.bumpCheck();
     } catch (_) {
       if (mounted) {
-        _InstallSync.isChecking[_pkg]!.value = false;
+        InstallSync.isChecking[_pkg]!.value = false;
       }
     }
   }
 
   Future<void> _primaryAction() async {
-    final isInstalling = _InstallSync.active[_pkg]!.value;
-    final isChecking = _InstallSync.isChecking[_pkg]!.value;
+    final isInstalling = InstallSync.active[_pkg]!.value;
+    final isChecking = InstallSync.isChecking[_pkg]!.value;
 
     if (!_hasVersion || isInstalling || isChecking) return;
 
-    final check = _InstallSync.cachedCheck[_pkg];
+    final check = InstallSync.cachedCheck[_pkg];
     final status = check?.status;
 
     if (status == StoreUpdateStatus.current ||
@@ -150,14 +134,14 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   }
 
   Future<void> _install() async {
-    final check = _InstallSync.cachedCheck[_pkg];
+    final check = InstallSync.cachedCheck[_pkg];
     final version = check?.latestVersion ?? widget.app.latestVersion;
     if (version == null) return;
 
-    _InstallSync.active[_pkg]!.value = true;
-    _InstallSync.paused[_pkg]!.value = false;
-    _InstallSync.progress[_pkg]!.value = 0.0;
-    _InstallSync.preparing[_pkg]!.value = true;
+    InstallSync.active[_pkg]!.value = true;
+    InstallSync.paused[_pkg]!.value = false;
+    InstallSync.progress[_pkg]!.value = 0.0;
+    InstallSync.preparing[_pkg]!.value = true;
     _lastPaintedProgress = -1;
 
     final uiDelay = Future<void>.delayed(const Duration(milliseconds: 400));
@@ -174,35 +158,35 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
         if (!changedEnough) return;
 
         _lastPaintedProgress = nextProgress;
-        _InstallSync.progress[_pkg]!.value = nextProgress;
+        InstallSync.progress[_pkg]!.value = nextProgress;
       },
     );
 
     await uiDelay;
     if (mounted) {
-      _InstallSync.preparing[_pkg]!.value = false;
+      InstallSync.preparing[_pkg]!.value = false;
     }
 
     try {
       await downloadFuture;
     } on PlatformException catch (e) {
       if (!mounted) return;
-      _InstallSync.preparing[_pkg]!.value = false;
+      InstallSync.preparing[_pkg]!.value = false;
       final message = e.code == 'install_permission_required'
           ? 'Allow SafeHaven to install apps, then tap Install again.'
           : 'Could not start the installer.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
-      _InstallSync.preparing[_pkg]!.value = false;
+      InstallSync.preparing[_pkg]!.value = false;
       if (!e.toString().contains('download_cancelled')) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Install failed: $e')));
       }
     } finally {
-      _InstallSync.active[_pkg]!.value = false;
-      _InstallSync.paused[_pkg]!.value = false;
-      _InstallSync.progress[_pkg]!.value = 0.0;
-      _InstallSync.preparing[_pkg]!.value = false;
+      InstallSync.active[_pkg]!.value = false;
+      InstallSync.paused[_pkg]!.value = false;
+      InstallSync.progress[_pkg]!.value = 0.0;
+      InstallSync.preparing[_pkg]!.value = false;
 
       await Future<void>.delayed(const Duration(milliseconds: 800));
       if (mounted) {
@@ -212,24 +196,24 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   }
 
   Future<void> _togglePause() async {
-    if (!_InstallSync.active[_pkg]!.value) return;
+    if (!InstallSync.active[_pkg]!.value) return;
 
-    if (_InstallSync.paused[_pkg]!.value) {
+    if (InstallSync.paused[_pkg]!.value) {
       await ApkInstallService.instance.resumeDownload();
-      _InstallSync.paused[_pkg]!.value = false;
+      InstallSync.paused[_pkg]!.value = false;
     } else {
       await ApkInstallService.instance.pauseDownload();
-      _InstallSync.paused[_pkg]!.value = true;
+      InstallSync.paused[_pkg]!.value = true;
     }
   }
 
   Future<void> _cancelDownload() async {
-    if (!_InstallSync.active[_pkg]!.value) return;
+    if (!InstallSync.active[_pkg]!.value) return;
 
-    _InstallSync.active[_pkg]!.value = false;
-    _InstallSync.paused[_pkg]!.value = false;
-    _InstallSync.progress[_pkg]!.value = 0.0;
-    _InstallSync.preparing[_pkg]!.value = false;
+    InstallSync.active[_pkg]!.value = false;
+    InstallSync.paused[_pkg]!.value = false;
+    InstallSync.progress[_pkg]!.value = 0.0;
+    InstallSync.preparing[_pkg]!.value = false;
 
     try {
       await ApkInstallService.instance.cancelDownload();
@@ -267,19 +251,19 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
 
     return ListenableBuilder(
       listenable: Listenable.merge([
-        _InstallSync.active[_pkg]!,
-        _InstallSync.paused[_pkg]!,
-        _InstallSync.progress[_pkg]!,
-        _InstallSync.preparing[_pkg]!,
-        _InstallSync.isChecking[_pkg]!,
+        InstallSync.active[_pkg]!,
+        InstallSync.paused[_pkg]!,
+        InstallSync.progress[_pkg]!,
+        InstallSync.preparing[_pkg]!,
+        InstallSync.isChecking[_pkg]!,
       ]),
       builder: (context, _) {
-        final isInstalling = _InstallSync.active[_pkg]!.value;
-        final isPaused = _InstallSync.paused[_pkg]!.value;
-        final fillProgress = _InstallSync.progress[_pkg]!.value;
-        final isPreparing = _InstallSync.preparing[_pkg]!.value;
-        final isChecking = _InstallSync.isChecking[_pkg]!.value;
-        final check = _InstallSync.cachedCheck[_pkg];
+        final isInstalling = InstallSync.active[_pkg]!.value;
+        final isPaused = InstallSync.paused[_pkg]!.value;
+        final fillProgress = InstallSync.progress[_pkg]!.value;
+        final isPreparing = InstallSync.preparing[_pkg]!.value;
+        final isChecking = InstallSync.isChecking[_pkg]!.value;
+        final check = InstallSync.cachedCheck[_pkg];
         final isInstalled = check?.installed ?? false;
 
         final primaryEnabled = _hasVersion && !isInstalling && !isChecking;

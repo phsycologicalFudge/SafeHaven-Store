@@ -86,7 +86,6 @@ class _SafeHavenTopBanner extends StatelessWidget
                       fontSize: large ? 20 : 19,
                       fontWeight: large ? FontWeight.w600 : FontWeight.w700,
                       letterSpacing: large ? -0.8 : -0.3,
-                      height: 1,
                       color: Colors.white,
                     ),
                   ),

@@ -1,3 +1,8 @@
+/*
+Store update service. Compares installed package versions against the store index to
+produce StoreUpdateCheck results. Also coordinates triggering unattended updates for
+packages installed by SafeHaven that have a newer version available.
+*/
 import '../store_service.dart';
 import 'apk_install_service.dart';
 import 'unattended_update_service.dart';
@@ -39,30 +44,34 @@ class StoreUpdateService {
   static final StoreUpdateService instance = StoreUpdateService._();
 
   Future<void> syncAndTriggerAutoUpdates(List<PublicStoreApp> apps) async {
-    final updates = <Map<String, dynamic>>[];
+    final states = await Future.wait(
+      apps.map((app) => ApkInstallService.instance.getPackageState(packageName: app.packageName)),
+    );
 
-    for (final app in apps) {
-      final state = await ApkInstallService.instance.getPackageState(
-        packageName: app.packageName,
-      );
-
+    final eligible = <({PublicStoreApp app})>[];
+    for (var i = 0; i < apps.length; i++) {
+      final app = apps[i];
+      final state = states[i];
       if (!state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
-
-      final downloadUrl = await StoreService.instance.getDownloadUrl(
-        packageName: app.packageName,
-        versionCode: app.latestVersion!.versionCode,
-      );
-
-      updates.add({
-        'packageName': app.packageName,
-        'downloadUrl': downloadUrl,
-      });
+      eligible.add((app: app,));
     }
 
-    if (updates.isNotEmpty) {
-      await UnattendedUpdateService.triggerManualBatchUpdate(updates);
-    }
+    if (eligible.isEmpty) return;
+
+    final downloadUrls = await Future.wait(
+      eligible.map((e) => StoreService.instance.getDownloadUrl(
+        packageName: e.app.packageName,
+        versionCode: e.app.latestVersion!.versionCode,
+      )),
+    );
+
+    final updates = <Map<String, dynamic>>[
+      for (var i = 0; i < eligible.length; i++)
+        {'packageName': eligible[i].app.packageName, 'downloadUrl': downloadUrls[i]},
+    ];
+
+    await UnattendedUpdateService.triggerManualBatchUpdate(updates);
   }
 
   Future<StoreUpdateCheck> checkApp(PublicStoreApp app) async {

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../../services/catalogue_service.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
-import '../widgets/catalogue_app_tiles.dart';
+import '../../../../widgets/animated_tap.dart';
+import '../../app_screen/app_screen.dart';
+import '../catalogue_navigation.dart';
+import '../widgets/catalogue_app_icons.dart';
 import '../widgets/catalogue_shared_widgets.dart';
 
 class SeeMoreAppsScreen extends StatefulWidget {
@@ -217,10 +220,72 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
               SliverList.builder(
                 itemCount: _displayedApps.length,
                 itemBuilder: (context, index) {
-                  return CatalogueAppWideRow(app: _displayedApps[index]);
+                  return _SeeMoreAppRow(app: _displayedApps[index]);
                 },
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeeMoreAppRow extends StatelessWidget {
+  const _SeeMoreAppRow({required this.app});
+
+  final PublicStoreApp app;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 18,
+      onTap: () {
+        Navigator.of(context).push(pushRoute(AppScreen(app: app)));
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+        child: Row(
+          children: [
+            CatalogueRawAppIcon(app: app, size: 52, radius: 13),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      app.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: colors.text,
+                      ),
+                    ),
+                    if (app.developerName.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        app.developerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: colors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

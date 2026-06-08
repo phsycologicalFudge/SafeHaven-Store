@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../services/index_service.dart';
-import '../../services/installer/apk_install_service.dart';
+import '../../services/installer/install_sync.dart';
+import '../../services/installer/store_update_service.dart';
+import '../../services/installer/unattended_update_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
+import '../../widgets/refresh/pull_to_refresh.dart';
 import 'app_screen/app_screen.dart';
 import 'catalogue_screen/catalogue_navigation.dart';
+import 'catalogue_screen/widgets/catalogue_download_button.dart';
 
 class MyAppsScreen extends StatefulWidget {
   const MyAppsScreen({super.key});
@@ -15,62 +19,101 @@ class MyAppsScreen extends StatefulWidget {
   State<MyAppsScreen> createState() => _MyAppsScreenState();
 }
 
-class _MyAppsScreenState extends State<MyAppsScreen> {
-  late Future<List<PublicStoreApp>> _future;
+class _MyAppsScreenState extends State<MyAppsScreen>
+    with WidgetsBindingObserver {
+  late Future<List<StoreUpdateCheck>> _future;
+  bool _triggering = false;
+  bool _autoTriggered = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _future = _loadInstalledStoreApps();
   }
 
-  Future<List<PublicStoreApp>> _loadInstalledStoreApps({
-    bool forceRefresh = false,
-  }) async {
-    final index = await IndexService.instance.fetchIndex(
-      forceRefresh: forceRefresh,
-    );
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-    final installedApps = <PublicStoreApp>[];
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {
+        _autoTriggered = false;
+        _future = _loadInstalledStoreApps();
+      });
+    }
+  }
 
-    for (final app in index.apps) {
-      try {
-        final state = await ApkInstallService.instance.getPackageState(
-          packageName: app.packageName,
-        );
+  Future<List<StoreUpdateCheck>> _loadInstalledStoreApps({bool forceRefresh = false}) async {
+    final index = await IndexService.instance.fetchIndex(forceRefresh: forceRefresh);
+    final checks = await StoreUpdateService.instance.checkApps(index.apps);
+    final installed = checks.where((c) => c.installed).toList()
+      ..sort((a, b) => a.app.name.toLowerCase().compareTo(b.app.name.toLowerCase()));
 
-        if (state.installed) {
-          installedApps.add(app);
-        }
-      } catch (_) {}
+    if (!_autoTriggered) {
+      _autoTriggered = true;
+      final updatable = installed.where((c) => c.canUpdate && c.latestVersion != null).toList();
+      if (updatable.isNotEmpty) {
+        _autoTriggerUpdates(updatable);
+      }
     }
 
-    installedApps.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    return installed;
+  }
 
-    return installedApps;
+  Future<void> _autoTriggerUpdates(List<StoreUpdateCheck> checks) async {
+    try {
+      final urls = await Future.wait(
+        checks.map((c) => StoreService.instance.getDownloadUrl(
+          packageName: c.app.packageName,
+          versionCode: c.latestVersion!.versionCode,
+        )),
+      );
+      final updates = [
+        for (var i = 0; i < checks.length; i++)
+          {'packageName': checks[i].app.packageName, 'downloadUrl': urls[i]},
+      ];
+      await UnattendedUpdateService.triggerManualBatchUpdate(updates);
+    } catch (_) {}
   }
 
   Future<void> _reload() async {
     setState(() {
+      _autoTriggered = false;
       _future = _loadInstalledStoreApps(forceRefresh: true);
     });
-
     await _future;
+  }
+
+  Future<void> _triggerUpdateAll(List<StoreUpdateCheck> checks) async {
+    if (_triggering) return;
+    final updatable = checks.where((c) {
+      final live = InstallSync.cachedCheck[c.app.packageName];
+      return (live ?? c).canUpdate && (live ?? c).latestVersion != null;
+    }).toList();
+    if (updatable.isEmpty) return;
+    setState(() => _triggering = true);
+    try {
+      await _autoTriggerUpdates(updatable);
+    } finally {
+      if (mounted) setState(() => _triggering = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    return FutureBuilder<List<PublicStoreApp>>(
+    return FutureBuilder<List<StoreUpdateCheck>>(
       future: _future,
       builder: (context, snapshot) {
         final loading = snapshot.connectionState == ConnectionState.waiting;
-        final apps = snapshot.data ?? const <PublicStoreApp>[];
-
-        return RefreshIndicator(
+        final checks = snapshot.data ?? const <StoreUpdateCheck>[];
+        return PullRefresh(
           onRefresh: _reload,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -79,26 +122,25 @@ class _MyAppsScreenState extends State<MyAppsScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(18, 54, 18, 54),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: colors.accentEnd,
-                      ),
-                    ),
+                    child: Center(child: CircularProgressIndicator(color: colors.accentEnd)),
                   ),
                 ),
               if (snapshot.hasError)
                 SliverToBoxAdapter(
-                  child: _ErrorBlock(
-                    message: snapshot.error.toString(),
-                    onRetry: _reload,
+                  child: _ErrorBlock(message: snapshot.error.toString(), onRetry: _reload),
+                ),
+              if (!loading && !snapshot.hasError && checks.isEmpty)
+                const SliverToBoxAdapter(child: _EmptyBlock()),
+              if (!loading && !snapshot.hasError && checks.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: _UpdateBanner(
+                    checks: checks,
+                    triggering: _triggering,
+                    onUpdateAll: () => _triggerUpdateAll(checks),
                   ),
                 ),
-              if (!loading && !snapshot.hasError && apps.isEmpty)
-                const SliverToBoxAdapter(child: _EmptyBlock()),
-              if (!loading && !snapshot.hasError && apps.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: _InstalledSection(apps: apps),
-                ),
+                SliverToBoxAdapter(child: _InstalledSection(checks: checks)),
+              ],
               const SliverToBoxAdapter(child: SizedBox(height: 18)),
             ],
           ),
@@ -108,36 +150,96 @@ class _MyAppsScreenState extends State<MyAppsScreen> {
   }
 }
 
-class _InstalledSection extends StatelessWidget {
-  const _InstalledSection({required this.apps});
+class _UpdateBanner extends StatelessWidget {
+  const _UpdateBanner({required this.checks, required this.triggering, required this.onUpdateAll});
 
-  final List<PublicStoreApp> apps;
+  final List<StoreUpdateCheck> checks;
+  final bool triggering;
+  final VoidCallback onUpdateAll;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
+    return ListenableBuilder(
+      listenable: InstallSync.checkVersion,
+      builder: (context, _) {
+        final liveCount = checks.where((c) {
+          final live = InstallSync.cachedCheck[c.app.packageName];
+          return (live ?? c).canUpdate;
+        }).length;
+
+        if (liveCount == 0) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: colors.accentGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '$liveCount update${liveCount == 1 ? '' : 's'} available',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colors.buttonText),
+                    ),
+                  ),
+                  AnimatedTap(
+                    borderRadius: 8,
+                    onTap: triggering ? null : onUpdateAll,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: colors.buttonText.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: triggering
+                          ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(colors.buttonText),
+                        ),
+                      )
+                          : Text(
+                        'Update All',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _InstalledSection extends StatelessWidget {
+  const _InstalledSection({required this.checks});
+
+  final List<StoreUpdateCheck> checks;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...apps.map((app) => _InstalledAppRow(app: app)),
-      ],
+      children: checks.map((c) => _InstalledAppRow(check: c)).toList(),
     );
   }
 }
 
 class _InstalledAppRow extends StatelessWidget {
-  const _InstalledAppRow({required this.app});
+  const _InstalledAppRow({required this.check});
 
-  final PublicStoreApp app;
-
-  Future<void> _openApp() async {
-    try {
-      await ApkInstallService.instance.openApp(
-        packageName: app.packageName,
-      );
-    } catch (_) {}
-  }
+  final StoreUpdateCheck check;
 
   @override
   Widget build(BuildContext context) {
@@ -146,13 +248,13 @@ class _InstalledAppRow extends StatelessWidget {
     return AnimatedTap(
       borderRadius: 18,
       onTap: () {
-        Navigator.of(context).push(pushRoute(AppScreen(app: app)));
+        Navigator.of(context).push(pushRoute(AppScreen(app: check.app)));
       },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
         child: Row(
           children: [
-            _AppIcon(app: app, size: 48),
+            _AppIcon(app: check.app, size: 48),
             const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
@@ -162,7 +264,7 @@ class _InstalledAppRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      app.name,
+                      check.app.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -172,17 +274,13 @@ class _InstalledAppRow extends StatelessWidget {
                         color: colors.text,
                       ),
                     ),
-                    if (app.developerName.isNotEmpty) ...[
+                    if (check.app.developerName.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        app.developerName,
+                        check.app.developerName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textMuted,
-                        ),
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: colors.textMuted),
                       ),
                     ],
                   ],
@@ -190,24 +288,10 @@ class _InstalledAppRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            AnimatedTap(
-              borderRadius: 12,
-              scale: 0.94,
-              onTap: _openApp,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: Center(
-                  child: Text(
-                    'Open',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: colors.text,
-                    ),
-                  ),
-                ),
-              ),
+            CatalogueDownloadButton(
+              app: check.app,
+              compact: true,
+              key: ValueKey(check.app.packageName),
             ),
           ],
         ),
@@ -233,14 +317,7 @@ class _AppIcon extends StatelessWidget {
         width: size,
         height: size,
         child: iconUrl == null
-            ? Container(
-          color: colors.surfaceSoft,
-          child: Icon(
-            Icons.apps_rounded,
-            size: size * 0.48,
-            color: colors.textMuted,
-          ),
-        )
+            ? Container(color: colors.surfaceSoft, child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted))
             : Image.network(
           iconUrl,
           width: size,
@@ -248,21 +325,13 @@ class _AppIcon extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(
             color: colors.surfaceSoft,
-            child: Icon(
-              Icons.apps_rounded,
-              size: size * 0.48,
-              color: colors.textMuted,
-            ),
+            child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
           ),
           loadingBuilder: (_, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
               color: colors.surfaceSoft,
-              child: Icon(
-                Icons.apps_rounded,
-                size: size * 0.48,
-                color: colors.textMuted,
-              ),
+              child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
             );
           },
         ),
@@ -283,30 +352,18 @@ class _EmptyBlock extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.apps_rounded,
-              size: 38,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.apps_rounded, size: 38, color: colors.textMuted),
             const SizedBox(height: 14),
             Text(
               'No installed store apps found.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: colors.text,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: colors.text),
             ),
             const SizedBox(height: 6),
             Text(
               'Apps only appear here when their package name matches an app in the catalogue.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: colors.textMuted,
-              ),
+              style: TextStyle(fontSize: 13, height: 1.4, color: colors.textMuted),
             ),
           ],
         ),
@@ -316,10 +373,7 @@ class _EmptyBlock extends StatelessWidget {
 }
 
 class _ErrorBlock extends StatelessWidget {
-  const _ErrorBlock({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorBlock({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -333,53 +387,27 @@ class _ErrorBlock extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 36,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.error_outline_rounded, size: 36, color: colors.textMuted),
             const SizedBox(height: 14),
             Text(
               'Could not load your apps',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: colors.text,
-              ),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: colors.text),
             ),
             const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.35,
-                color: colors.textSoft,
-              ),
-            ),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, height: 1.35, color: colors.textSoft)),
             const SizedBox(height: 20),
             SizedBox(
               height: 42,
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: colors.accentGradient,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(gradient: colors.accentGradient, borderRadius: BorderRadius.circular(12)),
                 child: AnimatedTap(
                   borderRadius: 12,
                   onTap: onRetry,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
                     child: Center(
-                      child: Text(
-                        'Retry',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: colors.buttonText,
-                        ),
-                      ),
+                      child: Text('Retry', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.buttonText)),
                     ),
                   ),
                 ),

@@ -1,3 +1,8 @@
+/*
+Theme manager. Manages light and dark mode state as a ChangeNotifier singleton.
+Persists the user's preference to SharedPreferences and exposes a SafeHavenColors
+token set consumed by all UI components via SafeHavenTheme.of(context).
+*/
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

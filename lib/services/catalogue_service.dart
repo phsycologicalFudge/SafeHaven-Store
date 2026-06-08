@@ -1,9 +1,12 @@
+/*
+Catalogue service. Generates banner items and accent gradients for the catalogue UI.
+Extracts dominant colours from app icons via PaletteGenerator and caches the results
+with an LRU eviction policy.
+*/
 import 'dart:collection';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:palette_generator/palette_generator.dart';
-
 import 'store_service.dart';
 
 class CatalogueService {

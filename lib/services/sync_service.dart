@@ -1,3 +1,8 @@
+/*
+Sync service. Responsible for keeping the local store index up to date.
+Fetches a delta patch from the backend when possible, falling back to a full index
+download, and persists the result to SharedPreferences for offline use.
+*/
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';

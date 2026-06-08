@@ -74,17 +74,20 @@ class _TopChartGalleryCard extends StatelessWidget {
           children: [
             CatalogueRawAppIcon(app: app, size: 64, radius: 16),
             const SizedBox(height: 8),
-            Text(
-              app.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.2,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                color: colors.text,
+            SizedBox(
+              height: 30,
+              child: Text(
+                app.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: colors.text,
+                ),
               ),
             ),
             if (app.ratingCount > 0) ...[
@@ -113,29 +116,12 @@ class _TopChartGalleryCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ],
+            ] else
+              const SizedBox(height: 18),
             const Spacer(),
-            _PillDownloadButton(app: app),
+            CataloguePillDownloadButton(app: app),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PillDownloadButton extends StatelessWidget {
-  const _PillDownloadButton({required this.app});
-
-  final PublicStoreApp app;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 26,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(99),
-        child: CatalogueDownloadButton(app: app),
       ),
     );
   }
