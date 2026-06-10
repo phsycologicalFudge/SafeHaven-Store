@@ -243,18 +243,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getSigningCertificateSha256(info: PackageInfo): String? {
-        val signatures: Array<Signature>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val signingInfo = info.signingInfo ?: return null
-            if (signingInfo.hasMultipleSigners()) {
-                signingInfo.apkContentsSigners
-            } else {
-                signingInfo.signingCertificateHistory
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            info.signatures
-        }
-
         val signature = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val signingInfo = info.signingInfo ?: return null
             if (signingInfo.hasMultipleSigners()) {
@@ -263,7 +251,8 @@ class MainActivity : FlutterActivity() {
                 signingInfo.signingCertificateHistory.lastOrNull()
             }
         } else {
-            signatures?.firstOrNull()
+            @Suppress("DEPRECATION")
+            info.signatures?.firstOrNull()
         } ?: return null
 
         val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())

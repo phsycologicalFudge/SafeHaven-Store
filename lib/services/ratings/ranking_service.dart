@@ -1,8 +1,3 @@
-/*
-Ranking service. Scores and sorts apps for top charts and personalised recommendations.
-Applies recency boosts, category affinity from history, and randomised tie-breaking
-to keep results fresh across sessions.
-*/
 import 'dart:math';
 
 import '../history_service.dart';
@@ -18,19 +13,17 @@ class RankingService {
   final Random _random = Random();
 
   List<PublicStoreApp> topCharts(
-      List<PublicStoreApp> apps, {
-        int? limit,
-      }) {
+    List<PublicStoreApp> apps, {
+    int? limit,
+  }) {
     final sorted = [...apps]..shuffle(_random);
 
     sorted.sort((a, b) => _trendingScore(b).compareTo(_trendingScore(a)));
 
     for (int i = 0; i < 3 && i < sorted.length; i++) {
-      final firstWord = sorted[i].name.trim().split(' ').first.toLowerCase();
-      if (firstWord == 'avarionx') {
+      if (sorted[i].packageName.startsWith('com.colourswift.')) {
         for (int j = i + 1; j < sorted.length; j++) {
-          final nextFirstWord = sorted[j].name.trim().split(' ').first.toLowerCase();
-          if (nextFirstWord != 'avarionx') {
+          if (!sorted[j].packageName.startsWith('com.colourswift.')) {
             final temp = sorted[i];
             sorted[i] = sorted[j];
             sorted[j] = temp;
@@ -44,10 +37,10 @@ class RankingService {
   }
 
   Future<List<PublicStoreApp>> recommended(
-      List<PublicStoreApp> apps, {
-        Iterable<PublicStoreApp> exclude = const [],
-        int? limit,
-      }) async {
+    List<PublicStoreApp> apps, {
+    Iterable<PublicStoreApp> exclude = const [],
+    int? limit,
+  }) async {
     final targetLimit = limit ?? _randomLimit();
     final excludedPackages = exclude.map((a) => a.packageName).toSet();
     final pool = apps

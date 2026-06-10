@@ -7,7 +7,10 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import android.content.pm.PackageInstaller
@@ -20,26 +23,41 @@ class UpdateForegroundService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeFiles = mutableListOf<File>()
     private val activePackages = Collections.synchronizedSet(mutableSetOf<String>())
+    private val downloadSemaphore = Semaphore(3)
 
     companion object {
         const val PROGRESS_CHANNEL_ID = "safehaven_update_channel"
         const val RESULT_CHANNEL_ID = "safehaven_manual_update"
         const val SUMMARY_NOTIF_ID = 890
 
-        private val pendingInstalls = AtomicInteger(0)
-        private val failedCount = AtomicInteger(0)
+        private val lock = Any()
+        private var pendingInstalls = 0
+        private var failedCount = 0
+        private val finalisedPackages = Collections.synchronizedSet(mutableSetOf<String>())
 
-        fun reset(total: Int) {
-            pendingInstalls.set(total)
-            failedCount.set(0)
+        fun addBatch(count: Int) {
+            synchronized(lock) {
+                pendingInstalls += count
+            }
         }
 
-        fun onInstallResult(context: Context, success: Boolean) {
-            if (!success) failedCount.incrementAndGet()
-            if (pendingInstalls.decrementAndGet() <= 0) {
-                val failed = failedCount.getAndSet(0)
-                if (failed > 0) showFailureSummary(context, failed)
+        fun onInstallResult(context: Context, success: Boolean, packageName: String) {
+            if (packageName.isNotBlank() && !finalisedPackages.add(packageName)) return
+            val failed: Int
+            val shouldNotify: Boolean
+            synchronized(lock) {
+                if (!success) failedCount++
+                pendingInstalls--
+                shouldNotify = pendingInstalls <= 0
+                failed = if (shouldNotify) {
+                    val f = failedCount
+                    failedCount = 0
+                    pendingInstalls = 0
+                    finalisedPackages.clear()
+                    f
+                } else 0
             }
+            if (shouldNotify && failed > 0) showFailureSummary(context, failed)
         }
 
         private fun showFailureSummary(context: Context, count: Int) {
@@ -82,7 +100,7 @@ class UpdateForegroundService : Service() {
             return START_NOT_STICKY
         }
 
-        reset(pending.size)
+        addBatch(pending.size)
 
         val total = pending.size
         val completed = AtomicInteger(0)
@@ -124,7 +142,7 @@ class UpdateForegroundService : Service() {
         val packageInstaller = packageManager.packageInstaller
         packageInstaller.mySessions.forEach { sessionInfo ->
             try {
-                packageInstaller.openSession(sessionInfo.sessionId).abandon()
+                packageInstaller.openSession(sessionInfo.sessionId).use { it.abandon() }
             } catch (_: Exception) {}
         }
     }
@@ -152,22 +170,46 @@ class UpdateForegroundService : Service() {
         val file = File(cacheDir, "${packageName}_update_${System.currentTimeMillis()}.apk")
         synchronized(activeFiles) { activeFiles.add(file) }
         try {
-            val connection = URL(downloadUrl).openConnection() as HttpURLConnection
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 60_000
-            connection.inputStream.use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+            downloadSemaphore.withPermit {
+                downloadToFile(downloadUrl, file)
             }
             installApk(packageName, file)
         } catch (e: Exception) {
             android.util.Log.e("UpdateForegroundService", "Update failed: pkg=$packageName msg=${e.message}")
-            onInstallResult(this, false)
+            onInstallResult(this, false, packageName)
         } finally {
             file.delete()
             synchronized(activeFiles) { activeFiles.remove(file) }
             activePackages.remove(packageName)
+        }
+    }
+
+    private fun downloadToFile(url: String, file: File) {
+        var currentUrl = url
+        var redirectsLeft = 5
+        while (true) {
+            val connection = URL(currentUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 60_000
+            connection.instanceFollowRedirects = false
+            try {
+                val code = connection.responseCode
+                if (code in 301..308) {
+                    if (redirectsLeft-- <= 0) throw IOException("Too many redirects")
+                    currentUrl = connection.getHeaderField("Location")
+                        ?: throw IOException("Redirect with no Location header")
+                    continue
+                }
+                if (code !in 200..299) throw IOException("HTTP $code")
+                connection.inputStream.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                return
+            } finally {
+                connection.disconnect()
+            }
         }
     }
 

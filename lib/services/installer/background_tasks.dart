@@ -1,8 +1,3 @@
-/*
-Background tasks. Registers and dispatches WorkManager periodic tasks for the app.
-Currently schedules a 6-hour background update check that delegates to
-UnattendedUpdateService.performBackgroundCheck.
-*/
 import 'package:safehaven/services/installer/unattended_update_service.dart';
 import 'package:workmanager/workmanager.dart';
 

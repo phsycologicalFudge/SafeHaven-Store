@@ -18,11 +18,19 @@ class StoreKeepAliveService : Service() {
                 NotificationChannel(CHANNEL_ID, "SafeHaven Background", NotificationManager.IMPORTANCE_MIN)
             )
         }
+        val tapIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingTapIntent = PendingIntent.getActivity(
+            this, 0, tapIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("SafeHaven")
             .setContentText("Running in background")
             .setSmallIcon(R.drawable.ic_notification_safehaven)
             .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setContentIntent(pendingTapIntent)
             .setOngoing(true)
             .build()
         startForeground(NOTIFICATION_ID, notification)

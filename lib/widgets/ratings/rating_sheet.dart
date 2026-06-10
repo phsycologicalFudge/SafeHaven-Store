@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../screens/apps/app_screen/app_screen_helpers.dart';
+import '../../services/device_identity_service.dart';
 import '../../services/ratings/rating_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
+import '../identity_setup_dialog.dart';
 
 class RatingSheet extends StatefulWidget {
   const RatingSheet({super.key, required this.app});
@@ -29,6 +31,13 @@ class _RatingSheetState extends State<RatingSheet> {
 
   Future<void> _submit() async {
     if (_selected == 0 || _submitting) return;
+
+    final isSetUp = await DeviceIdentityService.instance.isSetUp();
+    if (!isSetUp) {
+      if (mounted) await IdentitySetupDialog.showIfNeeded(context);
+      return;
+    }
+
     setState(() => _submitting = true);
 
     final result = await RatingService.instance.submitRating(

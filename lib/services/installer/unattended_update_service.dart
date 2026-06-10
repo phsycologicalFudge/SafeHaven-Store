@@ -1,8 +1,3 @@
-/*
-Unattended update service. Triggers background APK updates via a MethodChannel
-without requiring user interaction, gated on SafeHaven being the recorded installer.
-Also runs as a periodic WorkManager task to catch updates while the app is closed.
-*/
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,19 +56,28 @@ class UnattendedUpdateService {
 
     if (eligible.isEmpty) return;
 
-    final downloadUrls = await Future.wait(
-      eligible.map((e) => StoreService.instance.getDownloadUrl(
-        packageName: e.app.packageName,
-        versionCode: e.versionCode,
-      )),
+    final urlResults = await Future.wait(
+      eligible.map((e) async {
+        try {
+          return await StoreService.instance.getDownloadUrl(
+            packageName: e.app.packageName,
+            versionCode: e.versionCode,
+          );
+        } catch (_) {
+          return null;
+        }
+      }),
     );
 
     final updates = <Map<String, dynamic>>[];
     for (var i = 0; i < eligible.length; i++) {
-      final e = eligible[i];
-      updates.add({'packageName': e.app.packageName, 'downloadUrl': downloadUrls[i]});
-      triggered[e.app.packageName] = e.versionCode;
+      final url = urlResults[i];
+      if (url == null) continue;
+      updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
+      triggered[eligible[i].app.packageName] = eligible[i].versionCode;
     }
+
+    if (updates.isEmpty) return;
 
     await triggerManualBatchUpdate(updates);
     await _saveTriggeredUpdates(triggered);

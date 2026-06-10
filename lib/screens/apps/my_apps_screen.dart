@@ -67,16 +67,28 @@ class _MyAppsScreenState extends State<MyAppsScreen>
 
   Future<void> _autoTriggerUpdates(List<StoreUpdateCheck> checks) async {
     try {
-      final urls = await Future.wait(
-        checks.map((c) => StoreService.instance.getDownloadUrl(
-          packageName: c.app.packageName,
-          versionCode: c.latestVersion!.versionCode,
-        )),
+      final urlResults = await Future.wait(
+        checks.map((c) async {
+          try {
+            return await StoreService.instance.getDownloadUrl(
+              packageName: c.app.packageName,
+              versionCode: c.latestVersion!.versionCode,
+            );
+          } catch (_) {
+            return null;
+          }
+        }),
       );
-      final updates = [
-        for (var i = 0; i < checks.length; i++)
-          {'packageName': checks[i].app.packageName, 'downloadUrl': urls[i]},
-      ];
+
+      final updates = <Map<String, dynamic>>[];
+      for (var i = 0; i < checks.length; i++) {
+        final url = urlResults[i];
+        if (url != null) {
+          updates.add({'packageName': checks[i].app.packageName, 'downloadUrl': url});
+        }
+      }
+
+      if (updates.isEmpty) return;
       await UnattendedUpdateService.triggerManualBatchUpdate(updates);
     } catch (_) {}
   }
@@ -199,17 +211,17 @@ class _UpdateBanner extends StatelessWidget {
                       ),
                       child: triggering
                           ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(colors.buttonText),
-                        ),
-                      )
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(colors.buttonText),
+                              ),
+                            )
                           : Text(
-                        'Update All',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
-                      ),
+                              'Update All',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
+                            ),
                     ),
                   ),
                 ],
@@ -319,22 +331,22 @@ class _AppIcon extends StatelessWidget {
         child: iconUrl == null
             ? Container(color: colors.surfaceSoft, child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted))
             : Image.network(
-          iconUrl,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            color: colors.surfaceSoft,
-            child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
-          ),
-          loadingBuilder: (_, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: colors.surfaceSoft,
-              child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
-            );
-          },
-        ),
+                iconUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: colors.surfaceSoft,
+                  child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
+                ),
+                loadingBuilder: (_, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: colors.surfaceSoft,
+                    child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
+                  );
+                },
+              ),
       ),
     );
   }

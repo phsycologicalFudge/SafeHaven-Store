@@ -1,9 +1,3 @@
-/*
-Pull refresh. A custom pull-to-refresh wrapper that replaces Flutter's
-built-in RefreshIndicator. Shows a drag-proportional arc during the pull gesture
-only. Once the threshold is crossed and the callback fires, the indicator hides
-and the screen's own loading state takes over. Ignores normal scroll events.
-*/
 import 'package:flutter/material.dart';
 import '../../services/theme/theme_manager.dart';
 

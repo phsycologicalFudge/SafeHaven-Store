@@ -134,6 +134,14 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   }
 
   Future<void> _install() async {
+    if (ApkInstallService.instance.isDownloading) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Another download is in progress.')),
+      );
+      return;
+    }
+
     final check = InstallSync.cachedCheck[_pkg];
     final version = check?.latestVersion ?? widget.app.latestVersion;
     if (version == null) return;
@@ -179,8 +187,14 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
     } catch (e) {
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
-      if (!e.toString().contains('download_cancelled')) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Install failed: $e')));
+      final msg = e.toString();
+      if (msg != 'download_cancelled') {
+        final text = switch (msg) {
+          'sha256_mismatch' || 'sha256_missing' => 'APK integrity check failed.',
+          'apk_size_mismatch' => 'APK download appears incomplete.',
+          _ => 'Install failed: $e',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
       }
     } finally {
       InstallSync.active[_pkg]!.value = false;
@@ -320,26 +334,26 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
                               child: Center(
                                 child: isInstalling && isPreparing
                                     ? SizedBox(
-                                  width: widget.compact ? 18 : 22,
-                                  height: widget.compact ? 18 : 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      colors.text,
-                                    ),
-                                  ),
-                                )
+                                        width: widget.compact ? 18 : 22,
+                                        height: widget.compact ? 18 : 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            colors.text,
+                                          ),
+                                        ),
+                                      )
                                     : Text(
-                                  labelText,
-                                  style: TextStyle(
-                                    fontSize: widget.compact ? 13.5 : 14,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.2,
-                                    color: _hasVersion && !isInstalling
-                                        ? colors.buttonText
-                                        : (isInstalling ? colors.text : colors.textMuted),
-                                  ),
-                                ),
+                                        labelText,
+                                        style: TextStyle(
+                                          fontSize: widget.compact ? 13.5 : 14,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.2,
+                                          color: _hasVersion && !isInstalling
+                                              ? colors.buttonText
+                                              : (isInstalling ? colors.text : colors.textMuted),
+                                        ),
+                                      ),
                               ),
                             ),
                           ),

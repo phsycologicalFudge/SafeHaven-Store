@@ -1,8 +1,3 @@
-/*
-Store update service. Compares installed package versions against the store index to
-produce StoreUpdateCheck results. Also coordinates triggering unattended updates for
-packages installed by SafeHaven that have a newer version available.
-*/
 import '../store_service.dart';
 import 'apk_install_service.dart';
 import 'unattended_update_service.dart';
@@ -48,29 +43,39 @@ class StoreUpdateService {
       apps.map((app) => ApkInstallService.instance.getPackageState(packageName: app.packageName)),
     );
 
-    final eligible = <({PublicStoreApp app})>[];
+    final eligible = <({PublicStoreApp app, int versionCode})>[];
     for (var i = 0; i < apps.length; i++) {
       final app = apps[i];
       final state = states[i];
       if (!state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
-      eligible.add((app: app,));
+      eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
     }
 
     if (eligible.isEmpty) return;
 
-    final downloadUrls = await Future.wait(
-      eligible.map((e) => StoreService.instance.getDownloadUrl(
-        packageName: e.app.packageName,
-        versionCode: e.app.latestVersion!.versionCode,
-      )),
+    final urlResults = await Future.wait(
+      eligible.map((e) async {
+        try {
+          return await StoreService.instance.getDownloadUrl(
+            packageName: e.app.packageName,
+            versionCode: e.versionCode,
+          );
+        } catch (_) {
+          return null;
+        }
+      }),
     );
 
-    final updates = <Map<String, dynamic>>[
-      for (var i = 0; i < eligible.length; i++)
-        {'packageName': eligible[i].app.packageName, 'downloadUrl': downloadUrls[i]},
-    ];
+    final updates = <Map<String, dynamic>>[];
+    for (var i = 0; i < eligible.length; i++) {
+      final url = urlResults[i];
+      if (url != null) {
+        updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
+      }
+    }
 
+    if (updates.isEmpty) return;
     await UnattendedUpdateService.triggerManualBatchUpdate(updates);
   }
 

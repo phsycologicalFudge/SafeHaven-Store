@@ -55,7 +55,7 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
         !(InstallSync.active[_pkg]?.value ?? false)) {
       Future.delayed(
         const Duration(milliseconds: 600),
-            () {
+        () {
           if (mounted) _checkInstalled(invalidate: true);
         },
       );
@@ -90,6 +90,15 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
 
   Future<void> _startDownload() async {
     if (InstallSync.active[_pkg]?.value ?? false) return;
+
+    if (ApkInstallService.instance.isDownloading) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Another download is in progress.')),
+        );
+      }
+      return;
+    }
 
     InstallSync.active[_pkg]!.value = true;
     InstallSync.progress[_pkg]!.value = 0.0;

@@ -1,8 +1,3 @@
-/*
-Install sync. Shared state hub for active download and install operations across
-all screens. Stores per-package ValueNotifiers for download progress, active state,
-pause state, and version check results so any widget can react without coupling.
-*/
 import 'package:flutter/foundation.dart';
 import 'store_update_service.dart';
 

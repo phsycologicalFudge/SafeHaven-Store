@@ -1,7 +1,3 @@
-/*
-Device identity service. Generates and persists an anonymous device token used for
-rating submissions. No personally identifiable information is stored or transmitted.
-*/
 import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
