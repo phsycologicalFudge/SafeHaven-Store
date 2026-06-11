@@ -1,6 +1,6 @@
 import { getPresignedStagingUploadUrl } from "../storage.js";
 
-export { normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode } from "./apk_helpers.js";
+export { normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, } from "./apk_helpers.js";
 
 export const githubHeaders = (env) => {
   const token = (env.GITHUB_TOKEN || "").trim();

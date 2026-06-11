@@ -2,7 +2,7 @@ import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppByI
 import { addOrUpdateApp } from "../storage.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
-import { githubHeaders, normalizeGitHubRepoUrl, repoUrlVariants, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "../helpers/github_helpers.js";
+import { githubHeaders, normalizeGitHubRepoUrl, parseGitHubRepo, repoUrlVariants, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "../helpers/github_helpers.js";
 
 const IMPORT_LIMIT           = 50;
 const MAX_APK_BYTES          = 100 * 1024 * 1024;

@@ -200,15 +200,16 @@ const importCandidate = async (env, { repoUrl, adminImport = false }) => {
   const existing = await getAppByRepoUrl(env, normalized);
 
   if (existing) {
-    if (existing.upstream && existing.upstream !== "gitlab") {
-      return { skipped: true, reason: `upstream_is_${existing.upstream}` };
-    }
-
-    const autoTracked = Number(existing.auto_tracked || 0) === 1;
-    const claimed     = Number(existing.claimed || 0) === 1;
+    const autoTracked   = Number(existing.auto_tracked || 0) === 1;
+    const claimed       = Number(existing.claimed || 0) === 1;
+    const isPlaceholder = !existing.package_name || existing.package_name.startsWith("pending.");
 
     if (existing.status === "removed" && existing.developer_id === COMMUNITY_DEVELOPER_ID && autoTracked && !claimed) {
       await deleteAppById(env, existing.id);
+    } else if (!isPlaceholder && existing.upstream !== "gitlab") {
+      // different app sharing the same repo URL — not a conflict
+    } else if (existing.upstream && existing.upstream !== "gitlab") {
+      return { skipped: true, reason: `upstream_is_${existing.upstream}` };
     } else {
       return { skipped: true, reason: "already_tracked" };
     }
