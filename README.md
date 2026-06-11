@@ -113,7 +113,7 @@ flutter build appbundle --release
 SafeHaven is still in early development.
 
 ## How 'safe' is SafeHaven
-Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial security software to ensure malware doesnt slip through. Along with the work in progress BEP (build evaluation process), to ensure apps riddled with ads and trackers remain off the store.
+Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial security software in the live build to ensure malware doesnt slip through. Along with the work in progress BEP (build evaluation process), to ensure apps riddled with ads and trackers remain off the store.
 
 
 ## Project links
