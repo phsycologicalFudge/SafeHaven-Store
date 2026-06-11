@@ -15,6 +15,7 @@
   "vars": {
     "DEMO_DEV_TOKEN": "dev-token-change-me",
     "DEMO_ADMIN_TOKEN": "admin-token-change-me",
+    "SH_PUBLIC_BASE_URL": "https://example-endpoint.com",
     "SH_SCANNER_SECRET": "scanner-secret-change-me",
     "SH_S3_ENDPOINT": "https://example-s3-endpoint.com",
     "SH_S3_BUCKET": "safehaven-store",

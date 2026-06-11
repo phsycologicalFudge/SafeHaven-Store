@@ -49,12 +49,15 @@ import {
   CATEGORIES,
   getChangelog,
   putIndexWithChangelog,
+  removeVersionFromApp,
+  updateAppRating,
 } from "./storage.js";
 
 import { handleRatingsRoute, handleAdminRatingsRoute } from "./modules/ratings.js";
 import { normaliseIcon } from "./modules/images/icon_normalise.js";
 import { normaliseScreenshot } from "./modules/images/screenshot_normalise.js";
 import { uploadImageFromBuffer } from "./modules/images/image_upload.js";
+import { handleImageCacheRoute } from "./modules/images/cache/image_cache.js";
 import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, refreshGitHubMetadataForApp } from "./modules/git_store_job.js";
 import { runGitLabDirectImport, normalizeGitLabRepoUrl } from "./modules/gitlab_store_job.js";
 import { runCodebergDirectImport, normalizeCodebergRepoUrl } from "./modules/codeberg_store_job.js";
@@ -297,24 +300,6 @@ const createUnclaimedStoreApp = async (env, input) => {
   return id;
 };
 
-const getAppsForRepoPolling = async (env, maxAgeSeconds = 21600) => {
-  const cutoff = nowUnix() - maxAgeSeconds;
-  const rows = await env.api_control_db
-    .prepare(
-      `SELECT * FROM store_apps
-       WHERE auto_tracked = 1
-         AND status = 'active'
-         AND (upstream IS NULL OR upstream != 'fdroid')
-         AND repo_url LIKE 'https://github.com/%'
-         AND (last_repo_check IS NULL OR last_repo_check <= ?1)
-       ORDER BY last_repo_check ASC
-       LIMIT 50`
-    )
-    .bind(cutoff)
-    .all();
-  return rows.results || [];
-};
-
 const setAppLastRepoCheck = async (env, appId) => {
   await env.api_control_db
     .prepare("UPDATE store_apps SET last_repo_check = ?2 WHERE id = ?1")
@@ -346,77 +331,6 @@ const deleteSubmissionById = async (env, submissionId) => {
 
 
 const MAX_APK_BYTES = 100 * 1024 * 1024;
-
-const pollAppRepo = async (env, app) => {
-  const gh = parseGitHubRepo(app.repo_url);
-  if (!gh) { await setAppLastRepoCheck(env, app.id); return; }
-
-  await refreshGitHubMetadataForApp(env, app, gh.owner, gh.repo);
-
-  const release = await githubLatestRelease(env, gh.owner, gh.repo);
-  await setAppLastRepoCheck(env, app.id);
-  if (!release) return;
-
-  const asset = findApkAsset(release);
-  if (!asset) return;
-
-  if (asset.size && asset.size > MAX_APK_BYTES) return;
-
-  const versionCode = tagToVersionCode(release.tag_name);
-  if (!versionCode) return;
-  const versionName = release.tag_name;
-
-  const existing = await getSubmissionByVersionCode(env, app.id, versionCode);
-  if (existing) return;
-
-  const apkRes = await fetch(asset.browser_download_url, {
-    headers: { "user-agent": "SafeHaven-Store/1.0" },
-  });
-  if (!apkRes.ok) throw new Error(`apk_download_failed:${apkRes.status}`);
-  const apkBuffer = await apkRes.arrayBuffer();
-
-  if (apkBuffer.byteLength > MAX_APK_BYTES) return;
-
-  await uploadBufferToStaging(env, app.package_name, versionCode, apkBuffer);
-
-  const submissionId = await createSubmission(env, {
-    appId:       app.id,
-    developerId: COMMUNITY_DEVELOPER_ID,
-    packageName: app.package_name,
-    versionName,
-    versionCode,
-    stagingKey:  `staging/${app.package_name}/${versionCode}/app.apk`,
-  });
-
-  if (!submissionId) throw new Error("submission_create_failed");
-  await advanceSubmissionToScan(env, submissionId);
-
-  console.log(JSON.stringify({
-    tag:          "unclaimed_auto_update",
-    appId:        app.id,
-    packageName:  app.package_name,
-    versionCode,
-    submissionId,
-  }));
-
-  return true;
-};
-
-export async function runUnclaimedRepoPolls(env) {
-  const apps    = await getAppsForRepoPolling(env);
-  const results = { checked: 0, polled: 0, submitted: 0, errors: [] };
-  for (const app of apps) {
-    results.checked++;
-    try {
-      const queued = await pollAppRepo(env, app);
-      results.polled++;
-      if (queued) results.submitted++;
-    } catch (e) {
-      results.errors.push({ appId: app.id, error: String(e?.message || e) });
-    }
-  }
-  return results;
-}
 
 export async function runStoreAutoApprovals(env) {
   const due = await getSubmissionsDueForAutoApproval(env);
@@ -461,6 +375,11 @@ export async function handleStore(request, env, auth) {
   }
 
   try {
+
+    if (method === "GET" && path.startsWith("/store/img/")) {
+      const imgRes = await handleImageCacheRoute(request, env, null, path.replace("/store/img/", ""));
+      if (imgRes) return imgRes;
+    }
 
     if (method === "GET" && path === "/store/sync") {
       const since = Number(url.searchParams.get("since") || 0);
@@ -1224,6 +1143,23 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       return json({ ok: true, cleared: true });
     }
 
+    if (method === "POST" && path === "/admin/store/repopulate-ratings") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const rows = await env.api_control_db
+        .prepare("SELECT package_name, rating_sum, rating_count FROM store_ratings WHERE rating_count > 0")
+        .all();
+
+      const ratings = rows.results || [];
+      for (const row of ratings) {
+        await updateAppRating(env, row.package_name, row.rating_sum, row.rating_count);
+      }
+
+      return json({ ok: true, restored: ratings.length });
+    }
+
     if (method === "POST" && path === "/admin/store/bootstrap-import") {
       const me = await requireUser();
       if (!me) return unauthorized();
@@ -1806,6 +1742,44 @@ if (method === "POST" && path === "/admin/store/normalise-images") {
       console.log(JSON.stringify({ tag: "normalise_batch", offset, nextOffset: results.offset, elapsed: Date.now() - startedAt }));
 
       return json({ ok: true, ...results });
+    }
+
+    if (method === "POST" && path === "/internal/admin/cleanup-duplicate-versions") {
+      if (!isScannerAuth(env, request)) return unauthorized();
+
+      const rows = await env.api_control_db
+        .prepare(
+          `SELECT sa.package_name, s1.version_code AS inflated_vc, s2.version_code AS real_vc
+           FROM store_submissions s1
+           JOIN store_submissions s2
+             ON s1.app_id = s2.app_id
+            AND s1.apk_sha256 = s2.apk_sha256
+            AND s1.version_code > s2.version_code
+           JOIN store_apps sa ON sa.id = s1.app_id
+           WHERE s1.status = 'live'
+             AND s2.status = 'live'
+           ORDER BY sa.package_name`
+        )
+        .all();
+
+      const pairs = rows.results || [];
+      const cleaned = [];
+      const errors = [];
+
+      for (const row of pairs) {
+        try {
+          await removeVersionFromApp(env, row.package_name, row.inflated_vc);
+          await env.api_control_db
+            .prepare("UPDATE store_submissions SET status = 'retired', updated_at = ?1 WHERE app_id = (SELECT id FROM store_apps WHERE package_name = ?2) AND version_code = ?3 AND status = 'live'")
+            .bind(nowUnix(), row.package_name, row.inflated_vc)
+            .run();
+          cleaned.push({ packageName: row.package_name, removed: row.inflated_vc, kept: row.real_vc });
+        } catch (e) {
+          errors.push({ packageName: row.package_name, error: String(e?.message || e) });
+        }
+      }
+
+      return json({ ok: true, cleaned, errors });
     }
 
     const ratingsResponse = await handleRatingsRoute(request, env, path, method);
