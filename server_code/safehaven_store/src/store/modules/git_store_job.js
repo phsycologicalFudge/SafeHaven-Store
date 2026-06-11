@@ -1081,7 +1081,7 @@ export const pollGitHubApp = async (env, app) => {
 
   await refreshGitHubMetadataForApp(env, app).catch(() => {});
 
-  const parsed = repoUrlVariants(normalized);
+  const parsed = parseGitHubRepo(normalized);
   if (!parsed) return null;
 
   const release = await githubLatestRelease(env, parsed.owner, parsed.repo);
