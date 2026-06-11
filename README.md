@@ -9,7 +9,7 @@
 
 Or if you are a developer:
 
-[Submit your own app](https://api.colourswift.com/login?web=1)
+[Submit your own app](https://account.colourswift.com/)
 
 ### Where open Android apps belong.
 
