@@ -376,7 +376,7 @@ export async function handleStore(request, env, auth, ctx) {
 
   try {
 
-    if (method === "GET" && path.startsWith("/store/img/")) {
+    if ((method === "GET" || method === "HEAD") && path.startsWith("/store/img/")) {
       const imgRes = await handleImageCacheRoute(request, env, ctx, path.replace("/store/img/", ""));
       if (imgRes) return imgRes;
     }

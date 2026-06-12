@@ -1,4 +1,4 @@
-import { getPresignedDownloadUrl } from "../../../storage.js";
+import { s3Fetch } from "../../../storage.js";
 
 const ALLOWED_PREFIX = "images/";
 const DEFAULT_CONTENT_TYPE = "image/png";
@@ -35,8 +35,7 @@ export async function handleImageCacheRoute(request, env, ctx, rawKey) {
 
   let originRes;
   try {
-    const signedUrl = await getPresignedDownloadUrl(env, key, 300);
-    originRes = await fetch(signedUrl);
+    originRes = await s3Fetch(env, "GET", key);
   } catch {
     return new Response(null, { status: 502 });
   }

@@ -46,8 +46,15 @@ const imageCacheTag = (env, app) => {
   return salt ? `${salt}-${ver}` : String(ver);
 };
 
-const versionedImageUrl = (env, app, key) =>
-  `${publicImageUrl(env, key)}?v=${encodeURIComponent(imageCacheTag(env, app))}`;
+const publicBase = (env) => (env.SH_PUBLIC_BASE || "").toString().trim().replace(/\/$/, "");
+
+const versionedImageUrl = (env, app, key) => {
+  const tag = encodeURIComponent(imageCacheTag(env, app));
+  const base = publicBase(env);
+  return base
+    ? `${base}/store/img/${key}?v=${tag}`
+    : `${publicImageUrl(env, key)}?v=${tag}`;
+};
 
 export const buildIndexAppEntry = (env, app) => ({
   packageName: app.package_name,
