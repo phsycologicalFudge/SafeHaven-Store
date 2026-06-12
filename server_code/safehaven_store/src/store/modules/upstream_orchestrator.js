@@ -16,10 +16,13 @@ const getAppsForPolling = async (env) => {
   const rows = await env.api_control_db
     .prepare(
       `SELECT * FROM store_apps
-       WHERE auto_tracked = 1
-         AND status = 'active'
+       WHERE status = 'active'
          AND (upstream IS NULL OR upstream NOT IN ('fdroid'))
          AND (last_repo_check IS NULL OR last_repo_check <= ?1)
+         AND (
+           (auto_tracked = 1 AND claimed = 0)
+           OR (claimed = 1 AND (submission_mode_manual IS NULL OR submission_mode_manual = 0))
+         )
        ORDER BY last_repo_check ASC
        LIMIT 50`
     )

@@ -11,8 +11,12 @@ const isSafeKey = (key) =>
   !key.includes("..") &&
   !key.includes("\\");
 
+const bodylessFrom = (res) =>
+  new Response(null, { status: res.status, headers: res.headers });
+
 export async function handleImageCacheRoute(request, env, ctx, rawKey) {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const isHead = request.method === "HEAD";
 
   let key;
   try {
@@ -27,7 +31,7 @@ export async function handleImageCacheRoute(request, env, ctx, rawKey) {
   const cacheKey = new Request(new URL(request.url).toString(), { method: "GET" });
 
   const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  if (cached) return isHead ? bodylessFrom(cached) : cached;
 
   let originRes;
   try {
@@ -58,5 +62,5 @@ export async function handleImageCacheRoute(request, env, ctx, rawKey) {
   if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(put);
   else await put;
 
-  return response;
+  return isHead ? bodylessFrom(response) : response;
 }

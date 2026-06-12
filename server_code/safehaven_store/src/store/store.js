@@ -348,7 +348,7 @@ export async function runStoreAutoApprovals(env) {
   return due.length;
 }
 
-export async function handleStore(request, env, auth) {
+export async function handleStore(request, env, auth, ctx) {
   const url    = new URL(request.url);
   const path   = url.pathname;
   const method = request.method;
@@ -377,7 +377,7 @@ export async function handleStore(request, env, auth) {
   try {
 
     if (method === "GET" && path.startsWith("/store/img/")) {
-      const imgRes = await handleImageCacheRoute(request, env, null, path.replace("/store/img/", ""));
+      const imgRes = await handleImageCacheRoute(request, env, ctx, path.replace("/store/img/", ""));
       if (imgRes) return imgRes;
     }
 
@@ -802,6 +802,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       }
 
       await setAppRepoVerified(env, appId, true);
+      await setAppClaimed(env, appId, app.developer_id);
       return json({ ok: true });
     }
 
@@ -1104,6 +1105,21 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
           if (finalPackageName) {
             await saveScannerIcon(env, submission.app_id, finalPackageName, body);
+          }
+        }
+      }
+
+
+      if (body.passed) {
+        const selfApp = await getStoreAppById(env, submission.app_id);
+        if (selfApp?.package_name === "com.colourswift.safehaven") {
+          const freshSubmission = await getSubmissionById(env, submissionId);
+          if (freshSubmission?.status === SUBMISSION_STATUS.PENDING_REVIEW) {
+            try {
+              await approveAndPublish(env, freshSubmission, null);
+            } catch (e) {
+              console.log(JSON.stringify({ tag: "safehaven_self_approve_failed", error: String(e?.message || e) }));
+            }
           }
         }
       }

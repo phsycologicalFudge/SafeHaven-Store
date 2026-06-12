@@ -40,6 +40,15 @@ export const parseScreenshots = (screenshotsJson) => {
   try { return JSON.parse(screenshotsJson); } catch { return []; }
 };
 
+const imageCacheTag = (env, app) => {
+  const salt = (env.SH_IMAGE_VERSION || "").toString().trim();
+  const ver  = Number(app.image_version) || 0;
+  return salt ? `${salt}-${ver}` : String(ver);
+};
+
+const versionedImageUrl = (env, app, key) =>
+  `${publicImageUrl(env, key)}?v=${encodeURIComponent(imageCacheTag(env, app))}`;
+
 export const buildIndexAppEntry = (env, app) => ({
   packageName: app.package_name,
   name:        app.name,
@@ -49,6 +58,6 @@ export const buildIndexAppEntry = (env, app) => ({
   trustLevel:  app.trust_level,
   category:    app.category || null,
   upstream:    app.upstream || null,
-  iconUrl:     app.icon_key ? publicImageUrl(env, app.icon_key) : null,
-  screenshots: parseScreenshots(app.screenshots_json).map((k) => publicImageUrl(env, k)),
+  iconUrl:     app.icon_key ? versionedImageUrl(env, app, app.icon_key) : null,
+  screenshots: parseScreenshots(app.screenshots_json).map((k) => versionedImageUrl(env, app, k)),
 });

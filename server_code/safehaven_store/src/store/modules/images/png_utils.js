@@ -65,9 +65,23 @@ export const crc32 = (data) => {
 export const u32be = (n) => [(n >>> 24) & 0xFF, (n >>> 16) & 0xFF, (n >>> 8) & 0xFF, n & 0xFF];
 
 export const pngChunk = (type, data) => {
-  const typeBytes = type.split("").map((c) => c.charCodeAt(0));
-  const crc       = crc32(new Uint8Array([...typeBytes, ...data]));
-  return new Uint8Array([...u32be(data.length), ...typeBytes, ...data, ...u32be(crc)]);
+  const len = data.length;
+  const out = new Uint8Array(12 + len);
+  out[0] = (len >>> 24) & 0xFF;
+  out[1] = (len >>> 16) & 0xFF;
+  out[2] = (len >>> 8)  & 0xFF;
+  out[3] = len & 0xFF;
+  out[4] = type.charCodeAt(0);
+  out[5] = type.charCodeAt(1);
+  out[6] = type.charCodeAt(2);
+  out[7] = type.charCodeAt(3);
+  out.set(data, 8);
+  const crc = crc32(out.subarray(4, 8 + len));
+  out[8 + len]     = (crc >>> 24) & 0xFF;
+  out[8 + len + 1] = (crc >>> 16) & 0xFF;
+  out[8 + len + 2] = (crc >>> 8)  & 0xFF;
+  out[8 + len + 3] = crc & 0xFF;
+  return out;
 };
 
 export const compressZlib = async (data) => {

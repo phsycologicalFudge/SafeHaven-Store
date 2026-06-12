@@ -129,7 +129,7 @@ export async function setAppImages(env, appId, { iconKey, screenshotKeys }) {
     ? JSON.stringify(screenshotKeys.filter(Boolean).map((k) => k.toString().trim()))
     : null;
   await db(env)
-    .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, updated_at = ?4 WHERE id = ?1")
+    .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, image_version = image_version + 1, updated_at = ?4 WHERE id = ?1")
     .bind((appId || "").toString().trim(), icon, screenshots, nowUnix())
     .run();
 }
