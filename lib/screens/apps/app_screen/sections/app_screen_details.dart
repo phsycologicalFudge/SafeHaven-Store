@@ -97,6 +97,7 @@ class AppScreenPreviewSection extends StatelessWidget {
                   maxScale: 4.0,
                   child: CachedNetworkImage(
                     imageUrl: urls[index],
+                    fadeInDuration: const Duration(milliseconds: 150),
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const Center(
                       child: CircularProgressIndicator(color: Colors.white),
@@ -146,6 +147,7 @@ class AppScreenPreviewSection extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: CachedNetworkImage(
                   imageUrl: shots[index],
+                  fadeInDuration: const Duration(milliseconds: 150),
                   fit: BoxFit.cover,
                   memCacheWidth: 360,
                   memCacheHeight: 680,

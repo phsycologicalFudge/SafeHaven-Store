@@ -47,6 +47,10 @@ class ApkInstallService {
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
   static const Duration _installCacheTtl = Duration(seconds: 30);
 
+  Future<void> _serialLock = Future.value();
+  final _cancelledPackages = <String>{};
+  Map<String, InstalledPackageState>? _stateCache;
+
   HttpClient? _client;
   StreamSubscription<List<int>>? _subscription;
   Completer<void>? _downloadCompleter;
@@ -57,7 +61,6 @@ class ApkInstallService {
   bool _paused = false;
 
   bool get isPaused => _paused;
-  bool get isDownloading => _activePackage != null;
 
   Future<InstalledPackageState> getPackageState({
     required String packageName,
@@ -78,6 +81,36 @@ class ApkInstallService {
       signingCertificateSha256: _asString(result['signingCertificateSha256']),
       installer: _asString(result['installer']),
     );
+  }
+
+  Future<Map<String, InstalledPackageState>> getAllPackageStates({bool forceRefresh = false}) async {
+    if (!forceRefresh && _stateCache != null) return _stateCache!;
+
+    final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('getAllPackageStates');
+    if (result == null) {
+      _stateCache = {};
+      return _stateCache!;
+    }
+
+    final map = <String, InstalledPackageState>{};
+    for (final entry in result.entries) {
+      final pkg = entry.key as String;
+      final data = entry.value as Map<dynamic, dynamic>;
+      map[pkg] = InstalledPackageState(
+        installed: data['installed'] == true,
+        versionCode: _asInt(data['versionCode']),
+        versionName: _asString(data['versionName']),
+        signingCertificateSha256: _asString(data['signingCertificateSha256']),
+        installer: _asString(data['installer']),
+      );
+    }
+
+    _stateCache = map;
+    return _stateCache!;
+  }
+
+  void invalidateStateCache() {
+    _stateCache = null;
   }
 
   Future<void> openApp({required String packageName}) async {
@@ -102,7 +135,12 @@ class ApkInstallService {
     _paused = false;
   }
 
-  Future<void> cancelDownload() async {
+  Future<void> cancelDownload({String? packageName}) async {
+    if (packageName != null && _activePackage != packageName) {
+      _cancelledPackages.add(packageName);
+      return;
+    }
+
     _cancelled = true;
     _paused = false;
 
@@ -126,21 +164,32 @@ class ApkInstallService {
   Future<void> downloadAndInstall({
     required PublicStoreApp app,
     required void Function(double progress) onProgress,
+    void Function()? onStarted,
   }) async {
     final version = app.latestVersion;
     if (version == null) {
       throw const StoreApiException('missing_version');
     }
 
-    if (_activePackage != null) {
-      throw const StoreApiException('download_already_active');
-    }
-
-    _cancelled = false;
-    _paused = false;
-    _activePackage = app.packageName;
+    final previous = _serialLock;
+    final ownGate = Completer<void>();
+    _serialLock = ownGate.future;
 
     try {
+      try {
+        await previous;
+      } catch (_) {}
+
+      if (_cancelledPackages.remove(app.packageName)) {
+        throw const StoreApiException('download_cancelled');
+      }
+
+      _cancelled = false;
+      _paused = false;
+      _activePackage = app.packageName;
+
+      onStarted?.call();
+
       final downloadUrl = await StoreService.instance.getDownloadUrl(
         packageName: app.packageName,
         versionCode: version.versionCode,
@@ -177,7 +226,7 @@ class ApkInstallService {
       _downloadCompleter = completer;
 
       _subscription = response.listen(
-        (chunk) {
+            (chunk) {
           if (_cancelled) return;
           received += chunk.length;
           digestInput.add(chunk);
@@ -244,10 +293,13 @@ class ApkInstallService {
         'path': file.path,
         'packageName': app.packageName,
       });
+      invalidateStateCache();
 
       _scheduleInstallCacheCleanup(installDir, file);
     } finally {
       _activePackage = null;
+      _cancelledPackages.remove(app.packageName);
+      ownGate.complete();
     }
   }
 

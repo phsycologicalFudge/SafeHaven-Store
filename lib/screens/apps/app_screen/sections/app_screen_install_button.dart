@@ -134,14 +134,6 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
   }
 
   Future<void> _install() async {
-    if (ApkInstallService.instance.isDownloading) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Another download is in progress.')),
-      );
-      return;
-    }
-
     final check = InstallSync.cachedCheck[_pkg];
     final version = check?.latestVersion ?? widget.app.latestVersion;
     if (version == null) return;
@@ -151,8 +143,6 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
     InstallSync.progress[_pkg]!.value = 0.0;
     InstallSync.preparing[_pkg]!.value = true;
     _lastPaintedProgress = -1;
-
-    final uiDelay = Future<void>.delayed(const Duration(milliseconds: 400));
 
     final downloadFuture = ApkInstallService.instance.downloadAndInstall(
       app: widget.app,
@@ -168,12 +158,12 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
         _lastPaintedProgress = nextProgress;
         InstallSync.progress[_pkg]!.value = nextProgress;
       },
+      onStarted: () {
+        if (mounted) {
+          InstallSync.preparing[_pkg]!.value = false;
+        }
+      },
     );
-
-    await uiDelay;
-    if (mounted) {
-      InstallSync.preparing[_pkg]!.value = false;
-    }
 
     try {
       await downloadFuture;
@@ -230,7 +220,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
     InstallSync.preparing[_pkg]!.value = false;
 
     try {
-      await ApkInstallService.instance.cancelDownload();
+      await ApkInstallService.instance.cancelDownload(packageName: _pkg);
     } catch (_) {}
   }
 
@@ -334,26 +324,26 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
                               child: Center(
                                 child: isInstalling && isPreparing
                                     ? SizedBox(
-                                        width: widget.compact ? 18 : 22,
-                                        height: widget.compact ? 18 : 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                            colors.text,
-                                          ),
-                                        ),
-                                      )
+                                  width: widget.compact ? 18 : 22,
+                                  height: widget.compact ? 18 : 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colors.text,
+                                    ),
+                                  ),
+                                )
                                     : Text(
-                                        labelText,
-                                        style: TextStyle(
-                                          fontSize: widget.compact ? 13.5 : 14,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.2,
-                                          color: _hasVersion && !isInstalling
-                                              ? colors.buttonText
-                                              : (isInstalling ? colors.text : colors.textMuted),
-                                        ),
-                                      ),
+                                  labelText,
+                                  style: TextStyle(
+                                    fontSize: widget.compact ? 13.5 : 14,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.2,
+                                    color: _hasVersion && !isInstalling
+                                        ? colors.buttonText
+                                        : (isInstalling ? colors.text : colors.textMuted),
+                                  ),
+                                ),
                               ),
                             ),
                           ),

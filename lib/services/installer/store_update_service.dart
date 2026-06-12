@@ -39,15 +39,12 @@ class StoreUpdateService {
   static final StoreUpdateService instance = StoreUpdateService._();
 
   Future<void> syncAndTriggerAutoUpdates(List<PublicStoreApp> apps) async {
-    final states = await Future.wait(
-      apps.map((app) => ApkInstallService.instance.getPackageState(packageName: app.packageName)),
-    );
+    final installedStates = await ApkInstallService.instance.getAllPackageStates();
 
     final eligible = <({PublicStoreApp app, int versionCode})>[];
-    for (var i = 0; i < apps.length; i++) {
-      final app = apps[i];
-      final state = states[i];
-      if (!state.installed || !state.isInstalledBySafeHaven) continue;
+    for (final app in apps) {
+      final state = installedStates[app.packageName];
+      if (state == null || !state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
       eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
     }
@@ -98,8 +95,19 @@ class StoreUpdateService {
     );
   }
 
-  Future<List<StoreUpdateCheck>> checkApps(List<PublicStoreApp> apps) async {
-    return Future.wait(apps.map(checkApp));
+  Future<List<StoreUpdateCheck>> checkApps(List<PublicStoreApp> apps, {bool forceRefresh = false}) async {
+    final installedStates = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
+    return apps.map((app) {
+      final state = installedStates[app.packageName] ??
+          const InstalledPackageState(installed: false, versionCode: 0);
+      final latestVersion = app.latestVersion;
+      return StoreUpdateCheck(
+        app: app,
+        installedState: state,
+        latestVersion: latestVersion,
+        status: _resolveStatus(installedState: state, latestVersion: latestVersion),
+      );
+    }).toList();
   }
 
   Future<List<StoreUpdateCheck>> availableUpdates(List<PublicStoreApp> apps) async {

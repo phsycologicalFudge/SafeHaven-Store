@@ -312,9 +312,9 @@ class PublicStoreApp {
           .map(StoreVersion.fromJson)
           .toList()
           : const [],
-      iconUrl: _asNullableString(json['iconUrl']),
+      iconUrl: _normaliseImageUrl(_asNullableString(json['iconUrl'])),
       screenshots: screenshots is List
-          ? screenshots.whereType<String>().toList()
+          ? screenshots.whereType<String>().map((s) => _normaliseImageUrl(s) ?? s).toList()
           : const [],
     );
   }
@@ -630,4 +630,16 @@ String? _asNullableString(dynamic value) {
   if (clean.isEmpty) return null;
 
   return clean;
+}
+
+const _cdnBase = '${StoreService.defaultBaseUrl}/store/img';
+
+String? _normaliseImageUrl(String? url) {
+  if (url == null || url.isEmpty) return null;
+  if (url.contains('/store/img/')) return url;
+  final match = RegExp(r'https?://[^/]+\.your-objectstorage\.com/[^/]+/(.+)').firstMatch(url);
+  if (match == null) return url;
+  final key = match.group(1)!;
+  if (!key.startsWith('images/')) return url;
+  return '$_cdnBase/$key';
 }

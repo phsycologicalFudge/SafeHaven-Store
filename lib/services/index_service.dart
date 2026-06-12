@@ -21,10 +21,8 @@ class IndexService {
   Future<StoreIndex> fetchIndex({bool forceRefresh = false}) {
     if (!forceRefresh && _isCacheValid) return Future.value(_cache!);
 
-    if (!forceRefresh) {
-      final pending = _inFlightFetch;
-      if (pending != null) return pending;
-    }
+    final pending = _inFlightFetch;
+    if (pending != null) return pending;
 
     final fetch = SyncService.instance.syncStore().then((index) {
       _cache = index;

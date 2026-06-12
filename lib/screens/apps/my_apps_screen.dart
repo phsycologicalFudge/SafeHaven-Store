@@ -24,6 +24,7 @@ class _MyAppsScreenState extends State<MyAppsScreen>
   late Future<List<StoreUpdateCheck>> _future;
   bool _triggering = false;
   bool _autoTriggered = false;
+  DateTime? _lastLifecycleLoad;
 
   @override
   void initState() {
@@ -41,6 +42,12 @@ class _MyAppsScreenState extends State<MyAppsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastLifecycleLoad != null &&
+          now.difference(_lastLifecycleLoad!) < const Duration(minutes: 5)) {
+        return;
+      }
+      _lastLifecycleLoad = now;
       setState(() {
         _autoTriggered = false;
         _future = _loadInstalledStoreApps();
@@ -50,7 +57,7 @@ class _MyAppsScreenState extends State<MyAppsScreen>
 
   Future<List<StoreUpdateCheck>> _loadInstalledStoreApps({bool forceRefresh = false}) async {
     final index = await IndexService.instance.fetchIndex(forceRefresh: forceRefresh);
-    final checks = await StoreUpdateService.instance.checkApps(index.apps);
+    final checks = await StoreUpdateService.instance.checkApps(index.apps, forceRefresh: forceRefresh);
     final installed = checks.where((c) => c.installed).toList()
       ..sort((a, b) => a.app.name.toLowerCase().compareTo(b.app.name.toLowerCase()));
 

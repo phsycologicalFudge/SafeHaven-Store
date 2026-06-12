@@ -85,6 +85,7 @@ class AppScreenLargeIcon extends StatelessWidget {
           ? null
           : CachedNetworkImage(
         imageUrl: url,
+        fadeInDuration: const Duration(milliseconds: 150),
         fit: BoxFit.cover,
         memCacheWidth: 240,
         memCacheHeight: 240,

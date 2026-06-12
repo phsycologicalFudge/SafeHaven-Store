@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/index_service.dart';
+import '../../services/installer/safehaven_updater/self_update_dialog.dart';
+import '../../services/installer/safehaven_updater/self_update_service.dart';
 import '../../services/installer/store_update_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/footer.dart';
@@ -26,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   DateTime? _lastUpdateCheck;
+  DateTime? _lastSelfUpdateCheck;
+  DateTime? _selfUpdateDismissedUntil;
+  bool _selfUpdateDialogOpen = false;
 
   static const List<Widget> _screens = [
     CatalogueScreen(),
@@ -57,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestNotificationPermission();
       _checkForUpdates();
+      _checkForSelfUpdate();
     });
   }
 
@@ -71,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkForUpdates();
+      _checkForSelfUpdate();
     }
   }
 
@@ -85,6 +92,32 @@ class _HomeScreenState extends State<HomeScreen>
       final index = await IndexService.instance.fetchIndex(forceRefresh: true);
       await StoreUpdateService.instance.syncAndTriggerAutoUpdates(index.apps);
     } catch (_) {}
+  }
+
+  Future<void> _checkForSelfUpdate() async {
+    final now = DateTime.now();
+    if (_lastSelfUpdateCheck != null &&
+        now.difference(_lastSelfUpdateCheck!) < const Duration(hours: 3)) {
+      return;
+    }
+    if (_selfUpdateDismissedUntil != null &&
+        now.isBefore(_selfUpdateDismissedUntil!)) {
+      return;
+    }
+    if (_selfUpdateDialogOpen) return;
+    _lastSelfUpdateCheck = now;
+
+    try {
+      final info = await SelfUpdateService.instance.check();
+      if (info == null || !mounted) return;
+
+      _selfUpdateDialogOpen = true;
+      await SelfUpdateDialog.show(context, info);
+      _selfUpdateDialogOpen = false;
+      _selfUpdateDismissedUntil = DateTime.now().add(const Duration(hours: 1));
+    } catch (_) {
+      _selfUpdateDialogOpen = false;
+    }
   }
 
   void _buildAnims({required bool forward}) {
