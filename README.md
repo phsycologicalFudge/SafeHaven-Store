@@ -119,9 +119,6 @@ Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial s
 ## Project links
 
 <p>
-  <a href="https://github.com/phsycologicalFudge/SafeHaven">
-    <img src="https://img.shields.io/badge/Source%20Code-181717?style=for-the-badge&logo=github&logoColor=white" alt="Source Code">
-  </a>
   <a href="https://discord.gg/VYubQJfcYM">
     <img src="https://img.shields.io/badge/Community-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord">
   </a>
