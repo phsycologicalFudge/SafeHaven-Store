@@ -46,3 +46,4 @@ app.*.map.json
 
 # Custom files
 *.txt
+/android/build
