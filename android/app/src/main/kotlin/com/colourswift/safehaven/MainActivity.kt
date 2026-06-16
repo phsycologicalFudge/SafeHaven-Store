@@ -8,6 +8,7 @@ import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -120,6 +121,10 @@ class MainActivity : FlutterActivity() {
                     getPackageState(targetPackage, result)
                 }
 
+                "getAllPackageStates" -> {
+                    getAllPackageStates(result)
+                }
+
                 "openApp" -> {
                     val targetPackage = call.argument<String>("packageName")
                     if (targetPackage.isNullOrBlank()) {
@@ -157,10 +162,22 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    //TODO: delete later
+    private fun log(level: String, msg: String) {
+        try {
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            val file = File(dir, "safehaven_installer.log")
+            file.appendText("${System.currentTimeMillis()} [$level] $msg\n")
+        } catch (_: Exception) {}
+    }
+
     private fun installApk(path: String, result: MethodChannel.Result) {
+        log("D", "installApk called, sdk=${Build.VERSION.SDK_INT}")
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
         ) {
+            log("W", "install permission not granted, redirecting to settings")
             val settingsIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:$packageName")
@@ -173,19 +190,119 @@ class MainActivity : FlutterActivity() {
 
         val file = File(path)
         if (!file.exists()) {
+            log("E", "APK file not found")
             result.error("file_missing", "APK file does not exist", null)
             return
         }
 
-        val apkUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        log("D", "APK exists, size=${file.length()}")
+
+        val apkUri = try {
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        } catch (e: IllegalArgumentException) {
+            log("E", "FileProvider failed: ${e.message}")
+            result.error("fileprovider_error", e.message, null)
+            return
         }
 
-        startActivity(installIntent)
-        result.success(true)
+        log("D", "URI created, launching installer")
+
+        fun buildIntent(pkg: String? = null): Intent =
+            Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                putExtra(Intent.EXTRA_RETURN_RESULT, false)
+                if (pkg != null) setPackage(pkg)
+            }
+
+        fun resolveSystemInstaller(): String? {
+            val probe = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                type = "application/vnd.android.package-archive"
+            }
+            return packageManager.queryIntentActivities(probe, 0)
+                .firstOrNull {
+                    it.activityInfo.applicationInfo.flags and
+                            android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+                }
+                ?.activityInfo?.packageName
+        }
+
+        try {
+            startActivity(buildIntent())
+            log("D", "startActivity succeeded")
+            result.success(true)
+        } catch (e: ActivityNotFoundException) {
+            log("W", "ActivityNotFoundException, trying system installer fallback")
+            val systemPkg = resolveSystemInstaller()
+            if (systemPkg != null) {
+                try {
+                    startActivity(buildIntent(systemPkg))
+                    log("D", "fallback startActivity succeeded, pkg=$systemPkg")
+                    result.success(true)
+                } catch (e2: ActivityNotFoundException) {
+                    log("E", "fallback failed: ${e2.message}")
+                    result.error("installer_not_found", e2.message, null)
+                }
+            } else {
+                log("E", "no system installer found")
+                result.error("installer_not_found", e.message, null)
+            }
+        } catch (e: Exception) {
+            log("E", "${e.javaClass.simpleName}: ${e.message}")
+            result.error("install_failed", e.message, null)
+        }
+    }
+
+    private fun getAllPackageStates(result: MethodChannel.Result) {
+        try {
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                @Suppress("DEPRECATION")
+                PackageManager.GET_SIGNATURES
+            }
+
+            val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getInstalledPackages(flags)
+            }
+
+            val map = mutableMapOf<String, Map<String, Any?>>()
+            for (info in packages) {
+                val pkgName = info.packageName
+                val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    info.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    info.versionCode.toLong()
+                }
+                val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        packageManager.getInstallSourceInfo(pkgName).installingPackageName
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getInstallerPackageName(pkgName)
+                }
+                map[pkgName] = mapOf(
+                    "installed" to true,
+                    "versionCode" to versionCode,
+                    "versionName" to info.versionName,
+                    "signingCertificateSha256" to getSigningCertificateSha256(info),
+                    "installer" to installer
+                )
+            }
+            result.success(map)
+        } catch (e: Exception) {
+            result.error("package_query_failed", e.message, null)
+        }
     }
 
     private fun getPackageState(targetPackage: String, result: MethodChannel.Result) {

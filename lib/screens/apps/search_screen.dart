@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
@@ -501,12 +502,16 @@ class _AppIcon extends StatelessWidget {
             color: colors.textMuted,
           ),
         )
-            : Image.network(
-          iconUrl,
+            : CachedNetworkImage(
+          imageUrl: iconUrl,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          memCacheWidth: (size * 2).toInt(),
+          memCacheHeight: (size * 2).toInt(),
+          fadeInDuration: const Duration(milliseconds: 120),
+          filterQuality: FilterQuality.medium,
+          placeholder: (_, __) => Container(
             color: colors.surfaceSoft,
             child: Icon(
               Icons.apps_rounded,
@@ -514,17 +519,14 @@ class _AppIcon extends StatelessWidget {
               color: colors.textMuted,
             ),
           ),
-          loadingBuilder: (_, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: colors.surfaceSoft,
-              child: Icon(
-                Icons.apps_rounded,
-                size: size * 0.48,
-                color: colors.textMuted,
-              ),
-            );
-          },
+          errorWidget: (_, __, ___) => Container(
+            color: colors.surfaceSoft,
+            child: Icon(
+              Icons.apps_rounded,
+              size: size * 0.48,
+              color: colors.textMuted,
+            ),
+          ),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'store_service.dart';
 
@@ -128,7 +129,7 @@ class CatalogueService {
   Future<Color?> _dominantIconColor(String iconUrl) async {
     try {
       final palette = await PaletteGenerator.fromImageProvider(
-        NetworkImage(iconUrl),
+        CachedNetworkImageProvider(iconUrl),
         maximumColorCount: 18,
         size: const Size(96, 96),
       );

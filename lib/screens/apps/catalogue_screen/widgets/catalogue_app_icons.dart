@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 
@@ -92,20 +93,21 @@ class CatalogueAppIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.22),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        iconUrl,
+      child: CachedNetworkImage(
+        imageUrl: iconUrl,
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _AppIconFallback(
+        memCacheWidth: (size * 2).toInt(),
+        memCacheHeight: (size * 2).toInt(),
+        fadeInDuration: const Duration(milliseconds: 120),
+        filterQuality: FilterQuality.medium,
+        placeholder: (_, __) => const SizedBox.shrink(),
+        errorWidget: (_, __, ___) => _AppIconFallback(
           app: app,
           size: size,
           radius: size * 0.22,
         ),
-        loadingBuilder: (_, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const SizedBox.shrink();
-        },
       ),
     );
   }
@@ -140,10 +142,15 @@ class CatalogueRawAppIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        iconUrl,
+      child: CachedNetworkImage(
+        imageUrl: iconUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
+        memCacheWidth: (size * 2).toInt(),
+        memCacheHeight: (size * 2).toInt(),
+        fadeInDuration: const Duration(milliseconds: 120),
+        filterQuality: FilterQuality.medium,
+        placeholder: (_, __) => const SizedBox.shrink(),
+        errorWidget: (_, __, ___) =>
             _AppIconFallback(app: app, size: size, radius: radius),
       ),
     );

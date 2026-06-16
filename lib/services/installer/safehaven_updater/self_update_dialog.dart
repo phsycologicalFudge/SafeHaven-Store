@@ -37,7 +37,7 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
     });
 
     final path = await SelfUpdateService.instance.downloadApk(
-      widget.info.versionCode,
+      widget.info.apkDownloadUrl,
       onProgress: (p) {
         if (mounted) setState(() => _progress = p);
       },

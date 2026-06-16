@@ -99,6 +99,7 @@ class AppScreenPreviewSection extends StatelessWidget {
                     imageUrl: urls[index],
                     fadeInDuration: const Duration(milliseconds: 150),
                     fit: BoxFit.contain,
+                    memCacheWidth: 1080,
                     placeholder: (_, __) => const Center(
                       child: CircularProgressIndicator(color: Colors.white),
                     ),

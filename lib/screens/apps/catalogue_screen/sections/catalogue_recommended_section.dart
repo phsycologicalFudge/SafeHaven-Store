@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import '../../../../services/catalogue_service.dart';
@@ -388,10 +389,14 @@ class _BannerForegroundIcon extends StatelessWidget {
             color: Colors.white,
           ),
         )
-            : Image.network(
-          iconUrl,
+            : CachedNetworkImage(
+          imageUrl: iconUrl,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          memCacheWidth: 116,
+          memCacheHeight: 116,
+          fadeInDuration: const Duration(milliseconds: 120),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) => Container(
             color: Colors.white.withOpacity(0.16),
             child: const Icon(
               Icons.apps_rounded,
@@ -429,10 +434,14 @@ class _BannerLargeIcon extends StatelessWidget {
             color: Colors.white,
           ),
         )
-            : Image.network(
-          iconUrl,
+            : CachedNetworkImage(
+          imageUrl: iconUrl,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          memCacheWidth: 296,
+          memCacheHeight: 296,
+          fadeInDuration: const Duration(milliseconds: 120),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) => Container(
             color: Colors.white.withOpacity(0.16),
             child: const Icon(
               Icons.apps_rounded,

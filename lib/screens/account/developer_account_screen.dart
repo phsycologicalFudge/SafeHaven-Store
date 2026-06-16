@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -875,18 +876,19 @@ class _AppIcon extends StatelessWidget {
         size: size * 0.42,
         color: colors.textMuted,
       )
-          : Image.network(
-        iconUrl,
+          : CachedNetworkImage(
+        imageUrl: iconUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Icon(
+        memCacheWidth: (size * 2).toInt(),
+        memCacheHeight: (size * 2).toInt(),
+        fadeInDuration: const Duration(milliseconds: 120),
+        filterQuality: FilterQuality.medium,
+        placeholder: (_, __) => const SizedBox.shrink(),
+        errorWidget: (_, __, ___) => Icon(
           Icons.android_rounded,
           size: size * 0.42,
           color: colors.textMuted,
         ),
-        loadingBuilder: (_, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const SizedBox.shrink();
-        },
       ),
     );
   }
