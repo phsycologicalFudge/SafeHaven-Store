@@ -41,6 +41,8 @@ class UpdateForegroundService : Service() {
             }
         }
 
+        fun hasActiveBatch(): Boolean = synchronized(lock) { pendingInstalls > 0 }
+
         fun onInstallResult(context: Context, success: Boolean, packageName: String) {
             if (packageName.isNotBlank() && !finalisedPackages.add(packageName)) return
             val failed: Int
@@ -57,7 +59,10 @@ class UpdateForegroundService : Service() {
                     f
                 } else 0
             }
-            if (shouldNotify && failed > 0) showFailureSummary(context, failed)
+            if (shouldNotify) {
+                if (failed > 0) showFailureSummary(context, failed)
+                context.stopService(Intent(context, UpdateForegroundService::class.java))
+            }
         }
 
         private fun showFailureSummary(context: Context, count: Int) {
@@ -79,24 +84,26 @@ class UpdateForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        abandonStaleSessions()
+        if (!hasActiveBatch()) {
+            abandonStaleSessions()
+        }
         startForeground(NOTIFICATION_ID, buildProgressNotification(0, 0))
 
         val updatesJson = intent?.getStringExtra("updates_json")
         if (updatesJson.isNullOrEmpty()) {
-            stopSelf(startId)
+            if (!hasActiveBatch()) stopSelf(startId)
             return START_NOT_STICKY
         }
 
         val updates = parseUpdatesJson(updatesJson)
         if (updates.isEmpty()) {
-            stopSelf(startId)
+            if (!hasActiveBatch()) stopSelf(startId)
             return START_NOT_STICKY
         }
 
         val pending = updates.filter { (packageName, _) -> activePackages.add(packageName) }
         if (pending.isEmpty()) {
-            stopSelf(startId)
+            if (!hasActiveBatch()) stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -116,7 +123,6 @@ class UpdateForegroundService : Service() {
                     }
                 }
             }.awaitAll()
-            stopSelf(startId)
         }
 
         return START_NOT_STICKY
@@ -216,10 +222,14 @@ class UpdateForegroundService : Service() {
     private fun installApk(packageName: String, file: File) {
         val packageInstaller = packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-        params.setInstallerPackageName(this.packageName)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            try {
+                params.setInstallerPackageName(this.packageName)
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            } catch (e: NoSuchMethodError) {
+                CrashLogService.log("UpdateService", "W", "SessionParams attribution methods unavailable on this OEM build: ${e.message}")
+            }
         }
 
         val sessionId = packageInstaller.createSession(params)
