@@ -6,6 +6,7 @@ import '../../../../services/installer/install_sync.dart';
 import '../../../../services/installer/store_update_service.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
+import '../../../../widgets/dialogs/message_dialog.dart';
 
 class AppScreenInstallButton extends StatefulWidget {
   const AppScreenInstallButton({
@@ -111,8 +112,10 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       await ApkInstallService.instance.openApp(packageName: _pkg);
     } on PlatformException {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open this app.')),
+      SimpleMessageDialog.show(
+        context,
+        title: 'Could not open app',
+        message: 'Could not open this app.',
       );
     }
   }
@@ -173,7 +176,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       final message = e.code == 'install_permission_required'
           ? 'Allow SafeHaven to install apps, then tap Install again.'
           : 'Could not start the installer.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      SimpleMessageDialog.show(context, title: 'Install failed', message: message);
     } catch (e) {
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
@@ -184,7 +187,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
           'apk_size_mismatch' => 'APK download appears incomplete.',
           _ => 'Install failed: $e',
         };
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        SimpleMessageDialog.show(context, title: 'Install failed', message: text);
       }
     } finally {
       InstallSync.active[_pkg]!.value = false;

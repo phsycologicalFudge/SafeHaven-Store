@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
+import '../../services/logs/debug_log_service.dart';
 import '../../services/index_service.dart';
 import '../../services/installer/install_sync.dart';
 import '../../services/installer/store_update_service.dart';
@@ -8,10 +8,18 @@ import '../../services/installer/unattended_update_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
+import '../../widgets/dialogs/update_results_dialog.dart';
 import '../../widgets/refresh/pull_to_refresh.dart';
 import 'app_screen/app_screen.dart';
 import 'catalogue_screen/catalogue_navigation.dart';
 import 'catalogue_screen/widgets/catalogue_download_button.dart';
+
+class _UpdateOutcome {
+  const _UpdateOutcome({required this.started, required this.failed});
+
+  final int started;
+  final List<UpdateFailure> failed;
+}
 
 class MyAppsScreen extends StatefulWidget {
   const MyAppsScreen({super.key});
@@ -73,32 +81,72 @@ class _MyAppsScreenState extends State<MyAppsScreen>
     return installed;
   }
 
-  Future<void> _autoTriggerUpdates(List<StoreUpdateCheck> checks) async {
+  Future<_UpdateOutcome> _autoTriggerUpdates(List<StoreUpdateCheck> checks) async {
+    final failed = <UpdateFailure>[];
+
     try {
+      final eligible = <StoreUpdateCheck>[];
+      for (final check in checks) {
+        if (!check.installedState.isInstalledBySafeHaven) {
+          failed.add(UpdateFailure(
+            appName: check.app.name,
+            reason: 'App cannot be updated by SafeHaven',
+            blockedBySafeHaven: true,
+          ));
+          continue;
+        }
+        eligible.add(check);
+      }
+
+      if (eligible.isEmpty) {
+        return _UpdateOutcome(started: 0, failed: failed);
+      }
+
       final urlResults = await Future.wait(
-        checks.map((c) async {
+        eligible.map((c) async {
           try {
             return await StoreService.instance.getDownloadUrl(
               packageName: c.app.packageName,
               versionCode: c.latestVersion!.versionCode,
             );
-          } catch (_) {
+          } catch (e, s) {
+            DebugLog.e('MyApps', 'getDownloadUrl failed: ${c.app.packageName}', e, s);
             return null;
           }
         }),
       );
 
       final updates = <Map<String, dynamic>>[];
-      for (var i = 0; i < checks.length; i++) {
+      for (var i = 0; i < eligible.length; i++) {
         final url = urlResults[i];
         if (url != null) {
-          updates.add({'packageName': checks[i].app.packageName, 'downloadUrl': url});
+          updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
+        } else {
+          failed.add(UpdateFailure(
+            appName: eligible[i].app.name,
+            reason: 'Could not get download link',
+          ));
         }
       }
 
-      if (updates.isEmpty) return;
+      if (updates.isEmpty) {
+        return _UpdateOutcome(started: 0, failed: failed);
+      }
+
       await UnattendedUpdateService.triggerManualBatchUpdate(updates);
-    } catch (_) {}
+      return _UpdateOutcome(started: updates.length, failed: failed);
+    } catch (e, s) {
+      DebugLog.e('MyApps', 'autoTriggerUpdates failed', e, s);
+      return _UpdateOutcome(
+        started: 0,
+        failed: failed.isNotEmpty
+            ? failed
+            : [
+          for (final c in checks)
+            UpdateFailure(appName: c.app.name, reason: 'Could not start update'),
+        ],
+      );
+    }
   }
 
   Future<void> _reload() async {
@@ -118,7 +166,10 @@ class _MyAppsScreenState extends State<MyAppsScreen>
     if (updatable.isEmpty) return;
     setState(() => _triggering = true);
     try {
-      await _autoTriggerUpdates(updatable);
+      final outcome = await _autoTriggerUpdates(updatable);
+      if (mounted && outcome.failed.isNotEmpty) {
+        UpdateResultsDialog.show(context, started: outcome.started, failed: outcome.failed);
+      }
     } finally {
       if (mounted) setState(() => _triggering = false);
     }
@@ -219,17 +270,17 @@ class _UpdateBanner extends StatelessWidget {
                       ),
                       child: triggering
                           ? SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(colors.buttonText),
-                              ),
-                            )
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(colors.buttonText),
+                        ),
+                      )
                           : Text(
-                              'Update All',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
-                            ),
+                        'Update All',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
+                      ),
                     ),
                   ),
                 ],
@@ -339,23 +390,23 @@ class _AppIcon extends StatelessWidget {
         child: iconUrl == null
             ? Container(color: colors.surfaceSoft, child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted))
             : CachedNetworkImage(
-                imageUrl: iconUrl,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                memCacheWidth: (size * 2).toInt(),
-                memCacheHeight: (size * 2).toInt(),
-                fadeInDuration: const Duration(milliseconds: 120),
-                filterQuality: FilterQuality.medium,
-                placeholder: (_, __) => Container(
-                  color: colors.surfaceSoft,
-                  child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
-                ),
-                errorWidget: (_, __, ___) => Container(
-                  color: colors.surfaceSoft,
-                  child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
-                ),
-              ),
+          imageUrl: iconUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          memCacheWidth: (size * 2).toInt(),
+          memCacheHeight: (size * 2).toInt(),
+          fadeInDuration: const Duration(milliseconds: 120),
+          filterQuality: FilterQuality.medium,
+          placeholder: (_, __) => Container(
+            color: colors.surfaceSoft,
+            child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: colors.surfaceSoft,
+            child: Icon(Icons.apps_rounded, size: size * 0.48, color: colors.textMuted),
+          ),
+        ),
       ),
     );
   }
