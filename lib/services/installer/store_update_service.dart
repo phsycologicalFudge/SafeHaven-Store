@@ -1,3 +1,4 @@
+import '../logs/debug_log_service.dart';
 import '../store_service.dart';
 import 'apk_install_service.dart';
 import 'unattended_update_service.dart';
@@ -58,7 +59,8 @@ class StoreUpdateService {
             packageName: e.app.packageName,
             versionCode: e.versionCode,
           );
-        } catch (_) {
+        } catch (err, s) {
+          DebugLog.e('StoreUpdate', 'getDownloadUrl failed: ${e.app.packageName}', err, s);
           return null;
         }
       }),

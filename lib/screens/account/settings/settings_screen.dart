@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../services/logs/debug_log_service.dart';
 import '../../../services/theme/theme_manager.dart';
 import '../../../widgets/animated_tap.dart';
 import '../../apps/catalogue_screen/catalogue_navigation.dart';
@@ -19,12 +20,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _appVersion = 'Loading...';
   bool _foregroundEnabled = true;
+  bool _debugEnabled = false;
+  bool _hasLog = false;
 
   @override
   void initState() {
     super.initState();
     _loadVersionInfo();
     _loadForegroundPref();
+    _loadDebugState();
   }
 
   Future<void> _loadVersionInfo() async {
@@ -52,11 +56,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {}
   }
 
+  Future<void> _loadDebugState() async {
+    final enabled = DebugLog.enabled;
+    final has = await DebugLog.hasLog();
+    if (!mounted) return;
+    setState(() {
+      _debugEnabled = enabled;
+      _hasLog = has;
+    });
+  }
+
   Future<void> _setForegroundEnabled(bool value) async {
     setState(() => _foregroundEnabled = value);
     try {
       await _channel.invokeMethod('setForegroundService', {'enabled': value});
     } catch (_) {}
+  }
+
+  Future<void> _setDebugEnabled(bool value) async {
+    setState(() => _debugEnabled = value);
+    await DebugLog.setEnabled(value);
+  }
+
+  Future<void> _shareLogs() async {
+    await DebugLog.shareLog();
+  }
+
+  Future<void> _clearLogs() async {
+    await DebugLog.clearLog();
+    if (!mounted) return;
+    setState(() => _hasLog = false);
   }
 
   Future<void> _openLink(String url) async {
@@ -139,6 +168,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: 'Version',
                   subtitle: _appVersion,
                 ),
+              ],
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: _SettingsSection(
+              title: 'Debugging',
+              children: [
+                _SettingsToggleTile(
+                  icon: Icons.bug_report_rounded,
+                  title: 'Debug Logging',
+                  subtitle: '/storage/emulated/0/Documents',
+                  value: _debugEnabled,
+                  onChanged: _setDebugEnabled,
+                ),
+                if (_hasLog) ...[
+                  _SettingsActionTile(
+                    icon: Icons.share_rounded,
+                    title: 'Share Log',
+                    subtitle: 'Send the debug log file',
+                    showArrow: false,
+                    onTap: _shareLogs,
+                  ),
+                  _SettingsActionTile(
+                    icon: Icons.delete_outline_rounded,
+                    title: 'Clear Log',
+                    subtitle: 'Delete the current log file',
+                    showArrow: false,
+                    onTap: _clearLogs,
+                  ),
+                ],
               ],
             ),
           ),

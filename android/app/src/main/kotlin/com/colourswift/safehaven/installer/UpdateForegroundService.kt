@@ -175,7 +175,7 @@ class UpdateForegroundService : Service() {
             }
             installApk(packageName, file)
         } catch (e: Exception) {
-            android.util.Log.e("UpdateForegroundService", "Update failed: pkg=$packageName msg=${e.message}")
+            CrashLogService.log("UpdateService", "E", "Update failed: pkg=$packageName msg=${e.message}")
             onInstallResult(this, false, packageName)
         } finally {
             file.delete()

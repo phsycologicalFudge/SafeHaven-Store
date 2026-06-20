@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../logs/debug_log_service.dart';
 import '../index_service.dart';
 import '../store_service.dart';
 import 'apk_install_service.dart';
@@ -20,7 +21,8 @@ class UnattendedUpdateService {
     try {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       return decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
-    } catch (_) {
+    } catch (e, s) {
+      DebugLog.e('Unattended', 'loadTriggeredUpdates decode failed', e, s);
       return {};
     }
   }
@@ -63,7 +65,8 @@ class UnattendedUpdateService {
             packageName: e.app.packageName,
             versionCode: e.versionCode,
           );
-        } catch (_) {
+        } catch (err, s) {
+          DebugLog.e('Unattended', 'getDownloadUrl failed: ${e.app.packageName}', err, s);
           return null;
         }
       }),

@@ -4,11 +4,9 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -20,6 +18,7 @@ import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
     private val channelName = "safehaven/installer"
+    private val debugChannelName = "safehaven/debug"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +32,54 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         GeneratedPluginRegistrant.registerWith(flutterEngine)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            debugChannelName
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getDebugLogging" -> {
+                    result.success(CrashLogService.isDebugEnabled())
+                }
+
+                "setDebugLogging" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    CrashLogService.setDebugEnabled(this, enabled)
+                    result.success(true)
+                }
+
+                "writeDebugLog" -> {
+                    val tag = call.argument<String>("tag") ?: "Dart"
+                    val level = call.argument<String>("level") ?: "E"
+                    val msg = call.argument<String>("msg") ?: ""
+                    CrashLogService.log(tag, level, msg)
+                    result.success(true)
+                }
+
+                "writeCrashLog" -> {
+                    val tag = call.argument<String>("tag") ?: "Dart"
+                    val msg = call.argument<String>("msg") ?: ""
+                    CrashLogService.crash(tag, msg)
+                    result.success(true)
+                }
+
+                "hasLog" -> {
+                    result.success(CrashLogService.hasLog())
+                }
+
+                "clearLog" -> {
+                    CrashLogService.clearLog()
+                    result.success(true)
+                }
+
+                "shareLog" -> {
+                    CrashLogService.shareLog(this)
+                    result.success(true)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -162,22 +209,13 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    //TODO: delete later
-    private fun log(level: String, msg: String) {
-        try {
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-            val file = File(dir, "safehaven_installer.log")
-            file.appendText("${System.currentTimeMillis()} [$level] $msg\n")
-        } catch (_: Exception) {}
-    }
-
     private fun installApk(path: String, result: MethodChannel.Result) {
-        log("D", "installApk called, sdk=${Build.VERSION.SDK_INT}")
+        CrashLogService.log("Installer", "D", "installApk called, sdk=${Build.VERSION.SDK_INT}")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
         ) {
-            log("W", "install permission not granted, redirecting to settings")
+            CrashLogService.log("Installer", "W", "install permission not granted, redirecting to settings")
             val settingsIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:$packageName")
@@ -190,22 +228,22 @@ class MainActivity : FlutterActivity() {
 
         val file = File(path)
         if (!file.exists()) {
-            log("E", "APK file not found")
+            CrashLogService.log("Installer", "E", "APK file not found: $path")
             result.error("file_missing", "APK file does not exist", null)
             return
         }
 
-        log("D", "APK exists, size=${file.length()}")
+        CrashLogService.log("Installer", "D", "APK exists, size=${file.length()}")
 
         val apkUri = try {
             FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } catch (e: IllegalArgumentException) {
-            log("E", "FileProvider failed: ${e.message}")
+            CrashLogService.log("Installer", "E", "FileProvider failed: ${e.message}")
             result.error("fileprovider_error", e.message, null)
             return
         }
 
-        log("D", "URI created, launching installer")
+        CrashLogService.log("Installer", "D", "URI created, launching installer")
 
         fun buildIntent(pkg: String? = null): Intent =
             Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
@@ -232,26 +270,26 @@ class MainActivity : FlutterActivity() {
 
         try {
             startActivity(buildIntent())
-            log("D", "startActivity succeeded")
+            CrashLogService.log("Installer", "D", "startActivity succeeded")
             result.success(true)
         } catch (e: ActivityNotFoundException) {
-            log("W", "ActivityNotFoundException, trying system installer fallback")
+            CrashLogService.log("Installer", "W", "ActivityNotFoundException, trying system installer fallback")
             val systemPkg = resolveSystemInstaller()
             if (systemPkg != null) {
                 try {
                     startActivity(buildIntent(systemPkg))
-                    log("D", "fallback startActivity succeeded, pkg=$systemPkg")
+                    CrashLogService.log("Installer", "D", "fallback startActivity succeeded, pkg=$systemPkg")
                     result.success(true)
                 } catch (e2: ActivityNotFoundException) {
-                    log("E", "fallback failed: ${e2.message}")
+                    CrashLogService.log("Installer", "E", "fallback failed: ${e2.message}")
                     result.error("installer_not_found", e2.message, null)
                 }
             } else {
-                log("E", "no system installer found")
+                CrashLogService.log("Installer", "E", "no system installer found")
                 result.error("installer_not_found", e.message, null)
             }
         } catch (e: Exception) {
-            log("E", "${e.javaClass.simpleName}: ${e.message}")
+            CrashLogService.log("Installer", "E", "${e.javaClass.simpleName}: ${e.message}")
             result.error("install_failed", e.message, null)
         }
     }

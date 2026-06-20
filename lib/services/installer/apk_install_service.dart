@@ -4,6 +4,7 @@ import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import '../logs/debug_log_service.dart';
 import '../store_service.dart';
 
 class InstalledPackageState {
@@ -146,7 +147,9 @@ class ApkInstallService {
 
     try {
       await _subscription?.cancel();
-    } catch (_) {}
+    } catch (e, s) {
+      DebugLog.e('ApkInstall', 'subscription cancel failed', e, s);
+    }
     _subscription = null;
 
     _client?.close(force: true);
@@ -178,7 +181,9 @@ class ApkInstallService {
     try {
       try {
         await previous;
-      } catch (_) {}
+      } catch (e, s) {
+        DebugLog.e('ApkInstall', 'serial lock predecessor failed', e, s);
+      }
 
       if (_cancelledPackages.remove(app.packageName)) {
         throw const StoreApiException('download_cancelled');
@@ -334,13 +339,17 @@ class ApkInstallService {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (_) {}
+    } catch (e, s) {
+      DebugLog.e('ApkInstall', 'delete file failed: ${file.path}', e, s);
+    }
   }
 
   Future<void> _deleteEntity(FileSystemEntity entity) async {
     try {
       await entity.delete(recursive: true);
-    } catch (_) {}
+    } catch (e, s) {
+      DebugLog.e('ApkInstall', 'delete entity failed: ${entity.path}', e, s);
+    }
   }
 
   String? _asString(Object? value) {

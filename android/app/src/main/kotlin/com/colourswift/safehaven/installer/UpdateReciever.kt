@@ -66,7 +66,7 @@ class UpdateReceiver : BroadcastReceiver() {
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "no message"
                 val statusCode = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)
-                android.util.Log.e("UpdateReceiver", "Install failed: pkg=$packageName status=$statusCode msg=$message")
+                CrashLogService.log("UpdateReceiver", "E", "Install failed: pkg=$packageName status=$statusCode msg=$message")
                 UpdateForegroundService.onInstallResult(context, false, packageName)
             }
         }
