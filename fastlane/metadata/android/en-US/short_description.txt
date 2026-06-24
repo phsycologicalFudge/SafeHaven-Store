@@ -1,1 +1,1 @@
-
+A safe, open-source Android app store with built in security checks.  
