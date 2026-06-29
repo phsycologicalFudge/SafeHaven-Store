@@ -65,6 +65,7 @@ export const buildIndexAppEntry = (env, app) => ({
   trustLevel:  app.trust_level,
   category:    app.category || null,
   upstream:    app.upstream || null,
+  signingKeyHash: app.signing_key_hash || null,
   iconUrl:     app.icon_key ? versionedImageUrl(env, app, app.icon_key) : null,
   screenshots: parseScreenshots(app.screenshots_json).map((k) => versionedImageUrl(env, app, k)),
 });

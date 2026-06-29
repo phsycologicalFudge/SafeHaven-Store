@@ -273,6 +273,7 @@ class PublicStoreApp {
     required this.versions,
     required this.iconUrl,
     required this.screenshots,
+    required this.signingKeyHash,
   });
 
   static final _vRegex = RegExp(r'^v', caseSensitive: false);
@@ -290,6 +291,7 @@ class PublicStoreApp {
   final List<StoreVersion> versions;
   final String? iconUrl;
   final List<String> screenshots;
+  final String? signingKeyHash;
 
   factory PublicStoreApp.fromJson(Map<String, dynamic> json) {
     final versions = json['versions'];
@@ -316,6 +318,7 @@ class PublicStoreApp {
       screenshots: screenshots is List
           ? screenshots.whereType<String>().map((s) => _normaliseImageUrl(s) ?? s).toList()
           : const [],
+      signingKeyHash: _asNullableString(json['signingKeyHash']),
     );
   }
 

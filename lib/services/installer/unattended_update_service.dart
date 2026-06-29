@@ -53,6 +53,7 @@ class UnattendedUpdateService {
       final state = states[i];
       if (!state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
+      if (state.signatureMismatchWith(app.signingKeyHash) == true) continue;
       eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
     }
 

@@ -24,6 +24,14 @@ class InstalledPackageState {
 
   bool get isInstalledBySafeHaven => installer == 'com.colourswift.safehaven';
 
+  bool? signatureMismatchWith(String? storeSigningKeyHash) {
+    final installedHash = signingCertificateSha256?.trim().toLowerCase();
+    final storeHash = storeSigningKeyHash?.trim().toLowerCase();
+    if (installedHash == null || installedHash.isEmpty) return null;
+    if (storeHash == null || storeHash.isEmpty) return null;
+    return installedHash != storeHash;
+  }
+
   bool canUpdateTo(StoreVersion? version) {
     if (!installed || version == null) return false;
     return version.versionCode > versionCode;

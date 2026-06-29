@@ -128,6 +128,7 @@ const buildVersionEntry = (submission) => ({
   sha256:      submission.apk_sha256 || null,
   scannedAt:   submission.scanned_at || null,
   added:       submission.submitted_at,
+  whatsNew:    normalizeStoreText(submission.release_notes) || null,
 });
 
 const approveAndPublish = async (env, submission, reviewedBy = null) => {
@@ -821,6 +822,7 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
       const versionName = (body.versionName || "").toString().trim();
       const versionCode = Number(body.versionCode);
+      const whatsNew     = normalizeStoreText(body.whatsNew) || null;
 
       if (!versionName)                                      return badRequest("missing_versionName");
       if (!Number.isFinite(versionCode) || versionCode < 1) return badRequest("invalid_versionCode");
@@ -846,7 +848,8 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
         packageName: app.package_name,
         versionName,
         versionCode,
-        stagingKey:  stagingKey(app.package_name, versionCode),
+        stagingKey:   stagingKey(app.package_name, versionCode),
+        releaseNotes: whatsNew,
       });
       if (!submissionId) return json({ error: "submission_failed" }, 500);
 
@@ -1661,6 +1664,32 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
       return json({ ok: true, oldHash, newHash });
     }
+
+if (method === "POST" && path === "/admin/store/backfill-signing-hashes") {
+  const provided = (request.headers.get("authorization") || "").trim();
+  if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+
+  const rows = await env.api_control_db
+    .prepare("SELECT package_name, signing_key_hash FROM store_apps WHERE signing_key_hash IS NOT NULL AND package_name IS NOT NULL")
+    .all();
+
+  const hashByPackage = new Map((rows.results || []).map((r) => [r.package_name, r.signing_key_hash]));
+
+  const index = await getIndex(env);
+  let patched = 0;
+
+  for (const entry of index.apps) {
+    const hash = hashByPackage.get(entry.packageName);
+    if (hash && entry.signingKeyHash !== hash) {
+      entry.signingKeyHash = hash;
+      patched++;
+    }
+  }
+
+  if (patched > 0) await putIndex(env, index);
+
+  return json({ ok: true, patched, totalIndexApps: index.apps.length, totalWithHash: hashByPackage.size });
+}
 
 if (method === "POST" && path === "/admin/store/normalise-images") {
       const me = await requireUser();

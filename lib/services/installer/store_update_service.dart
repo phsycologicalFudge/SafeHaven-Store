@@ -17,12 +17,16 @@ class StoreUpdateCheck {
     required this.installedState,
     required this.latestVersion,
     required this.status,
+    required this.signatureMismatch,
   });
 
   final PublicStoreApp app;
   final InstalledPackageState installedState;
   final StoreVersion? latestVersion;
   final StoreUpdateStatus status;
+  final bool? signatureMismatch;
+
+  bool get hasConfirmedSignatureMismatch => signatureMismatch == true;
 
   bool get installed => installedState.installed;
   bool get canUpdate => status == StoreUpdateStatus.updateAvailable;
@@ -47,6 +51,7 @@ class StoreUpdateService {
       final state = installedStates[app.packageName];
       if (state == null || !state.installed || !state.isInstalledBySafeHaven) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
+      if (state.signatureMismatchWith(app.signingKeyHash) == true) continue;
       eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
     }
 
@@ -94,6 +99,7 @@ class StoreUpdateService {
       installedState: installedState,
       latestVersion: latestVersion,
       status: status,
+      signatureMismatch: installedState.signatureMismatchWith(app.signingKeyHash),
     );
   }
 
@@ -108,6 +114,7 @@ class StoreUpdateService {
         installedState: state,
         latestVersion: latestVersion,
         status: _resolveStatus(installedState: state, latestVersion: latestVersion),
+        signatureMismatch: state.signatureMismatchWith(app.signingKeyHash),
       );
     }).toList();
   }
