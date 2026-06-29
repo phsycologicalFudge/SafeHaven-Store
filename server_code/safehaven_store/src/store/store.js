@@ -458,12 +458,7 @@ export async function handleStore(request, env, auth, ctx) {
       const packageName = decodeURIComponent(parts[0] || "").trim();
       const versionCode = Number(parts[1] || "");
       if (!packageName || !Number.isFinite(versionCode)) return badRequest("invalid_params");
-      const index = await getIndex(env);
-      const app   = index.apps.find((a) => a.packageName === packageName);
-      if (!app) return notFound();
-      const version = (app.versions ?? []).find((v) => v.versionCode === versionCode);
-      if (!version) return notFound();
-      const dlUrl = await getPresignedDownloadUrl(env, version.apkPath, 300);
+      const dlUrl = await getPresignedDownloadUrl(env, apkKey(packageName, versionCode), 300);
       return json({ url: dlUrl });
     }
 
