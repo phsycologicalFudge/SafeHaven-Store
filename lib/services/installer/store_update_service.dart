@@ -49,7 +49,7 @@ class StoreUpdateService {
     final eligible = <({PublicStoreApp app, int versionCode})>[];
     for (final app in apps) {
       final state = installedStates[app.packageName];
-      if (state == null || !state.installed || !state.isInstalledBySafeHaven) continue;
+      if (state == null || !state.installed) continue;
       if (!state.canUpdateTo(app.latestVersion)) continue;
       if (state.signatureMismatchWith(app.signingKeyHash) == true) continue;
       eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
