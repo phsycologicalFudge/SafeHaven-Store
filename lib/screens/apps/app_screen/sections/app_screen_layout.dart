@@ -48,9 +48,9 @@ class _AppScreenExpandableSectionState extends State<AppScreenExpandableSection>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
+          GestureDetector(
             onTap: _toggle,
-            borderRadius: BorderRadius.circular(8),
+            behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
               child: SizedBox(

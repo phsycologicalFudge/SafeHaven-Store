@@ -186,6 +186,7 @@ class _AppScreenState extends State<AppScreen> {
               SliverToBoxAdapter(child: AppScreenHeader(app: widget.app)),
               SliverToBoxAdapter(child: AppScreenMetadataRow(app: widget.app)),
               SliverToBoxAdapter(child: AppScreenInstallButton(app: widget.app)),
+              SliverToBoxAdapter(child: AppScreenWhatsNewSection(app: widget.app)),
               SliverToBoxAdapter(child: AppScreenPreviewSection(app: widget.app)),
               SliverToBoxAdapter(child: AppScreenAboutSection(app: widget.app)),
               SliverToBoxAdapter(child: AppScreenTrustSection(app: widget.app)),

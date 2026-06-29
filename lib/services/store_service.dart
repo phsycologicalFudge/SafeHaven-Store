@@ -395,6 +395,7 @@ class StoreVersion {
     required this.sha256,
     required this.scannedAt,
     required this.added,
+    required this.whatsNew,
   });
 
   final String versionName;
@@ -404,6 +405,7 @@ class StoreVersion {
   final String sha256;
   final int scannedAt;
   final int added;
+  final String? whatsNew;
 
   factory StoreVersion.fromJson(Map<String, dynamic> json) {
     return StoreVersion(
@@ -414,6 +416,7 @@ class StoreVersion {
       sha256: _asString(json['sha256']),
       scannedAt: _asInt(json['scannedAt']),
       added: _asInt(json['added']),
+      whatsNew: _asNullableString(json['whatsNew']),
     );
   }
 }

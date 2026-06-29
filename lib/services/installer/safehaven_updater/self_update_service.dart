@@ -4,20 +4,21 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../store_service.dart';
 
 class SelfUpdateInfo {
   const SelfUpdateInfo({
     required this.currentVersion,
     required this.latestVersion,
+    required this.versionCode,
     required this.parsedNotes,
-    required this.apkDownloadUrl,
     required this.releaseUrl,
   });
 
   final String currentVersion;
   final String latestVersion;
+  final int versionCode;
   final List<ReleaseNoteBlock> parsedNotes;
-  final String apkDownloadUrl;
   final String releaseUrl;
 }
 
@@ -48,6 +49,7 @@ class SelfUpdateService {
   SelfUpdateService._();
   static final SelfUpdateService instance = SelfUpdateService._();
 
+  static const _selfPackage = 'com.colourswift.safehaven';
   static const _repo = 'phsycologicalFudge/SafeHaven-Store';
   static const _apiBase = 'https://api.github.com/repos/$_repo';
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
@@ -70,40 +72,39 @@ class SelfUpdateService {
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
 
-      final res = await http.get(
+      final index = await StoreService.instance.fetchIndex();
+      final storeApp = index.apps.firstWhere(
+            (a) => a.packageName == _selfPackage,
+        orElse: () => throw StateError('not_in_index'),
+      );
+
+      final latest = storeApp.latestVersion;
+      if (latest == null) return null;
+
+      final latestVersion = _cleanTag(latest.versionName);
+      if (latestVersion.isEmpty) return null;
+      if (!forceUpdate && !_isNewer(currentVersion, latestVersion)) return null;
+
+      final githubRes = await http.get(
         Uri.parse('$_apiBase/releases/latest'),
         headers: {'Accept': 'application/vnd.github.v3+json'},
       );
 
-      if (res.statusCode != 200) return null;
+      List<ReleaseNoteBlock> parsedNotes = const [];
+      String releaseUrl = '';
 
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final tag = (body['tag_name'] as String?) ?? '';
-      final rawNotes = (body['body'] as String?) ?? '';
-      final htmlUrl = (body['html_url'] as String?) ?? '';
-
-      final latestVersion = _cleanTag(tag);
-      if (latestVersion.isEmpty) return null;
-      if (!forceUpdate && !_isNewer(currentVersion, latestVersion)) return null;
-
-      final assets = body['assets'] as List<dynamic>? ?? [];
-      String? apkUrl;
-      for (final asset in assets) {
-        final name = (asset['name'] as String?) ?? '';
-        if (name.endsWith('.apk')) {
-          apkUrl = asset['browser_download_url'] as String?;
-          break;
-        }
+      if (githubRes.statusCode == 200) {
+        final body = jsonDecode(githubRes.body) as Map<String, dynamic>;
+        parsedNotes = _parseReleaseNotes((body['body'] as String?) ?? '');
+        releaseUrl = (body['html_url'] as String?) ?? '';
       }
-
-      if (apkUrl == null || apkUrl.isEmpty) return null;
 
       return SelfUpdateInfo(
         currentVersion: currentVersion,
         latestVersion: latestVersion,
-        parsedNotes: _parseReleaseNotes(rawNotes),
-        apkDownloadUrl: apkUrl,
-        releaseUrl: htmlUrl,
+        versionCode: latest.versionCode,
+        parsedNotes: parsedNotes,
+        releaseUrl: releaseUrl,
       );
     } catch (_) {
       return null;
@@ -111,7 +112,7 @@ class SelfUpdateService {
   }
 
   Future<String?> downloadApk(
-      String url, {
+      int versionCode, {
         required void Function(double progress) onProgress,
       }) async {
     final dir = await getApplicationSupportDirectory();
@@ -127,6 +128,17 @@ class SelfUpdateService {
     }
 
     final file = File('${updateDir.path}/safehaven_self_update.apk');
+
+    String url;
+    try {
+      url = await StoreService.instance.getDownloadUrl(
+        packageName: _selfPackage,
+        versionCode: versionCode,
+      );
+    } catch (_) {
+      return null;
+    }
+
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
 
@@ -165,7 +177,7 @@ class SelfUpdateService {
   Future<void> installApk(String path) async {
     await _channel.invokeMethod('installApk', {
       'path': path,
-      'packageName': 'com.colourswift.safehaven',
+      'packageName': _selfPackage,
     });
   }
 

@@ -165,6 +165,52 @@ class AppScreenPreviewSection extends StatelessWidget {
   }
 }
 
+class AppScreenWhatsNewSection extends StatelessWidget {
+  const AppScreenWhatsNewSection({super.key, required this.app});
+
+  final PublicStoreApp app;
+
+  String _normalize(String s) => s
+      .replaceAll(r'\n', '\n')
+      .replaceAll(r'\r', '')
+      .trim();
+
+  String get _fullText => _normalize(app.latestVersion?.whatsNew ?? '');
+
+  @override
+  Widget build(BuildContext context) {
+    final fullText = _fullText;
+
+    if (fullText.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return AppScreenExpandableSection(
+      title: "What's New?",
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: MarkdownBody(
+          data: fullText,
+          selectable: true,
+          softLineBreak: true,
+          styleSheet: markdownStyle(context),
+          onTapLink: (_, href, __) async {
+            if (href == null || href.trim().isEmpty) return;
+
+            final uri = Uri.tryParse(href.trim());
+            if (uri == null) return;
+
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class AppScreenAboutSection extends StatelessWidget {
   const AppScreenAboutSection({super.key, required this.app});
 
