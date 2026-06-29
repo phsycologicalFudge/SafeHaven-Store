@@ -24,7 +24,13 @@ class UpdateReceiver : BroadcastReceiver() {
                 } else {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
-                } ?: return
+                }
+
+                if (confirmIntent == null) {
+                    CrashLogService.log("UpdateReceiver", "W", "PENDING_USER_ACTION with no confirm intent: pkg=$packageName")
+                    UpdateForegroundService.onInstallResult(context, false, packageName)
+                    return
+                }
 
                 val appName = try {
                     val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -57,8 +63,6 @@ class UpdateReceiver : BroadcastReceiver() {
                     .build()
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(packageName.hashCode(), notification)
-
-                UpdateForegroundService.onInstallResult(context, true, packageName)
             }
             PackageInstaller.STATUS_SUCCESS -> {
                 UpdateForegroundService.onInstallResult(context, true, packageName)

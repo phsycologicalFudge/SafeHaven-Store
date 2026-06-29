@@ -10,7 +10,7 @@
 
     <application
         android:label="Safe Haven"
-        android:name="${applicationName}"
+        android:name=".SafeHavenApplication"
         android:icon="@mipmap/ic_launcher">
 
         <service
