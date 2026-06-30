@@ -256,6 +256,14 @@ class StoreIndex {
           : const [],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'timestamp': timestamp,
+      'categories': categories,
+      'apps': apps.map((a) => a.toJson()).toList(),
+    };
+  }
 }
 
 class PublicStoreApp {
@@ -320,6 +328,25 @@ class PublicStoreApp {
           : const [],
       signingKeyHash: _asNullableString(json['signingKeyHash']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'packageName': packageName,
+      'name': name,
+      'summary': summary,
+      'description': description,
+      'repoUrl': repoUrl,
+      'trustLevel': trustLevel,
+      'category': category,
+      'upstream': upstream,
+      'ratingAvg': ratingAvg,
+      'ratingCount': ratingCount,
+      'versions': versions.map((v) => v.toJson()).toList(),
+      'iconUrl': iconUrl,
+      'screenshots': screenshots,
+      'signingKeyHash': signingKeyHash,
+    };
   }
 
   StoreVersion? get latestVersion {
@@ -421,6 +448,19 @@ class StoreVersion {
       added: _asInt(json['added']),
       whatsNew: _asNullableString(json['whatsNew']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'versionName': versionName,
+      'versionCode': versionCode,
+      'apkPath': apkPath,
+      'apkSize': apkSize,
+      'sha256': sha256,
+      'scannedAt': scannedAt,
+      'added': added,
+      'whatsNew': whatsNew,
+    };
   }
 }
 

@@ -54,7 +54,7 @@ class SelfUpdateService {
   static const _apiBase = 'https://api.github.com/repos/$_repo';
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
 
-  static bool forceUpdate = false;
+  static bool forceUpdate = true;
 
   static final _tagPrefix = RegExp(r'^v', caseSensitive: false);
   static final _tagPostfix = RegExp(r'[-+].*$');
@@ -85,26 +85,12 @@ class SelfUpdateService {
       if (latestVersion.isEmpty) return null;
       if (!forceUpdate && !_isNewer(currentVersion, latestVersion)) return null;
 
-      final githubRes = await http.get(
-        Uri.parse('$_apiBase/releases/latest'),
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      );
-
-      List<ReleaseNoteBlock> parsedNotes = const [];
-      String releaseUrl = '';
-
-      if (githubRes.statusCode == 200) {
-        final body = jsonDecode(githubRes.body) as Map<String, dynamic>;
-        parsedNotes = _parseReleaseNotes((body['body'] as String?) ?? '');
-        releaseUrl = (body['html_url'] as String?) ?? '';
-      }
-
       return SelfUpdateInfo(
         currentVersion: currentVersion,
         latestVersion: latestVersion,
         versionCode: latest.versionCode,
-        parsedNotes: parsedNotes,
-        releaseUrl: releaseUrl,
+        parsedNotes: _parseReleaseNotes(latest.whatsNew ?? ''),
+        releaseUrl: 'https://github.com/$_repo/releases/tag/v$latestVersion',
       );
     } catch (_) {
       return null;
