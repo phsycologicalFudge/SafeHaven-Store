@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../services/index_service.dart';
+import '../../services/installer/apk_install_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../home/home.dart';
 
@@ -14,12 +16,26 @@ class _BootScreenState extends State<BootScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    });
+    _prewarmAndNavigate();
+  }
+
+  Future<void> _prewarmAndNavigate() async {
+    final minSplash = Future<void>.delayed(const Duration(milliseconds: 700));
+
+    final warmup = Future.wait<void>([
+      IndexService.instance.fetchIndex(forceRefresh: true).then((_) {}).catchError((_) {}),
+      ApkInstallService.instance.getAllPackageStates().then((_) {}).catchError((_) {}),
+    ]);
+
+    await Future.any<void>([
+      Future.wait<void>([minSplash, warmup]),
+      Future<void>.delayed(const Duration(seconds: 6)),
+    ]);
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   @override

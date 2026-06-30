@@ -26,6 +26,19 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   Future<List<PublicStoreApp>>? _recommendedFuture;
   String? _recommendedKey;
 
+  int? _memoTimestamp;
+  String? _memoCategory;
+  List<PublicStoreApp> _memoAllApps = const [];
+  List<PublicStoreApp> _memoFiltered = const [];
+  List<PublicStoreApp> _memoTopCharts = const [];
+  List<PublicStoreApp> _memoNewArrivals = const [];
+  List<PublicStoreApp> _memoTopInA = const [];
+  List<PublicStoreApp> _memoTopInB = const [];
+  String? _memoCatKeyA;
+  String? _memoCatKeyB;
+  String? _memoCatLabelA;
+  String? _memoCatLabelB;
+
   void _loadFuture({bool forceRefresh = false}) {
     _future = IndexService.instance.fetchIndex(forceRefresh: forceRefresh);
 
@@ -57,21 +70,48 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
       _shuffledCategoryKeys = [];
       _recommendedFuture = null;
       _recommendedKey = null;
+      _memoTimestamp = null;
+      _memoCategory = null;
       _loadFuture(forceRefresh: true);
     });
 
     await _future;
   }
 
+  void _recompute(StoreIndex index) {
+    final ts = index.timestamp;
+    final cat = _selectedCategory;
+    if (ts == _memoTimestamp && cat == _memoCategory) return;
+
+    _memoTimestamp = ts;
+    _memoCategory = cat;
+    _memoAllApps = index.apps;
+    _memoFiltered = IndexService.instance.filterByCategory(_memoAllApps, cat);
+    _memoTopCharts = IndexService.instance.topCharts(_memoFiltered);
+    _memoNewArrivals = IndexService.instance.newArrivals(_memoFiltered);
+
+    final showCatRows = cat == null && _shuffledCategoryKeys.length >= 2;
+    _memoCatKeyA = showCatRows ? _shuffledCategoryKeys[0] : null;
+    _memoCatKeyB = showCatRows ? _shuffledCategoryKeys[1] : null;
+    _memoCatLabelA = _memoCatKeyA != null
+        ? (index.categories[_memoCatKeyA] ?? _memoCatKeyA)
+        : null;
+    _memoCatLabelB = _memoCatKeyB != null
+        ? (index.categories[_memoCatKeyB] ?? _memoCatKeyB)
+        : null;
+    _memoTopInA = _memoCatKeyA != null
+        ? IndexService.instance.topInCategory(_memoAllApps, _memoCatKeyA!)
+        : const [];
+    _memoTopInB = _memoCatKeyB != null
+        ? IndexService.instance.topInCategory(_memoAllApps, _memoCatKeyB!)
+        : const [];
+  }
+
   Future<List<PublicStoreApp>> _recommendedFor(
       List<PublicStoreApp> apps,
       List<PublicStoreApp> topCharts,
       ) {
-    final key = [
-      _selectedCategory ?? '',
-      apps.map((app) => app.packageName).join('|'),
-      topCharts.map((app) => app.packageName).join('|'),
-    ].join('::');
+    final key = '${_memoTimestamp ?? 0}|${_selectedCategory ?? ''}';
 
     if (_recommendedKey != key || _recommendedFuture == null) {
       _recommendedKey = key;
@@ -103,29 +143,14 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         final loading = snapshot.connectionState == ConnectionState.waiting;
         final index = snapshot.data;
 
-        final allApps = index?.apps ?? const [];
-        final filtered = IndexService.instance.filterByCategory(
-          allApps,
-          _selectedCategory,
-        );
-        final topCharts = IndexService.instance.topCharts(filtered);
-        final newArrivals = IndexService.instance.newArrivals(filtered);
+        if (index != null) {
+          _recompute(index);
+        }
 
-        final showCategoryRows = _selectedCategory == null &&
-            _shuffledCategoryKeys.length >= 2;
-        final catKeyA = showCategoryRows ? _shuffledCategoryKeys[0] : null;
-        final catKeyB = showCategoryRows ? _shuffledCategoryKeys[1] : null;
-        final catLabelA = catKeyA != null ? (index?.categories[catKeyA] ?? catKeyA) : null;
-        final catLabelB = catKeyB != null ? (index?.categories[catKeyB] ?? catKeyB) : null;
-        final topInA = catKeyA != null
-            ? IndexService.instance.topInCategory(allApps, catKeyA)
-            : const <PublicStoreApp>[];
-        final topInB = catKeyB != null
-            ? IndexService.instance.topInCategory(allApps, catKeyB)
-            : const <PublicStoreApp>[];
+        final showCategoryRows = _memoCatKeyA != null;
 
         final Future<List<PublicStoreApp>>? recommendedFuture =
-        filtered.isEmpty ? null : _recommendedFor(filtered, topCharts);
+        _memoFiltered.isEmpty ? null : _recommendedFor(_memoFiltered, _memoTopCharts);
         final Widget? recommendedSection = recommendedFuture == null
             ? null
             : CatalogueRecommendedSection(future: recommendedFuture);
@@ -144,6 +169,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                     onSelected: (key) {
                       setState(() {
                         _selectedCategory = key;
+                        _memoCategory = null;
                       });
                     },
                   ),
@@ -157,40 +183,40 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                     onRetry: _reload,
                   ),
                 ),
-              if (!loading && !snapshot.hasError && filtered.isEmpty)
+              if (!loading && !snapshot.hasError && _memoFiltered.isEmpty)
                 const SliverToBoxAdapter(child: CatalogueEmptyBlock()),
-              if (!loading && !snapshot.hasError && filtered.isNotEmpty) ...[
+              if (!loading && !snapshot.hasError && _memoFiltered.isNotEmpty) ...[
                 if (recommendedSection != null)
                   SliverToBoxAdapter(child: recommendedSection),
-                if (topCharts.isNotEmpty)
+                if (_memoTopCharts.isNotEmpty)
                   SliverToBoxAdapter(
                     child: CatalogueTopChartsSection(
-                      apps: topCharts.take(10).toList(),
-                      onAllApps: () => _openAllApps(allApps),
+                      apps: _memoTopCharts.take(10).toList(),
+                      onAllApps: () => _openAllApps(_memoAllApps),
                     ),
                   ),
-                if (showCategoryRows && topInA.isNotEmpty)
+                if (showCategoryRows && _memoTopInA.isNotEmpty)
                   SliverToBoxAdapter(
                     child: CatalogueTopInCategorySection(
-                      categoryLabel: catLabelA!,
-                      apps: topInA.take(10).toList(),
+                      categoryLabel: _memoCatLabelA!,
+                      apps: _memoTopInA.take(10).toList(),
                     ),
                   ),
-                if (showCategoryRows && topInB.isNotEmpty)
+                if (showCategoryRows && _memoTopInB.isNotEmpty)
                   SliverToBoxAdapter(
                     child: CatalogueTopInCategorySection(
-                      categoryLabel: catLabelB!,
-                      apps: topInB.take(10).toList(),
+                      categoryLabel: _memoCatLabelB!,
+                      apps: _memoTopInB.take(10).toList(),
                     ),
                   ),
-                if (newArrivals.isNotEmpty)
+                if (_memoNewArrivals.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: CatalogueNewArrivalsSection(apps: newArrivals),
+                    child: CatalogueNewArrivalsSection(apps: _memoNewArrivals),
                   ),
                 SliverToBoxAdapter(
                   child: CatalogueSeeAllBlock(
-                    count: allApps.length,
-                    onTap: () => _openAllApps(allApps),
+                    count: _memoAllApps.length,
+                    onTap: () => _openAllApps(_memoAllApps),
                   ),
                 ),
               ],
