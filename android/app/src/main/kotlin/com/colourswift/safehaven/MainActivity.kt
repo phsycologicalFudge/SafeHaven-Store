@@ -1,16 +1,17 @@
 package com.colourswift.safehaven
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import java.io.File
@@ -19,19 +20,23 @@ import java.security.MessageDigest
 class MainActivity : FlutterActivity() {
     private val channelName = "safehaven/installer"
     private val debugChannelName = "safehaven/debug"
+    private var usedCachedEngine = false
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            splashScreen.setOnExitAnimationListener { splashScreenView ->
-                splashScreenView.remove()
-            }
+    override fun provideFlutterEngine(context: Context): FlutterEngine? {
+        val cached = FlutterEngineCache.getInstance().get(SafeHavenApplication.ENGINE_ID)
+        if (cached != null) {
+            FlutterEngineCache.getInstance().remove(SafeHavenApplication.ENGINE_ID)
+            usedCachedEngine = true
+            return cached
         }
+        return null
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        GeneratedPluginRegistrant.registerWith(flutterEngine)
+        if (!usedCachedEngine) {
+            GeneratedPluginRegistrant.registerWith(flutterEngine)
+        }
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
