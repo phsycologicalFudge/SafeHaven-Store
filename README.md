@@ -1,31 +1,28 @@
 <p align="center">
-  <img src="assets/gitImages/logo.png" width="200" alt="SafeHaven logo">
+  <img src="assets/gitImages/banner.png" width="100%" alt="SafeHaven banner">
 </p>
 
-<h1 align="center">SafeHaven</h1>
+<div align="center">
 
-### Want a specific app on SafeHaven? Submit it here!
-[Submit an app you've found](https://api.colourswift.com/submit)
-
-Or if you are a developer:
-
-[Submit your own app](https://account.colourswift.com/)
-
-### Where open Android apps belong.
+### SafeHaven: Where open Android apps belong.
 
 SafeHaven is an Android app store that is focused on trust, source visibility, and very clear app metadata. Apps can be linked to their source repositories, verified against developer ownership, scanned before release, and rechecked after being made available.
 
-<p>
-  <img src="https://img.shields.io/github/v/release/phsycologicalFudge/SafeHaven?style=for-the-badge&logo=github&label=Release&color=6366f1" alt="Release">
-  <img src="https://img.shields.io/github/downloads/phsycologicalFudge/SafeHaven/total?style=for-the-badge&logo=github&label=Downloads&color=10b981" alt="Downloads">
-  <img src="https://img.shields.io/github/license/phsycologicalFudge/SafeHaven?style=for-the-badge&label=License&color=64748b" alt="License">
-</p>
+[![Release](https://img.shields.io/github/v/release/phsycologicalFudge/SafeHaven?logo=github&label=release&color=6366f1)](https://github.com/phsycologicalFudge/SafeHaven/releases)
+[![Downloads](https://img.shields.io/github/downloads/phsycologicalFudge/SafeHaven/total?logo=github&label=downloads&color=10b981)](https://github.com/phsycologicalFudge/SafeHaven/releases)
+[![License](https://img.shields.io/github/license/phsycologicalFudge/SafeHaven?label=license&color=64748b)](LICENSE)
 
-<p>
-  <a href="https://buymeacoffee.com/ryanfromcolourswift">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="48" alt="Buy me a coffee">
-  </a>
-</p>
+<a href="https://buymeacoffee.com/ryanfromcolourswift">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="40" alt="Buy me a coffee">
+</a>
+
+</div>
+
+---
+
+> [!CAUTION]
+> ### Android developer verification is coming...
+> Android FOSS is under threat. From September 30, 2026, Google will require developer verification for all Android apps on certified devices, including those installed outside of the Play Store. https://keepandroidopen.org/
 
 ## What is SafeHaven?
 
@@ -40,27 +37,6 @@ SafeHaven is an Android app distribution platform built around transparency. Ins
 | **Unverified listings** | Community/imported apps can be listed without claiming developer ownership. |
 | **APK scanning** | Submitted APKs are scanned before being approved. |
 | **Rechecks** | Apps can be rescanned after release to keep metadata fresh. |
-
-## Screenshots
-
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="assets/gitImages/1.jpg" width="100%" alt="SafeHaven home screen">
-    </td>
-    <td width="50%" align="center">
-      <img src="assets/gitImages/2.jpg" width="100%" alt="SafeHaven app details">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="assets/gitImages/3.jpg" width="100%" alt="SafeHaven categories">
-    </td>
-    <td width="50%" align="center">
-      <img src="assets/gitImages/4.jpg" width="100%" alt="SafeHaven security signals">
-    </td>
-  </tr>
-</table>
 
 ## App submissions
 
