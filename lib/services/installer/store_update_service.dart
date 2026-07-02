@@ -103,6 +103,26 @@ class StoreUpdateService {
     );
   }
 
+  Future<StoreUpdateCheck> checkAppCached(PublicStoreApp app, {bool forceRefresh = false}) async {
+    final installedStates = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
+    final installedState = installedStates[app.packageName] ??
+        const InstalledPackageState(installed: false, versionCode: 0);
+
+    final latestVersion = app.latestVersion;
+    final status = _resolveStatus(
+      installedState: installedState,
+      latestVersion: latestVersion,
+    );
+
+    return StoreUpdateCheck(
+      app: app,
+      installedState: installedState,
+      latestVersion: latestVersion,
+      status: status,
+      signatureMismatch: installedState.signatureMismatchWith(app.signingKeyHash),
+    );
+  }
+
   Future<List<StoreUpdateCheck>> checkApps(List<PublicStoreApp> apps, {bool forceRefresh = false}) async {
     final installedStates = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
     return apps.map((app) {

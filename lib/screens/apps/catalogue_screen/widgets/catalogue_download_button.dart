@@ -76,7 +76,10 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
     }
 
     try {
-      final check = await StoreUpdateService.instance.checkApp(widget.app);
+      final check = await StoreUpdateService.instance.checkAppCached(
+        widget.app,
+        forceRefresh: invalidate,
+      );
       if (!mounted) return;
       InstallSync.cachedCheck[_pkg] = check;
       InstallSync.bumpCheck();

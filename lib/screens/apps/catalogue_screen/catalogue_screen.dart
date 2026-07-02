@@ -24,7 +24,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   String? _selectedCategory;
   List<String> _shuffledCategoryKeys = [];
   Future<List<PublicStoreApp>>? _recommendedFuture;
-  String? _recommendedKey;
+  int? _recommendedTimestamp;
 
   int? _memoTimestamp;
   String? _memoCategory;
@@ -69,7 +69,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
     setState(() {
       _shuffledCategoryKeys = [];
       _recommendedFuture = null;
-      _recommendedKey = null;
+      _recommendedTimestamp = null;
       _memoTimestamp = null;
       _memoCategory = null;
       _loadFuture(forceRefresh: true);
@@ -107,16 +107,15 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         : const [];
   }
 
-  Future<List<PublicStoreApp>> _recommendedFor(
-      List<PublicStoreApp> apps,
+  Future<List<PublicStoreApp>> _recommendedForYou(
+      List<PublicStoreApp> allApps,
       List<PublicStoreApp> topCharts,
+      int timestamp,
       ) {
-    final key = '${_memoTimestamp ?? 0}|${_selectedCategory ?? ''}';
-
-    if (_recommendedKey != key || _recommendedFuture == null) {
-      _recommendedKey = key;
+    if (_recommendedTimestamp != timestamp || _recommendedFuture == null) {
+      _recommendedTimestamp = timestamp;
       _recommendedFuture = IndexService.instance.recommended(
-        apps,
+        allApps,
         exclude: topCharts,
       );
     }
@@ -150,7 +149,9 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         final showCategoryRows = _memoCatKeyA != null;
 
         final Future<List<PublicStoreApp>>? recommendedFuture =
-        _memoFiltered.isEmpty ? null : _recommendedFor(_memoFiltered, _memoTopCharts);
+        (_selectedCategory == null && _memoAllApps.isNotEmpty)
+            ? _recommendedForYou(_memoAllApps, _memoTopCharts, _memoTimestamp ?? 0)
+            : null;
         final Widget? recommendedSection = recommendedFuture == null
             ? null
             : CatalogueRecommendedSection(future: recommendedFuture);

@@ -51,17 +51,15 @@ class SelfUpdateService {
 
   static const _selfPackage = 'com.colourswift.safehaven';
   static const _repo = 'phsycologicalFudge/SafeHaven-Store';
-  static const _apiBase = 'https://api.github.com/repos/$_repo';
+  // static const _apiBase = 'https://api.github.com/repos/$_repo';
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
 
   static bool forceUpdate = true;
 
   static final _tagPrefix = RegExp(r'^v', caseSensitive: false);
   static final _tagPostfix = RegExp(r'[-+].*$');
-  static final _commitLine = RegExp(
-    r'^[-*]\s+([0-9a-f]{40,64}):\s*(.+)$',
-    caseSensitive: false,
-  );
+  static final _hashToken = RegExp(r'\b[0-9a-f]{40}\b', caseSensitive: false);
+  static final _hashTrim = RegExp(r'^[\s:\-–—]+|[\s:\-–—]+$');
   static final _discordCut = RegExp(r'_To keep up with.*$', dotAll: true);
   static final _trailingHr = RegExp(r'\n---\s*$');
   static final _headerLine = RegExp(r'^#{1,4}\s+(.+)$');
@@ -214,13 +212,19 @@ class SelfUpdateService {
 
       if (trimmed.isEmpty) continue;
 
-      final commitMatch = _commitLine.firstMatch(trimmed);
+      final commitMatch = _hashToken.firstMatch(trimmed);
       if (commitMatch != null) {
-        final hash = commitMatch.group(1)!;
-        final desc = commitMatch.group(2)!.trim();
+        final hash = commitMatch.group(0)!;
+        final before = trimmed.substring(0, commitMatch.start);
+        final after = trimmed.substring(commitMatch.end);
+
+        final descSource = (before + ' ' + after).trim();
+        final bulletStripped = _bulletLine.firstMatch(descSource)?.group(1)?.trim() ?? descSource;
+        final desc = bulletStripped.replaceAll(_hashTrim, '').trim();
+
         currentLines.add(ReleaseNoteLine(
           kind: ReleaseNoteLineKind.commitBullet,
-          text: desc,
+          text: desc.isEmpty ? trimmed : desc,
           commitHash: hash.substring(0, 7),
           commitUrl: 'https://github.com/$_repo/commit/$hash',
         ));

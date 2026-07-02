@@ -59,6 +59,7 @@ class ApkInstallService {
   Future<void> _serialLock = Future.value();
   final _cancelledPackages = <String>{};
   Map<String, InstalledPackageState>? _stateCache;
+  Future<Map<String, InstalledPackageState>>? _inFlightStates;
 
   HttpClient? _client;
   StreamSubscription<List<int>>? _subscription;
@@ -92,9 +93,26 @@ class ApkInstallService {
     );
   }
 
-  Future<Map<String, InstalledPackageState>> getAllPackageStates({bool forceRefresh = false}) async {
-    if (!forceRefresh && _stateCache != null) return _stateCache!;
+  Future<Map<String, InstalledPackageState>> getAllPackageStates({bool forceRefresh = false}) {
+    if (!forceRefresh) {
+      final cached = _stateCache;
+      if (cached != null) return Future.value(cached);
 
+      final pending = _inFlightStates;
+      if (pending != null) return pending;
+    }
+
+    final fetch = _fetchAllPackageStates();
+    _inFlightStates = fetch;
+
+    return fetch.whenComplete(() {
+      if (identical(_inFlightStates, fetch)) {
+        _inFlightStates = null;
+      }
+    });
+  }
+
+  Future<Map<String, InstalledPackageState>> _fetchAllPackageStates() async {
     final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('getAllPackageStates');
     if (result == null) {
       _stateCache = {};
