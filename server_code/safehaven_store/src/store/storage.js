@@ -220,32 +220,40 @@ export const getChangelog = async (env) => {
   return res.json();
 };
 
-export const putIndexWithChangelog = async (env, newIndex) => {
+export const putIndexWithChangelog = async (env, newIndex, options = {}) => {
   const now = nowUnix();
   newIndex.timestamp = now;
 
-  let oldIndex;
-  try {
-    oldIndex = await getIndex(env);
-  } catch {
-    oldIndex = emptyIndex();
+  let updates;
+  let removes;
+
+  if (options.changedApps) {
+    updates = options.changedApps;
+    removes = options.removedPackageNames ?? [];
+  } else {
+    let oldIndex;
+    try {
+      oldIndex = await getIndex(env);
+    } catch {
+      oldIndex = emptyIndex();
+    }
+
+    const oldMap = new Map(oldIndex.apps.map((a) => [a.packageName, a]));
+    const newSet = new Set(newIndex.apps.map((a) => a.packageName));
+
+    updates = newIndex.apps.filter((newApp) => {
+      const oldApp = oldMap.get(newApp.packageName);
+      return !oldApp || JSON.stringify(oldApp) !== JSON.stringify(newApp);
+    });
+
+    removes = oldIndex.apps
+      .filter((oa) => !newSet.has(oa.packageName))
+      .map((oa) => oa.packageName);
   }
-
-  const oldMap = new Map(oldIndex.apps.map((a) => [a.packageName, a]));
-  const newSet = new Set(newIndex.apps.map((a) => a.packageName));
-
-  const updates = newIndex.apps.filter((newApp) => {
-    const oldApp = oldMap.get(newApp.packageName);
-    return !oldApp || JSON.stringify(oldApp) !== JSON.stringify(newApp);
-  });
-
-  const removes = oldIndex.apps
-    .filter((oa) => !newSet.has(oa.packageName))
-    .map((oa) => oa.packageName);
 
   if (updates.length > 0 || removes.length > 0) {
     const changelog = await getChangelog(env);
-    
+
     changelog.events.push({
       timestamp: now,
       updates,
@@ -263,8 +271,7 @@ export const putIndexWithChangelog = async (env, newIndex) => {
   await putIndex(env, newIndex);
 };
 
-export const addOrUpdateApp = async (env, appEntry) => {
-  const index = await getIndex(env);
+const mergeAppEntry = (index, appEntry) => {
   index.categories = CATEGORIES;
   const i = index.apps.findIndex((a) => a.packageName === appEntry.packageName);
   if (i === -1) {
@@ -280,14 +287,10 @@ export const addOrUpdateApp = async (env, appEntry) => {
     };
   }
   index.apps.sort((a, b) => a.packageName.localeCompare(b.packageName));
-  await putIndexWithChangelog(env, index);
+  return index.apps.find((a) => a.packageName === appEntry.packageName);
 };
 
-export const addVersionToApp = async (env, packageName, versionEntry) => {
-  const index = await getIndex(env);
-  const app   = index.apps.find((a) => a.packageName === packageName);
-  if (!app) throw new Error("app_not_found");
-
+const mergeVersionOnApp = (app, versionEntry) => {
   app.versions = app.versions ?? [];
   const vi = app.versions.findIndex((v) => v.versionCode === versionEntry.versionCode);
   if (vi === -1) {
@@ -297,8 +300,34 @@ export const addVersionToApp = async (env, packageName, versionEntry) => {
   }
   app.versions.sort((a, b) => b.versionCode - a.versionCode);
   app.lastUpdated = nowUnix();
+};
 
-  await putIndexWithChangelog(env, index);
+export const addOrUpdateApp = async (env, appEntry) => {
+  const index = await getIndex(env);
+  const app   = mergeAppEntry(index, appEntry);
+  await putIndexWithChangelog(env, index, { changedApps: [app] });
+};
+
+export const addVersionToApp = async (env, packageName, versionEntry) => {
+  const index = await getIndex(env);
+  const app   = index.apps.find((a) => a.packageName === packageName);
+  if (!app) throw new Error("app_not_found");
+
+  mergeVersionOnApp(app, versionEntry);
+  await putIndexWithChangelog(env, index, { changedApps: [app] });
+};
+
+export const applyAppEntryAndVersion = async (env, appEntry, versionEntry, options = {}) => {
+  const index = await getIndex(env);
+  const app   = mergeAppEntry(index, appEntry);
+
+  if (options.removeVersionCode != null) {
+    app.versions = (app.versions ?? []).filter((v) => v.versionCode !== options.removeVersionCode);
+  }
+
+  mergeVersionOnApp(app, versionEntry);
+  await putIndexWithChangelog(env, index, { changedApps: [app] });
+  return app;
 };
 
 export const removeVersionFromApp = async (env, packageName, versionCode) => {

@@ -33,6 +33,7 @@ import {
   putIndex,
   addOrUpdateApp,
   addVersionToApp,
+  applyAppEntryAndVersion,
   removeApp,
   getPresignedStagingUploadUrl,
   getPresignedDownloadUrl,
@@ -61,7 +62,7 @@ import { handleImageCacheRoute } from "./modules/images/cache/image_cache.js";
 import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep, refreshGitHubMetadataForApp } from "./modules/git_store_job.js";
 import { runGitLabDirectImport, normalizeGitLabRepoUrl } from "./modules/gitlab_store_job.js";
 import { runCodebergDirectImport, normalizeCodebergRepoUrl } from "./modules/codeberg_store_job.js";
-import { runUpstreamPolls } from "./modules/upstream_orchestrator.js";
+import { runUpstreamPolls, forcePollApp } from "./modules/upstream_orchestrator.js";
 import { runFdroidSync, runFdroidUpdateCheck, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "./helpers/store_helpers.js";
 import { parseGitHubRepo, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "./helpers/github_helpers.js";
@@ -153,8 +154,11 @@ const approveAndPublish = async (env, submission, reviewedBy = null) => {
 
   const updatedApp = await getStoreAppById(env, app_id);
   if (updatedApp) {
-    await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
-    await addVersionToApp(env, finalPackageName, buildVersionEntry(updatedSubmission));
+    await applyAppEntryAndVersion(
+      env,
+      buildIndexAppEntry(env, updatedApp),
+      buildVersionEntry(updatedSubmission)
+    );
   }
 };
 
@@ -736,26 +740,20 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
 
         const updatedApp = await getStoreAppById(env, app.id);
         if (updatedApp && updatedApp.status === APP_STATUS.ACTIVE) {
-          
-          if (versionChanged) {
-            const index = await getIndex(env);
-            const idxApp = index.apps.find((a) => a.packageName === updatedApp.package_name);
-            if (idxApp && idxApp.versions) {
-              idxApp.versions = idxApp.versions.filter((v) => v.versionCode !== submission.version_code);
-              await putIndexWithChangelog(env, index);
-            }
-          }
-
-          await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
-          await addVersionToApp(env, updatedApp.package_name, buildVersionEntry({
-            ...submission,
-            package_name: updatedApp.package_name,
-            version_code: finalVersionCode,
-            version_name: finalVersionName,
-            apk_sha256: update?.apkSha256,
-            apk_size: update?.apkSize,
-            scanned_at: update?.scannedAt,
-          }));
+          await applyAppEntryAndVersion(
+            env,
+            buildIndexAppEntry(env, updatedApp),
+            buildVersionEntry({
+              ...submission,
+              package_name: updatedApp.package_name,
+              version_code: finalVersionCode,
+              version_name: finalVersionName,
+              apk_sha256: update?.apkSha256,
+              apk_size: update?.apkSize,
+              scanned_at: update?.scannedAt,
+            }),
+            versionChanged ? { removeVersionCode: submission.version_code } : {}
+          );
         }
       }
 
@@ -1262,6 +1260,19 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!me.admin) return forbidden();
 
       const result = await runUpstreamPolls(env);
+      return json({ ok: true, result });
+    }
+
+    if (method === "POST" && path.match(/^\/admin\/store\/apps\/[^/]+\/force-recheck$/)) {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const appId = path.replace("/admin/store/apps/", "").replace("/force-recheck", "").trim();
+      const app   = await getStoreAppById(env, appId);
+      if (!app) return notFound();
+
+      const result = await forcePollApp(env, app);
       return json({ ok: true, result });
     }
 
