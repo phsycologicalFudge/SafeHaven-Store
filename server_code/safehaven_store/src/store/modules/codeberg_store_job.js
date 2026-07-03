@@ -1,5 +1,5 @@
 import { createSubmission, advanceSubmissionToScan } from "../store_db.js";
-import { getPresignedStagingUploadUrl, addOrUpdateApp } from "../storage.js";
+import { getPresignedStagingUploadUrl, addOrUpdateApp, getIndex, putIndexWithChangelog } from "../storage.js";
 import {
   nowUnix,
   cryptoRandomHex,
@@ -13,6 +13,7 @@ import {
   versionNameToVersionCode,
   assetNameToVersionName,
 } from "../helpers/apk_helpers.js";
+import { releaseNotesFromCodeberg } from "../helpers/changelog_helpers.js";
 
 const MAX_APK_BYTES       = 100 * 1024 * 1024;
 const ADMIN_MAX_APK_BYTES = 200 * 1024 * 1024;
@@ -292,6 +293,7 @@ const importCandidate = async (env, { repoUrl, adminImport = false }) => {
     versionName,
     versionCode,
     stagingKey: `staging/${packageName}/${versionCode}/app.apk`,
+    releaseNotes: releaseNotesFromCodeberg(release),
   });
 
   if (!submissionId) {
@@ -329,6 +331,36 @@ export const refreshCodebergMetadataForApp = async (env, app) => {
   return true;
 };
 
+const backfillReleaseNotesForLiveVersion = async (env, app, releaseNotes) => {
+  const notes = releaseNotes || null;
+  if (!notes) return;
+
+  const live = await env.api_control_db
+    .prepare("SELECT id, version_code, release_notes FROM store_submissions WHERE app_id = ?1 AND status = 'live' ORDER BY version_code DESC LIMIT 1")
+    .bind(app.id)
+    .first();
+
+  if (!live) return;
+  if ((live.release_notes || null) === notes) return;
+
+  await env.api_control_db
+    .prepare("UPDATE store_submissions SET release_notes = ?2, updated_at = ?3 WHERE id = ?1")
+    .bind(live.id, notes, nowUnix())
+    .run();
+
+  const index = await getIndex(env);
+  const idxApp = index.apps.find((a) => a.packageName === app.package_name);
+  if (!idxApp || !Array.isArray(idxApp.versions)) return;
+
+  const v = idxApp.versions.find((entry) => entry.versionCode === live.version_code);
+  if (!v) return;
+  if ((v.whatsNew || null) === notes) return;
+
+  v.whatsNew = notes;
+  idxApp.lastUpdated = nowUnix();
+  await putIndexWithChangelog(env, index, { changedApps: [idxApp] });
+};
+
 export const pollCodebergApp = async (env, app) => {
   const normalized = normalizeCodebergRepoUrl(app.repo_url);
   if (!normalized) return null;
@@ -352,7 +384,10 @@ export const pollCodebergApp = async (env, app) => {
     .prepare("SELECT id FROM store_submissions WHERE app_id = ?1 AND version_code = ?2 LIMIT 1")
     .bind(app.id, versionCode)
     .first();
-  if (existing) return null;
+  if (existing) {
+    await backfillReleaseNotesForLiveVersion(env, app, releaseNotesFromCodeberg(release));
+    return null;
+  }
 
   if (Number(app.submission_mode_manual || 0) === 1) return null;
 
@@ -371,6 +406,7 @@ export const pollCodebergApp = async (env, app) => {
     versionName,
     versionCode,
     stagingKey:  `staging/${app.package_name}/${versionCode}/app.apk`,
+    releaseNotes: releaseNotesFromCodeberg(release),
   });
 
   if (!submissionId) throw new Error("submission_create_failed");

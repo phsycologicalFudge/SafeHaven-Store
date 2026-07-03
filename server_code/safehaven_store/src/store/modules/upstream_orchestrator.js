@@ -31,13 +31,40 @@ const getAppsForPolling = async (env) => {
   return rows.results || [];
 };
 
-const detectPlatform = (repoUrl) => {
+export const detectPlatform = (repoUrl) => {
   const url = (repoUrl || "").toString().toLowerCase();
   if (url.includes("github.com"))   return "github";
   if (url.includes("gitlab.com"))   return "gitlab";
   if (url.includes("codeberg.org")) return "codeberg";
   return null;
 };
+
+export async function forcePollApp(env, app) {
+  const platform = detectPlatform(app.repo_url);
+
+  if (!platform) {
+    return { checked: true, submitted: false, skipped: true, reason: "unsupported_platform", platform: null };
+  }
+
+  try {
+    let queued = null;
+
+    if (platform === "github") {
+      queued = await pollGitHubApp(env, app);
+    } else if (platform === "gitlab") {
+      queued = await pollGitLabApp(env, app);
+    } else if (platform === "codeberg") {
+      queued = await pollCodebergApp(env, app);
+    }
+
+    await setAppLastRepoCheck(env, app.id);
+
+    return { checked: true, submitted: !!queued, skipped: false, platform };
+  } catch (e) {
+    await setAppLastRepoCheck(env, app.id).catch(() => {});
+    return { checked: true, submitted: false, skipped: false, platform, error: String(e?.message || e) };
+  }
+}
 
 export async function runUpstreamPolls(env) {
   const apps    = await getAppsForPolling(env);

@@ -14,6 +14,7 @@ import {
 import { uploadImageFromUrl } from "./images/image_upload.js";
 
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
+import { releaseNotesFromFdroid } from "../helpers/changelog_helpers.js";
 
 const createUnclaimedStoreApp = async (env, input) => {
   const packageName = (input.packageName || "").toString().trim();
@@ -180,6 +181,7 @@ export const importOrUpdateFdroidApp = async (env, fdroidApp) => {
   const resolvedSummary = normalizeStoreText(fdroidApp.summary || localized.summary);
   const resolvedDescription = normalizeStoreText(fdroidApp.description || localized.description);
   const resolvedVersionName = fdroidApp.versionName ?? null;
+  const resolvedWhatsNew = releaseNotesFromFdroid(localized);
 
   let app = await getStoreAppByPackage(env, packageName);
   
@@ -343,6 +345,7 @@ export const importOrUpdateFdroidApp = async (env, fdroidApp) => {
     versionName: resolvedVersionName,
     versionCode: latestVersionCode,
     stagingKey: `staging/${packageName}/${latestVersionCode}/app.apk`,
+    releaseNotes: resolvedWhatsNew,
   });
 
   if (!submissionId) return { skipped: true, reason: "submission_create_failed", packageName, versionCode: latestVersionCode };

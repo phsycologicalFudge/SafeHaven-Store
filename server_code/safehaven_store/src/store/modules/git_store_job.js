@@ -1,8 +1,9 @@
 import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../store_db.js";
-import { addOrUpdateApp } from "../storage.js";
+import { addOrUpdateApp, getIndex, putIndexWithChangelog } from "../storage.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
 import { githubHeaders, normalizeGitHubRepoUrl, parseGitHubRepo, repoUrlVariants, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "../helpers/github_helpers.js";
+import { releaseNotesFromGitHub } from "../helpers/changelog_helpers.js";
 
 const IMPORT_LIMIT           = 50;
 const MAX_APK_BYTES          = 100 * 1024 * 1024;
@@ -960,6 +961,7 @@ const importCandidate = async (env, rawCandidate) => {
     versionName,
     versionCode,
     stagingKey:  `staging/${packageName}/${versionCode}/app.apk`,
+    releaseNotes: releaseNotesFromGitHub(release),
   });
 
   if (!submissionId) {
@@ -1075,6 +1077,36 @@ const repoCandidateFromUrl = async (env, repoUrl, input = {}) => {
   };
 };
 
+const backfillReleaseNotesForLiveVersion = async (env, app, releaseNotes) => {
+  const notes = releaseNotes || null;
+  if (!notes) return;
+
+  const live = await env.api_control_db
+    .prepare("SELECT id, version_code, release_notes FROM store_submissions WHERE app_id = ?1 AND status = 'live' ORDER BY version_code DESC LIMIT 1")
+    .bind(app.id)
+    .first();
+
+  if (!live) return;
+  if ((live.release_notes || null) === notes) return;
+
+  await env.api_control_db
+    .prepare("UPDATE store_submissions SET release_notes = ?2, updated_at = ?3 WHERE id = ?1")
+    .bind(live.id, notes, nowUnix())
+    .run();
+
+  const index = await getIndex(env);
+  const idxApp = index.apps.find((a) => a.packageName === app.package_name);
+  if (!idxApp || !Array.isArray(idxApp.versions)) return;
+
+  const v = idxApp.versions.find((entry) => entry.versionCode === live.version_code);
+  if (!v) return;
+  if ((v.whatsNew || null) === notes) return;
+
+  v.whatsNew = notes;
+  idxApp.lastUpdated = nowUnix();
+  await putIndexWithChangelog(env, index, { changedApps: [idxApp] });
+};
+
 export const pollGitHubApp = async (env, app) => {
   const normalized = normalizeGitHubRepoUrl(app.repo_url);
   if (!normalized) return null;
@@ -1100,7 +1132,10 @@ export const pollGitHubApp = async (env, app) => {
     .prepare("SELECT id FROM store_submissions WHERE app_id = ?1 AND version_code = ?2 LIMIT 1")
     .bind(app.id, versionCode)
     .first();
-  if (existing) return null;
+  if (existing) {
+    await backfillReleaseNotesForLiveVersion(env, app, releaseNotesFromGitHub(release));
+    return null;
+  }
 
   if (Number(app.submission_mode_manual || 0) === 1) return null;
 
@@ -1113,12 +1148,13 @@ export const pollGitHubApp = async (env, app) => {
   await uploadBufferToStaging(env, app.package_name, versionCode, apkBuffer);
 
   const submissionId = await createSubmission(env, {
-    appId:       app.id,
-    developerId: COMMUNITY_DEVELOPER_ID,
-    packageName: app.package_name,
+    appId:        app.id,
+    developerId:  COMMUNITY_DEVELOPER_ID,
+    packageName:  app.package_name,
     versionName,
     versionCode,
-    stagingKey:  `staging/${app.package_name}/${versionCode}/app.apk`,
+    stagingKey:   `staging/${app.package_name}/${versionCode}/app.apk`,
+    releaseNotes: releaseNotesFromGitHub(release),
   });
 
   if (!submissionId) throw new Error("submission_create_failed");
