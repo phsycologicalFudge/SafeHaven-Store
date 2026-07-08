@@ -1,10 +1,11 @@
 name: safehaven
 description: "A new Flutter project."
 publish_to: 'none'
-version: 2.0.2+6
+version: 2.0.4+10
 
 environment:
   sdk: ^3.9.2
+  flutter: 3.35.7
 
 dependencies:
   flutter:
@@ -26,14 +27,21 @@ dependencies:
   package_info_plus: ^9.0.1
   permission_handler: ^11.3.1
   workmanager: ^0.9.0+3
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
+flutter_native_splash:
+  color: "#1E1E1E"
+  image: assets/splash.png
+  android_12:
+    color: "#1E1E1E"
+    image: assets/splash.png
+
 flutter:
   uses-material-design: true
   assets:
     - assets/icons/
-
