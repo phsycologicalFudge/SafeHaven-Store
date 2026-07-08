@@ -69,6 +69,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          name: SafeHaven Store
           draft: true
           files: |
             build/app/outputs/flutter-apk/safehaven-store.apk
