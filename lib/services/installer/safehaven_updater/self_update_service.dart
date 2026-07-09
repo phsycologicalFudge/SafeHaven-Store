@@ -54,7 +54,7 @@ class SelfUpdateService {
   // static const _apiBase = 'https://api.github.com/repos/$_repo';
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
 
-  static bool forceUpdate = true;
+  static bool forceUpdate = false;
 
   static final _tagPrefix = RegExp(r'^v', caseSensitive: false);
   static final _tagPostfix = RegExp(r'[-+].*$');
