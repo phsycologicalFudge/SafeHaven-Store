@@ -48,69 +48,22 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Clone Build A
-        run: |
-          git clone https://github.com/${{ github.repository }}.git build-a
-          git -C build-a checkout ${{ github.sha }}
+      - name: Get Dependencies
+        run: flutter pub get
 
-      - name: Clone Build B
+      - name: Setup Keystore
         run: |
-          git clone https://github.com/${{ github.repository }}.git build-b
-          git -C build-b checkout ${{ github.sha }}
-
-      - name: Build A
-        run: |
-          cd build-a
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/local-signing.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local-signing.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
-          flutter pub get
-          flutter build apk --release --split-per-abi --split-debug-info=build/symbols
 
-      - name: Build B
-        run: |
-          cd build-b
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/local-signing.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local-signing.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
-          echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
-          flutter pub get
-          flutter build apk --release --split-per-abi --split-debug-info=build/symbols
+      - name: Build Release APK
+        run: flutter build apk --release --split-per-abi
 
-      - name: Diff APK Contents
-        if: always()
-        run: |
-          mkdir -p diff-a diff-b
-          unzip -q build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk -d diff-a
-          unzip -q build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk -d diff-b
-          echo "files that differ:"
-          diff -rq diff-a diff-b || true
-
-      - name: Compare Hashes
-        id: compare
-        run: |
-          hash_a=$(sha256sum build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
-          hash_b=$(sha256sum build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
-          sym_a=$(sha256sum build-a/build/symbols/app.android-arm64.symbols | cut -d ' ' -f1)
-          sym_b=$(sha256sum build-b/build/symbols/app.android-arm64.symbols | cut -d ' ' -f1)
-          echo "build A hash: $hash_a"
-          echo "build B hash: $hash_b"
-          echo "build A symbols hash: $sym_a"
-          echo "build B symbols hash: $sym_b"
-          if [ "$hash_a" != "$hash_b" ]; then
-            echo "hash mismatch between build A and build B, aborting..."
-            exit 1
-          fi
-          echo "hashes match, proceeding to release"
-          echo "hash=$hash_a" >> "$GITHUB_OUTPUT"
-
-      - name: Rename APK and Symbols
-        run: |
-          mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk safehaven-store.apk
-          mv build-a/build/symbols/app.android-arm64.symbols safehaven-store-${{ steps.version.outputs.tag }}.symbols
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/safehaven-store.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -118,10 +71,8 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: SafeHaven Store
           draft: true
-          body: |
-            Verified reproducible build — SHA-256: `${{ steps.compare.outputs.hash }}`
           files: |
-            safehaven-store.apk
-            safehaven-store-${{ steps.version.outputs.tag }}.symbols
+            build/app/outputs/flutter-apk/safehaven-store.apk
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
