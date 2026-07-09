@@ -48,22 +48,52 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Setup Keystore
+      - name: Clone Build A
         run: |
+          git clone https://github.com/${{ github.repository }}.git build-a
+          git -C build-a checkout ${{ github.sha }}
+
+      - name: Clone Build B
+        run: |
+          git clone https://github.com/${{ github.repository }}.git build-b
+          git -C build-b checkout ${{ github.sha }}
+
+      - name: Build A
+        run: |
+          cd build-a
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/local-signing.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local-signing.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
+          flutter pub get
+          flutter build apk --release --split-per-abi
 
-      - name: Build Release APK
-        run: flutter build apk --release --split-per-abi
+      - name: Build B
+        run: |
+          cd build-b
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/local-signing.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local-signing.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
+          echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
+          flutter pub get
+          flutter build apk --release --split-per-abi
+
+      - name: Compare Hashes
+        run: |
+          hash_a=$(sha256sum build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
+          hash_b=$(sha256sum build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
+          echo "build A hash: $hash_a"
+          echo "build B hash: $hash_b"
+          if [ "$hash_a" != "$hash_b" ]; then
+            echo "hash mismatch between build A and build B, aborting release"
+            exit 1
+          fi
+          echo "hashes match, proceeding to release"
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/safehaven-store.apk
+        run: mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build-a/build/app/outputs/flutter-apk/safehaven-store.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -72,7 +102,7 @@ jobs:
           name: SafeHaven Store
           draft: true
           files: |
-            build/app/outputs/flutter-apk/safehaven-store.apk
+            build-a/build/app/outputs/flutter-apk/safehaven-store.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
