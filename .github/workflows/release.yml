@@ -67,7 +67,7 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
           flutter pub get
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --split-debug-info=build/symbols
 
       - name: Build B
         run: |
@@ -78,7 +78,7 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
           flutter pub get
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --split-debug-info=build/symbols
 
       - name: Diff APK Contents
         if: always()
@@ -94,17 +94,23 @@ jobs:
         run: |
           hash_a=$(sha256sum build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
           hash_b=$(sha256sum build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
+          sym_a=$(sha256sum build-a/build/symbols/app.android-arm64.symbols | cut -d ' ' -f1)
+          sym_b=$(sha256sum build-b/build/symbols/app.android-arm64.symbols | cut -d ' ' -f1)
           echo "build A hash: $hash_a"
           echo "build B hash: $hash_b"
+          echo "build A symbols hash: $sym_a"
+          echo "build B symbols hash: $sym_b"
           if [ "$hash_a" != "$hash_b" ]; then
-            echo "hash mismatch between build A and build B, aborting release"
+            echo "hash mismatch between build A and build B, aborting..."
             exit 1
           fi
           echo "hashes match, proceeding to release"
           echo "hash=$hash_a" >> "$GITHUB_OUTPUT"
 
-      - name: Rename APK
-        run: mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk safehaven-store.apk
+      - name: Rename APK and Symbols
+        run: |
+          mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk safehaven-store.apk
+          mv build-a/build/symbols/app.android-arm64.symbols safehaven-store-${{ steps.version.outputs.tag }}.symbols
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -116,5 +122,6 @@ jobs:
             Verified reproducible build — SHA-256: `${{ steps.compare.outputs.hash }}`
           files: |
             safehaven-store.apk
+            safehaven-store-${{ steps.version.outputs.tag }}.symbols
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
