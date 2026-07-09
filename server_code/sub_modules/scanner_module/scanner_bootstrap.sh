@@ -62,7 +62,7 @@ APKSIGNER_BIN="$APKSIGNER_PATH"
 AAPT2_BIN="$AAPT2_PATH"
 ENGINE_ENABLED="1"
 VXTITANIUM_LIB_PATH="$ENGINE_DIR/lib/libcolourswift_av.so"
-VXTITANIUM_DEFS_PATH="$ENGINE_DIR/defs"
+VXTITANIUM_DEFS_PATH="$ENGINE_DIR/defs/defs.cs"
 TFLITE_LIB_PATH="$ENGINE_DIR/lib/libtensorflowlite_c.so"
 HASH_API_URL="http://127.0.0.1:$HASH_PORT/check_batch"
 HASH_API_KEY="23JVO3ojo23oO3O423rrTR"
@@ -101,6 +101,7 @@ Type=simple
 WorkingDirectory=$SCRIPTS_DIR
 Environment=DEFS_DIR=$ENGINE_DIR/defs
 Environment=DEFS_UPDATE_INTERVAL=86400
+Environment=PYTHONUNBUFFERED=1
 ExecStart=$VENV_DIR/bin/python3 defs_updater.py
 Restart=always
 RestartSec=60

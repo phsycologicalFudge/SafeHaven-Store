@@ -12,7 +12,7 @@ UPDATE_INTERVAL = int(os.getenv("DEFS_UPDATE_INTERVAL", str(60 * 60 * 24)))
 SCANNER_SERVICE = "safehaven-scanner"
 
 RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-ASSETS       = ["defs.vxpack", "defs_key.bin", "version.json"]
+ASSETS       = ["defs.cs", "version.json"]
 
 
 def _current_version() -> str | None:

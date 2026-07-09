@@ -3,7 +3,7 @@ import json
 import os
 
 VXTITANIUM_LIB_PATH  = os.getenv("VXTITANIUM_LIB_PATH",  "/opt/vx-titanium/lib/libcolourswift_av.so")
-VXTITANIUM_DEFS_PATH = os.getenv("VXTITANIUM_DEFS_PATH",  "/opt/vx-titanium/defs")
+VXTITANIUM_DEFS_PATH = os.getenv("VXTITANIUM_DEFS_PATH",  "/opt/vx-titanium/defs/defs.cs")
 TFLITE_LIB_PATH      = os.getenv("TFLITE_LIB_PATH", os.path.join(os.path.dirname(VXTITANIUM_LIB_PATH), "libtensorflowlite_c.so"))
 
 ENGINE_NAME = "vx-titanium"
