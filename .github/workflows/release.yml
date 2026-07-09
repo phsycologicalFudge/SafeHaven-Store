@@ -80,7 +80,17 @@ jobs:
           flutter pub get
           flutter build apk --release --split-per-abi
 
+      - name: Diff APK Contents
+        if: always()
+        run: |
+          mkdir -p diff-a diff-b
+          unzip -q build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk -d diff-a
+          unzip -q build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk -d diff-b
+          echo "files that differ:"
+          diff -rq diff-a diff-b || true
+
       - name: Compare Hashes
+        id: compare
         run: |
           hash_a=$(sha256sum build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
           hash_b=$(sha256sum build-b/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk | cut -d ' ' -f1)
@@ -91,9 +101,10 @@ jobs:
             exit 1
           fi
           echo "hashes match, proceeding to release"
+          echo "hash=$hash_a" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
-        run: mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build-a/build/app/outputs/flutter-apk/safehaven-store.apk
+        run: mv build-a/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk safehaven-store.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -101,8 +112,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: SafeHaven Store
           draft: true
+          body: |
+            Verified reproducible build — SHA-256: `${{ steps.compare.outputs.hash }}`
           files: |
-            build-a/build/app/outputs/flutter-apk/safehaven-store.apk
-          generate_release_notes: true
+            safehaven-store.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
