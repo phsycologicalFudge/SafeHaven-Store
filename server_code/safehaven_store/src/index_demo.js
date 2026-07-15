@@ -27,17 +27,20 @@ export default {
 
   async scheduled(event, env, ctx) {
     switch (event.cron) {
+      case "* * * * *":
+        ctx.waitUntil(runFdroidCronJob(env));
+        ctx.waitUntil(runIzzyCronJob(env));
+        break;
       case "0 * * * *":
         ctx.waitUntil(runStoreAutoApprovals(env));
-        ctx.waitUntil(runUnclaimedRepoPolls(env));
         ctx.waitUntil(runUpstreamPolls(env));
         break;
       case "0 */6 * * *":
         ctx.waitUntil(runGitHubReadmeSweep(env));
-        ctx.waitUntil(runFdroidSync(env));
         break;
       case "0 3 3 * *":
         ctx.waitUntil(runGitHubBootstrapImport(env));
+        ctx.waitUntil(tryRunMonthlyReset(env));
         break;
     }
   },
