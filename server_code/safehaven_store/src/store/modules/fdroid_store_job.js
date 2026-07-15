@@ -13,7 +13,7 @@ import {
 } from "../storage.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 
-import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
+import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID, fetchWithTimeout } from "../helpers/store_helpers.js";
 import { releaseNotesFromFdroid } from "../helpers/changelog_helpers.js";
 
 const createUnclaimedStoreApp = async (env, input) => {
@@ -59,7 +59,7 @@ const createUnclaimedStoreApp = async (env, input) => {
 const FDROID_REPO_URL = "https://f-droid.org/repo";
 const FDROID_INDEX_URL = `${FDROID_REPO_URL}/index-v1.json`;
 const FDROID_DATA_URL = "https://gitlab.com/fdroid/fdroiddata/-/raw/master/metadata";
-const FDROID_SYNC_LIMIT = 50;
+const FDROID_SYNC_LIMIT = 25;
 const MAX_APK_BYTES = 100 * 1024 * 1024;
 const MAX_ICON_BYTES = 4 * 1024 * 1024;
 const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
@@ -67,7 +67,7 @@ const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
 const fetchFdroidMetadata = async (packageName) => {
   try {
     const url = `${FDROID_DATA_URL}/${packageName}.yml`;
-    const res = await fetch(url, { headers: { "user-agent": "SafeHaven-Store/1.0" } });
+    const res = await fetchWithTimeout(url, { headers: { "user-agent": "SafeHaven-Store/1.0" } }, 6000);
     if (!res.ok) return null;
     const text = await res.text();
     const match = text.match(/^SourceCode:\s*(.+)$/m);
@@ -96,7 +96,15 @@ const syncFdroidIcon = async (env, app, appMeta, packageName) => {
   }
 
   if (!key && appMeta?.icon) {
-    const sizes = [640, 480, 320, 240, 160, 120];
+    key = await uploadFdroidImage(
+      env, packageName, "icon",
+      `${FDROID_REPO_URL}/icons/${appMeta.icon}`,
+      MAX_ICON_BYTES
+    );
+  }
+
+  if (!key && appMeta?.icon) {
+    const sizes = [640, 160];
     for (let i = 0; i < sizes.length; i++) {
       key = await uploadFdroidImage(
         env, packageName, "icon",
@@ -110,16 +118,9 @@ const syncFdroidIcon = async (env, app, appMeta, packageName) => {
   if (!key && appMeta?.icon) {
     key = await uploadFdroidImage(
       env, packageName, "icon",
-      `${FDROID_REPO_URL}/icons/${appMeta.icon}`,
+      `${FDROID_REPO_URL}/${appMeta.icon}`,
       MAX_ICON_BYTES
     );
-    if (!key) {
-      key = await uploadFdroidImage(
-        env, packageName, "icon",
-        `${FDROID_REPO_URL}/${appMeta.icon}`,
-        MAX_ICON_BYTES
-      );
-    }
   }
 
   return key;
@@ -141,24 +142,21 @@ const syncFdroidScreenshots = async (env, app, appMeta, packageName) => {
   if (!Array.isArray(screenshotFiles) || !screenshotFiles.length) return [];
 
   const screenshotKeys = [];
+  let basePath = `${FDROID_REPO_URL}/${packageName}/en-US/phoneScreenshots`;
+  let pathResolved = false;
+
   for (let i = 0; i < screenshotFiles.length && screenshotKeys.length < 6; i++) {
     const filename = screenshotFiles[i];
     const slot = `screenshot_${screenshotKeys.length + 1}`;
-    
-    let key = await uploadFdroidImage(
-      env, packageName, slot,
-      `${FDROID_REPO_URL}/${packageName}/en-US/phoneScreenshots/${filename}`,
-      MAX_SCREENSHOT_BYTES
-    );
-    
-    if (!key) {
-      key = await uploadFdroidImage(
-        env, packageName, slot,
-        `${FDROID_REPO_URL}/${packageName}/phoneScreenshots/${filename}`,
-        MAX_SCREENSHOT_BYTES
-      );
+
+    let key = await uploadFdroidImage(env, packageName, slot, `${basePath}/${filename}`, MAX_SCREENSHOT_BYTES);
+
+    if (!key && !pathResolved) {
+      basePath = `${FDROID_REPO_URL}/${packageName}/phoneScreenshots`;
+      key = await uploadFdroidImage(env, packageName, slot, `${basePath}/${filename}`, MAX_SCREENSHOT_BYTES);
     }
-    
+
+    pathResolved = true;
     if (key) screenshotKeys.push(key);
   }
 
@@ -309,7 +307,7 @@ export const importOrUpdateFdroidApp = async (env, fdroidApp) => {
 
   let apkBuffer;
   try {
-    const res = await fetch(apkUrl, { headers: { "user-agent": "SafeHaven-Store/1.0" } });
+    const res = await fetchWithTimeout(apkUrl, { headers: { "user-agent": "SafeHaven-Store/1.0" } }, 20000);
     if (!res.ok) return { skipped: true, reason: `apk_download_failed:${res.status}`, packageName, versionCode: latestVersionCode };
     apkBuffer = await res.arrayBuffer();
   } catch (e) {
@@ -328,11 +326,11 @@ export const importOrUpdateFdroidApp = async (env, fdroidApp) => {
 
   try {
     const stagingUrl = await getPresignedStagingUploadUrl(env, packageName, latestVersionCode, 300);
-    const uploadRes = await fetch(stagingUrl, {
+    const uploadRes = await fetchWithTimeout(stagingUrl, {
       method: "PUT",
       headers: { "content-type": "application/vnd.android.package-archive" },
       body: apkBuffer,
-    });
+    }, 20000);
     if (!uploadRes.ok) throw new Error(`staging_upload_failed:${uploadRes.status}`);
   } catch (e) {
     return { skipped: true, reason: `staging_failed:${String(e?.message || e)}`, packageName, versionCode: latestVersionCode };
@@ -389,13 +387,19 @@ const setSyncState = async (env, key, value) => {
     .run();
 };
 
-export async function runFdroidUpdateCheck(env) {
+const FDROID_UPDATE_CURSOR_KEY = "fdroid_update_cursor";
+
+export async function runFdroidUpdateCheck(env, options = {}) {
+  const timeBudgetMs = options.timeBudgetMs ?? 300_000;
+  const deadline = Date.now() + timeBudgetMs;
+
   const results = {
     checked: 0,
     updated: 0,
     skipped: 0,
     skipReasons: {},
     errors: [],
+    wrapped: false,
   };
 
   let index;
@@ -419,9 +423,9 @@ export async function runFdroidUpdateCheck(env) {
   }
 
   const PAGE_SIZE = 500;
-  let lastId = "";
+  let lastId = options.cursor ?? (await getSyncState(env, FDROID_UPDATE_CURSOR_KEY)) ?? "";
 
-  while (true) {
+  while (Date.now() < deadline) {
     const rows = await env.api_control_db
       .prepare(
         `SELECT id, package_name
@@ -437,7 +441,11 @@ export async function runFdroidUpdateCheck(env) {
       .all();
 
     const apps = rows.results || [];
-    if (!apps.length) break;
+    if (!apps.length) {
+      lastId = "";
+      results.wrapped = true;
+      break;
+    }
 
     for (const app of apps) {
       results.checked++;
@@ -464,11 +472,19 @@ export async function runFdroidUpdateCheck(env) {
       } catch (e) {
         results.errors.push({ packageName: app.package_name, error: String(e?.message || e) });
       }
+
+      if (Date.now() >= deadline) break;
     }
 
     lastId = apps[apps.length - 1].id;
-    if (apps.length < PAGE_SIZE) break;
+    if (apps.length < PAGE_SIZE) {
+      lastId = "";
+      results.wrapped = true;
+      break;
+    }
   }
+
+  await setSyncState(env, FDROID_UPDATE_CURSOR_KEY, lastId);
 
   console.log(JSON.stringify({
     tag: "fdroid_update_check_complete",
@@ -478,6 +494,8 @@ export async function runFdroidUpdateCheck(env) {
     skipReasons: results.skipReasons,
     errorCount: results.errors.length,
     errors: results.errors.slice(0, 20),
+    wrapped: results.wrapped,
+    cursor: lastId,
   }));
 
   return results;
@@ -485,7 +503,7 @@ export async function runFdroidUpdateCheck(env) {
 
 export async function runFdroidSync(env, options = {}) {
   const batchSize    = options.batchSize   || FDROID_SYNC_LIMIT;
-  const timeBudgetMs = options.timeBudgetMs ?? 25_000;
+  const timeBudgetMs = options.timeBudgetMs ?? 300_000;
   const forceOffset  = options.offset ?? null;
 
   const results = {
@@ -626,39 +644,76 @@ export async function runFdroidSync(env, options = {}) {
 }
 
 const FDROID_CRON_STATE_KEY = "fdroid_cron_state";
+const FDROID_LOCK_KEY = "fdroid_cron_lock";
 const UPDATE_CHECK_INTERVAL_SECONDS = 6 * 60 * 60;
 const DISCOVERY_INTERVAL_SECONDS = 24 * 60 * 60;
+const LOCK_TTL_SECONDS = 20 * 60;
+
+const tryAcquireFdroidLock = async (env) => {
+  const now = nowUnix();
+  const expiresAt = now + LOCK_TTL_SECONDS;
+
+  await env.api_control_db
+    .prepare("INSERT OR IGNORE INTO sync_state (key, value) VALUES (?1, ?2)")
+    .bind(FDROID_LOCK_KEY, JSON.stringify({ expiresAt: 0 }))
+    .run();
+
+  const result = await env.api_control_db
+    .prepare(
+      "UPDATE sync_state SET value = ?2 WHERE key = ?1 AND CAST(json_extract(value, '$.expiresAt') AS INTEGER) < ?3"
+    )
+    .bind(FDROID_LOCK_KEY, JSON.stringify({ expiresAt }), now)
+    .run();
+
+  return (result.meta?.changes || 0) > 0;
+};
+
+const releaseFdroidLock = async (env) => {
+  await env.api_control_db
+    .prepare("UPDATE sync_state SET value = ?2 WHERE key = ?1")
+    .bind(FDROID_LOCK_KEY, JSON.stringify({ expiresAt: 0 }))
+    .run();
+};
 
 export async function runFdroidCronJob(env) {
-  let state = await getSyncState(env, FDROID_CRON_STATE_KEY) || {
-    lastUpdateCheck: 0,
-    lastDiscovery: 0,
-    discoveryStatus: "idle",
-  };
-
-  const now = Math.floor(Date.now() / 1000);
-  const output = { now };
-
-  if (now - (state.lastUpdateCheck || 0) >= UPDATE_CHECK_INTERVAL_SECONDS) {
-    output.updateCheck = await runFdroidUpdateCheck(env);
-    state.lastUpdateCheck = now;
+  const gotLock = await tryAcquireFdroidLock(env);
+  if (!gotLock) {
+    return { skipped: true, reason: "locked" };
   }
 
-  if (state.discoveryStatus === "syncing" || now - (state.lastDiscovery || 0) >= DISCOVERY_INTERVAL_SECONDS) {
-    if (state.discoveryStatus !== "syncing") {
-      await setSyncState(env, FDROID_OFFSET_KEY, 0);
-      state.discoveryStatus = "syncing";
+  try {
+    let state = await getSyncState(env, FDROID_CRON_STATE_KEY) || {
+      lastUpdateCheck: 0,
+      lastDiscovery: 0,
+      discoveryStatus: "idle",
+    };
+
+    const now = Math.floor(Date.now() / 1000);
+    const output = { now };
+
+    if (now - (state.lastUpdateCheck || 0) >= UPDATE_CHECK_INTERVAL_SECONDS) {
+      output.updateCheck = await runFdroidUpdateCheck(env);
+      state.lastUpdateCheck = now;
     }
 
-    const discoveryResult = await runFdroidSync(env);
-    output.discovery = discoveryResult;
+    if (state.discoveryStatus === "syncing" || now - (state.lastDiscovery || 0) >= DISCOVERY_INTERVAL_SECONDS) {
+      if (state.discoveryStatus !== "syncing") {
+        await setSyncState(env, FDROID_OFFSET_KEY, 0);
+        state.discoveryStatus = "syncing";
+      }
 
-    if (discoveryResult.error || discoveryResult.wrapped) {
-      state.discoveryStatus = "idle";
-      state.lastDiscovery = now;
+      const discoveryResult = await runFdroidSync(env);
+      output.discovery = discoveryResult;
+
+      if (discoveryResult.error || discoveryResult.wrapped) {
+        state.discoveryStatus = "idle";
+        state.lastDiscovery = now;
+      }
     }
+
+    await setSyncState(env, FDROID_CRON_STATE_KEY, state);
+    return output;
+  } finally {
+    await releaseFdroidLock(env);
   }
-
-  await setSyncState(env, FDROID_CRON_STATE_KEY, state);
-  return output;
 }

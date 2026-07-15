@@ -1,6 +1,7 @@
 import { getPresignedImageUploadUrl, imageKey } from "../../storage.js";
 import { normaliseIcon } from "./icon_normalise.js";
 import { normaliseScreenshot } from "./screenshot_normalise.js";
+import { fetchWithTimeout } from "../../helpers/store_helpers.js";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
@@ -36,11 +37,11 @@ const putNormalisedImage = async (env, packageName, slot, buffer, isIcon, fallba
   }
 
   const url = await getPresignedImageUploadUrl(env, packageName, slot, 300);
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method:  "PUT",
     headers: { "content-type": contentType },
     body:    normed,
-  });
+  }, 10000);
   if (!res.ok) return null;
   return imageKey(packageName, slot);
 };
@@ -48,7 +49,7 @@ const putNormalisedImage = async (env, packageName, slot, buffer, isIcon, fallba
 export const uploadImageFromUrl = async (env, packageName, slot, imageUrl, maxBytes) => {
   let res;
   try {
-    res = await fetch(imageUrl, { headers: { "user-agent": "SafeHaven-Store/1.0" } });
+    res = await fetchWithTimeout(imageUrl, { headers: { "user-agent": "SafeHaven-Store/1.0" } }, 8000);
   } catch {
     return null;
   }

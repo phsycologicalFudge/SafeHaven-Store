@@ -223,7 +223,7 @@ export async function recordScanResult(env, id, input) {
   const apkSha256   = (input.apkSha256 || "").toString().trim() || null;
   const apkSize     = Number.isFinite(Number(input.apkSize)) ? Number(input.apkSize) : null;
   const now         = nowUnix();
-  const reviewAfter = passed ? now + 21600 : null;
+  const reviewAfter = passed ? now + 3600 : null;
   const nextStatus  = passed ? SUBMISSION_STATUS.PENDING_REVIEW : SUBMISSION_STATUS.REJECTED;
 
   await db(env)

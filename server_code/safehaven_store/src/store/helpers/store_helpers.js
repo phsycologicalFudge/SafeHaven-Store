@@ -35,6 +35,16 @@ export const normalizeStoreText = (value) => {
   return clean || null;
 };
 
+export const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export const parseScreenshots = (screenshotsJson) => {
   if (!screenshotsJson) return [];
   try { return JSON.parse(screenshotsJson); } catch { return []; }

@@ -4,6 +4,8 @@ import { pollGitLabApp } from "./gitlab_store_job.js";
 import { pollCodebergApp } from "./codeberg_store_job.js";
 
 const POLL_INTERVAL_SEC = 21600;
+const POLL_PAGE_SIZE = 200;
+const DEFAULT_POLL_TIME_BUDGET_MS = 300_000;
 
 const setAppLastRepoCheck = (env, appId) =>
   env.api_control_db
@@ -24,9 +26,9 @@ const getAppsForPolling = async (env) => {
            OR (claimed = 1 AND (submission_mode_manual IS NULL OR submission_mode_manual = 0))
          )
        ORDER BY last_repo_check ASC
-       LIMIT 50`
+       LIMIT ?2`
     )
-    .bind(cutoff)
+    .bind(cutoff, POLL_PAGE_SIZE)
     .all();
   return rows.results || [];
 };
@@ -66,8 +68,10 @@ export async function forcePollApp(env, app) {
   }
 }
 
-export async function runUpstreamPolls(env) {
-  const apps    = await getAppsForPolling(env);
+export async function runUpstreamPolls(env, options = {}) {
+  const timeBudgetMs = options.timeBudgetMs ?? DEFAULT_POLL_TIME_BUDGET_MS;
+  const deadline = Date.now() + timeBudgetMs;
+
   const results = {
     checked:   0,
     submitted: 0,
@@ -75,37 +79,46 @@ export async function runUpstreamPolls(env) {
     errors:    [],
   };
 
-  for (const app of apps) {
-    results.checked++;
-    const platform = detectPlatform(app.repo_url);
+  while (Date.now() < deadline) {
+    const apps = await getAppsForPolling(env);
+    if (!apps.length) break;
 
-    try {
-      let queued = null;
+    for (const app of apps) {
+      if (Date.now() >= deadline) break;
 
-      if (platform === "github") {
-        queued = await pollGitHubApp(env, app);
-      } else if (platform === "gitlab") {
-        queued = await pollGitLabApp(env, app);
-      } else if (platform === "codeberg") {
-        queued = await pollCodebergApp(env, app);
-      } else {
-        results.skipped++;
+      results.checked++;
+      const platform = detectPlatform(app.repo_url);
+
+      try {
+        let queued = null;
+
+        if (platform === "github") {
+          queued = await pollGitHubApp(env, app);
+        } else if (platform === "gitlab") {
+          queued = await pollGitLabApp(env, app);
+        } else if (platform === "codeberg") {
+          queued = await pollCodebergApp(env, app);
+        } else {
+          results.skipped++;
+          await setAppLastRepoCheck(env, app.id);
+          continue;
+        }
+
         await setAppLastRepoCheck(env, app.id);
-        continue;
+        if (queued) results.submitted++;
+
+      } catch (e) {
+        results.errors.push({
+          appId:    app.id,
+          platform,
+          repoUrl:  app.repo_url,
+          error:    String(e?.message || e),
+        });
+        await setAppLastRepoCheck(env, app.id).catch(() => {});
       }
-
-      await setAppLastRepoCheck(env, app.id);
-      if (queued) results.submitted++;
-
-    } catch (e) {
-      results.errors.push({
-        appId:    app.id,
-        platform,
-        repoUrl:  app.repo_url,
-        error:    String(e?.message || e),
-      });
-      await setAppLastRepoCheck(env, app.id).catch(() => {});
     }
+
+    if (apps.length < POLL_PAGE_SIZE) break;
   }
 
   console.log(JSON.stringify({
