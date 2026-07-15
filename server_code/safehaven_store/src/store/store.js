@@ -64,6 +64,7 @@ import { runGitLabDirectImport, normalizeGitLabRepoUrl } from "./modules/gitlab_
 import { runCodebergDirectImport, normalizeCodebergRepoUrl } from "./modules/codeberg_store_job.js";
 import { runUpstreamPolls, forcePollApp } from "./modules/upstream_orchestrator.js";
 import { runFdroidSync, runFdroidUpdateCheck, importOrUpdateFdroidApp, runFdroidCronJob } from "./modules/fdroid_store_job.js";
+import { runIzzySync, runIzzyUpdateCheck, importOrUpdateIzzyApp, runIzzyCronJob } from "./modules/izzy_store_job.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "./helpers/store_helpers.js";
 import { parseGitHubRepo, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "./helpers/github_helpers.js";
 
@@ -76,6 +77,9 @@ export {
   runFdroidSync,
   runFdroidUpdateCheck,
   runFdroidCronJob,
+  runIzzySync,
+  runIzzyUpdateCheck,
+  runIzzyCronJob,
   runUpstreamPolls,
 };
 
@@ -569,6 +573,110 @@ if (method === "POST" && path === "/admin/store/fdroid-index-chunk") {
       const body = await request.arrayBuffer();
       if (!body.byteLength) return badRequest("empty_body");
       await env.SH_BUCKET.put("fdroid/index-v1.json", body, {
+        httpMetadata: { contentType: "application/json" },
+      });
+      return json({ ok: true });
+    }
+
+if (method === "POST" && path === "/admin/store/izzy-index-chunk") {
+  const provided = (request.headers.get("authorization") || "").trim();
+  if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+
+  const body = await readJson(request);
+  if (!body) return badRequest("json_required");
+
+  const type = (body.type || "").toString().trim();
+
+  if (type === "repo") {
+    const repoData = body.data || {};
+    const totalApps = Number(body.totalApps || 0);
+    const totalChunks = Number(body.totalChunks || 0);
+
+    await env.api_control_db
+      .prepare("INSERT OR REPLACE INTO sync_state (key, value) VALUES (?1, ?2)")
+      .bind(
+        "izzy_chunk_state",
+        JSON.stringify({
+          repo: repoData,
+          totalApps,
+          totalChunks,
+          receivedChunks: [],
+          processedApps: 0,
+          startedAt: nowUnix(),
+        })
+      )
+      .run();
+
+    return json({ ok: true, message: `Ready to receive ${totalChunks} chunks with ${totalApps} apps` });
+  }
+
+  if (type === "apps") {
+    const chunkIndex = Number(body.chunkIndex || 0);
+    const apps = Array.isArray(body.apps) ? body.apps : [];
+    const totalChunks = Number(body.totalChunks || 0);
+
+    const stateRow = await env.api_control_db
+      .prepare("SELECT value FROM sync_state WHERE key = ?1")
+      .bind("izzy_chunk_state")
+      .first();
+
+    if (!stateRow) return badRequest("repo_metadata_not_initialized");
+
+    const state = JSON.parse(stateRow.value);
+
+    if (state.receivedChunks.includes(chunkIndex)) {
+      return json({ ok: true, skipped: true, message: `Chunk ${chunkIndex} already processed` });
+    }
+
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (const app of apps) {
+      try {
+        const outcome = await importOrUpdateIzzyApp(env, app);
+        if (outcome.imported) {
+          imported++;
+          if (!outcome.isNew) updated++;
+        } else if (outcome.skipped) {
+          skipped++;
+        }
+      } catch (e) {
+        errors.push({ packageName: app.packageName, error: String(e?.message || e) });
+      }
+    }
+
+    state.receivedChunks.push(chunkIndex);
+    state.processedApps += apps.length;
+
+    await env.api_control_db
+      .prepare("UPDATE sync_state SET value = ?1 WHERE key = ?2")
+      .bind(JSON.stringify(state), "izzy_chunk_state")
+      .run();
+
+    return json({
+      ok: true,
+      chunkIndex,
+      appsReceived: apps.length,
+      imported,
+      updated,
+      skipped,
+      errors: errors.slice(0, 5),
+      totalReceived: state.receivedChunks.length,
+      totalChunks,
+    });
+  }
+
+  return badRequest("invalid_chunk_type");
+}
+
+    if (method === "PUT" && path === "/admin/store/izzy-index") {
+      const provided = (request.headers.get("authorization") || "").trim();
+      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+      const body = await request.arrayBuffer();
+      if (!body.byteLength) return badRequest("empty_body");
+      await env.SH_BUCKET.put("izzy/index-v1.json", body, {
         httpMetadata: { contentType: "application/json" },
       });
       return json({ ok: true });
@@ -1196,6 +1304,24 @@ if (method === "POST" && path === "/internal/store/rescan-result") {
       if (!me.admin) return forbidden();
 
       const result = await runFdroidUpdateCheck(env);
+      return json({ ok: true, result });
+    }
+
+    if (method === "POST" && path === "/admin/store/izzy-sync") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const result = await runIzzySync(env);
+      return json({ ok: true, result });
+    }
+
+    if (method === "POST" && path === "/admin/store/izzy-update-check") {
+      const me = await requireUser();
+      if (!me) return unauthorized();
+      if (!me.admin) return forbidden();
+
+      const result = await runIzzyUpdateCheck(env);
       return json({ ok: true, result });
     }
 
