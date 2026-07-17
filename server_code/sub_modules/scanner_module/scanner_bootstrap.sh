@@ -144,6 +144,23 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
+cat > /etc/systemd/system/safehaven-izzy.service <<EOF
+[Unit]
+Description=SafeHaven IzzyOnDroid Index Syncer
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=$SCRIPTS_DIR
+Environment=WORKER_SECRET=$WORKER_SECRET
+ExecStart=/bin/bash -c "sleep 1800; while true; do $VENV_DIR/bin/python3 izzy_push_script.py; sleep 3600; done"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 
 systemctl enable safehaven-hash
@@ -161,3 +178,7 @@ systemctl status safehaven-scanner --no-pager
 systemctl enable safehaven-fdroid
 systemctl restart safehaven-fdroid
 systemctl status safehaven-fdroid --no-pager
+
+systemctl enable safehaven-izzy
+systemctl restart safehaven-izzy
+systemctl status safehaven-izzy --no-pager

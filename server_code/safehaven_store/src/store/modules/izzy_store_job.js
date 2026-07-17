@@ -16,6 +16,27 @@ import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID, fetchWithTimeout } from "../helpers/store_helpers.js";
 import { releaseNotesFromFdroid } from "../helpers/changelog_helpers.js";
 
+const rankNativecode = (codes) => {
+  if (!Array.isArray(codes) || codes.length === 0) return 2;
+  if (codes.includes("arm64-v8a")) return 0;
+  if (codes.includes("armeabi-v7a")) return 1;
+  return -1;
+};
+
+const pickBestVersion = (versions) => {
+  let best = null;
+  let bestRank = Infinity;
+  for (const v of versions) {
+    const rank = rankNativecode(v.nativecode);
+    if (rank < 0) continue;
+    if (best === null || rank < bestRank || (rank === bestRank && v.versionCode > best.versionCode)) {
+      best = v;
+      bestRank = rank;
+    }
+  }
+  return best;
+};
+
 const createUnclaimedStoreApp = async (env, input) => {
   const packageName = (input.packageName || "").toString().trim();
   const name        = (input.name        || "").toString().trim();
@@ -31,10 +52,10 @@ const createUnclaimedStoreApp = async (env, input) => {
     .first();
 
   if (existing) {
-    if (existing.status !== APP_STATUS.ACTIVE || existing.trust_level !== "verified_source" || existing.upstream !== "izzy") {
+    if (existing.status !== APP_STATUS.ACTIVE || existing.trust_level !== "verified_source" || existing.upstream !== "izzyondroid") {
       await env.api_control_db
         .prepare(
-          "UPDATE store_apps SET name = ?2, summary = ?3, description = ?4, repo_url = ?5, status = 'active', trust_level = 'verified_source', repo_verified = 1, auto_tracked = 1, upstream = 'izzy', updated_at = ?6 WHERE id = ?1"
+          "UPDATE store_apps SET name = ?2, summary = ?3, description = ?4, repo_url = ?5, status = 'active', trust_level = 'verified_source', repo_verified = 1, auto_tracked = 1, upstream = 'izzyondroid', updated_at = ?6 WHERE id = ?1"
         )
         .bind(existing.id, name, summary, description, repoUrl, now)
         .run();
@@ -49,7 +70,7 @@ const createUnclaimedStoreApp = async (env, input) => {
         (id, developer_id, package_name, name, summary, description,
          repo_url, repo_token, repo_verified, trust_level, status,
          claimed, auto_tracked, created_at, updated_at, upstream)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', 1, 'verified_source', 'active', 0, 1, ?8, ?8, 'izzy')`
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', 1, 'verified_source', 'active', 0, 1, ?8, ?8, 'izzyondroid')`
     )
     .bind(id, COMMUNITY_DEVELOPER_ID, packageName, name, summary, description, repoUrl, now)
     .run();
@@ -174,7 +195,7 @@ export const importOrUpdateIzzyApp = async (env, izzyApp) => {
 
   let app = await getStoreAppByPackage(env, packageName);
 
-  if (app && app.upstream !== "izzy") {
+  if (app && app.upstream !== "izzyondroid") {
     return { skipped: true, reason: "app_already_exists" };
   }
 
@@ -409,7 +430,8 @@ export async function runIzzyUpdateCheck(env, options = {}) {
   const latestByPackage = new Map();
   for (const [packageName, versions] of Object.entries(index.packages || {})) {
     if (!Array.isArray(versions) || !versions.length) continue;
-    const latest = versions.reduce((a, b) => b.versionCode > a.versionCode ? b : a);
+    const latest = pickBestVersion(versions);
+    if (!latest) continue;
     latestByPackage.set(packageName, latest);
   }
 
@@ -421,7 +443,7 @@ export async function runIzzyUpdateCheck(env, options = {}) {
       .prepare(
         `SELECT id, package_name
          FROM store_apps
-         WHERE upstream = 'izzy'
+         WHERE upstream = 'izzyondroid'
            AND status = 'active'
            AND claimed = 0
            AND id > ?1
@@ -575,9 +597,13 @@ export async function runIzzySync(env, options = {}) {
         continue;
       }
 
-      const latestVersion = versions.reduce((latest, current) =>
-        current.versionCode > latest.versionCode ? current : latest
-      );
+      const latestVersion = pickBestVersion(versions);
+      if (!latestVersion) {
+        results.processed++;
+        results.skipped++;
+        results.skipReasons["no_supported_abi"] = (results.skipReasons["no_supported_abi"] || 0) + 1;
+        continue;
+      }
 
       const izzyApp = { packageName, ...appMeta, ...latestVersion };
 

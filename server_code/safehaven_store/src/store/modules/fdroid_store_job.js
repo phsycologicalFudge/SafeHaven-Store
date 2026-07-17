@@ -16,6 +16,27 @@ import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID, fetchWithTimeout } from "../helpers/store_helpers.js";
 import { releaseNotesFromFdroid } from "../helpers/changelog_helpers.js";
 
+const rankNativecode = (codes) => {
+  if (!Array.isArray(codes) || codes.length === 0) return 2;
+  if (codes.includes("arm64-v8a")) return 0;
+  if (codes.includes("armeabi-v7a")) return 1;
+  return -1;
+};
+
+const pickBestVersion = (versions) => {
+  let best = null;
+  let bestRank = Infinity;
+  for (const v of versions) {
+    const rank = rankNativecode(v.nativecode);
+    if (rank < 0) continue;
+    if (best === null || rank < bestRank || (rank === bestRank && v.versionCode > best.versionCode)) {
+      best = v;
+      bestRank = rank;
+    }
+  }
+  return best;
+};
+
 const createUnclaimedStoreApp = async (env, input) => {
   const packageName = (input.packageName || "").toString().trim();
   const name        = (input.name        || "").toString().trim();
@@ -418,7 +439,8 @@ export async function runFdroidUpdateCheck(env, options = {}) {
   const latestByPackage = new Map();
   for (const [packageName, versions] of Object.entries(index.packages || {})) {
     if (!Array.isArray(versions) || !versions.length) continue;
-    const latest = versions.reduce((a, b) => b.versionCode > a.versionCode ? b : a);
+    const latest = pickBestVersion(versions);
+    if (!latest) continue;
     latestByPackage.set(packageName, latest);
   }
 
@@ -584,9 +606,13 @@ export async function runFdroidSync(env, options = {}) {
         continue;
       }
 
-      const latestVersion = versions.reduce((latest, current) =>
-        current.versionCode > latest.versionCode ? current : latest
-      );
+      const latestVersion = pickBestVersion(versions);
+      if (!latestVersion) {
+        results.processed++;
+        results.skipped++;
+        results.skipReasons["no_supported_abi"] = (results.skipReasons["no_supported_abi"] || 0) + 1;
+        continue;
+      }
 
       const fdroidApp = { packageName, ...appMeta, ...latestVersion };
 
