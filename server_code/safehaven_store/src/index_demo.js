@@ -3,8 +3,8 @@ import {
   runStoreAutoApprovals, 
   runGitHubBootstrapImport, 
   runGitHubReadmeSweep, 
-  runFdroidSync, 
-  runUnclaimedRepoPolls 
+  runFdroidCronJob,
+  runIzzyCronJob,
 } from "./store/store.js";
 import { demoAuth } from "./store/auth_demo.js";
 import { renderDashboardHtml } from "./store/web/dashboard.js";
