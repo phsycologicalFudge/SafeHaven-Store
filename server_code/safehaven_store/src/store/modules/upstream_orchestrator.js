@@ -2,6 +2,8 @@ import { nowUnix } from "../helpers/store_helpers.js";
 import { pollGitHubApp } from "./git_store_job.js";
 import { pollGitLabApp } from "./gitlab_store_job.js";
 import { pollCodebergApp } from "./codeberg_store_job.js";
+import { importOrUpdateFdroidApp, pickBestVersion as pickBestFdroidVersion } from "./fdroid_store_job.js";
+import { importOrUpdateIzzyApp, pickBestVersion as pickBestIzzyVersion } from "./izzy_store_job.js";
 
 const POLL_INTERVAL_SEC = 21600;
 const POLL_PAGE_SIZE = 200;
@@ -19,7 +21,7 @@ const getAppsForPolling = async (env) => {
     .prepare(
       `SELECT * FROM store_apps
        WHERE status = 'active'
-         AND (upstream IS NULL OR upstream NOT IN ('fdroid'))
+         AND (upstream IS NULL OR upstream NOT IN ('fdroid', 'izzyondroid'))
          AND (last_repo_check IS NULL OR last_repo_check <= ?1)
          AND (
            (auto_tracked = 1 AND claimed = 0)
@@ -41,30 +43,79 @@ export const detectPlatform = (repoUrl) => {
   return null;
 };
 
-export async function forcePollApp(env, app) {
-  const platform = detectPlatform(app.repo_url);
+const pollFdroidApp = async (env, app) => {
+  const obj = await env.SH_BUCKET.get("fdroid/index-v1.json");
+  if (!obj) return null;
+  const index = await obj.json();
 
-  if (!platform) {
-    return { checked: true, submitted: false, skipped: true, reason: "unsupported_platform", platform: null };
+  const versions = index.packages?.[app.package_name];
+  if (!Array.isArray(versions) || !versions.length) return null;
+
+  const best = pickBestFdroidVersion(versions);
+  if (!best) return null;
+
+  const appMeta = (index.apps || []).find((a) => a.packageName === app.package_name) || {};
+  const fdroidApp = { packageName: app.package_name, ...appMeta, ...best };
+
+  const outcome = await importOrUpdateFdroidApp(env, fdroidApp);
+  return !!outcome?.imported;
+};
+
+const pollIzzyApp = async (env, app) => {
+  const obj = await env.SH_BUCKET.get("izzy/index-v1.json");
+  if (!obj) return null;
+  const index = await obj.json();
+
+  const versions = index.packages?.[app.package_name];
+  if (!Array.isArray(versions) || !versions.length) return null;
+
+  const best = pickBestIzzyVersion(versions);
+  if (!best) return null;
+
+  const appMeta = (index.apps || []).find((a) => a.packageName === app.package_name) || {};
+  const izzyApp = { packageName: app.package_name, ...appMeta, ...best };
+
+  const outcome = await importOrUpdateIzzyApp(env, izzyApp);
+  return !!outcome?.imported;
+};
+
+const pollByUpstream = async (env, app) => {
+  switch (app.upstream) {
+    case "fdroid":
+      return pollFdroidApp(env, app);
+    case "izzyondroid":
+      return pollIzzyApp(env, app);
+    case "github":
+      return pollGitHubApp(env, app);
+    case "gitlab":
+      return pollGitLabApp(env, app);
+    case "codeberg":
+      return pollCodebergApp(env, app);
+    default:
+      return undefined;
+  }
+};
+
+export async function forcePollApp(env, app) {
+  const upstream = app.upstream || null;
+
+  if (!upstream) {
+    return { checked: true, submitted: false, skipped: true, reason: "unknown_upstream", upstream: null };
   }
 
   try {
-    let queued = null;
+    const queued = await pollByUpstream(env, app);
 
-    if (platform === "github") {
-      queued = await pollGitHubApp(env, app);
-    } else if (platform === "gitlab") {
-      queued = await pollGitLabApp(env, app);
-    } else if (platform === "codeberg") {
-      queued = await pollCodebergApp(env, app);
+    if (queued === undefined) {
+      return { checked: true, submitted: false, skipped: true, reason: "unsupported_upstream", upstream };
     }
 
     await setAppLastRepoCheck(env, app.id);
 
-    return { checked: true, submitted: !!queued, skipped: false, platform };
+    return { checked: true, submitted: !!queued, skipped: false, upstream };
   } catch (e) {
     await setAppLastRepoCheck(env, app.id).catch(() => {});
-    return { checked: true, submitted: false, skipped: false, platform, error: String(e?.message || e) };
+    return { checked: true, submitted: false, skipped: false, upstream, error: String(e?.message || e) };
   }
 }
 
@@ -87,18 +138,11 @@ export async function runUpstreamPolls(env, options = {}) {
       if (Date.now() >= deadline) break;
 
       results.checked++;
-      const platform = detectPlatform(app.repo_url);
 
       try {
-        let queued = null;
+        const queued = await pollByUpstream(env, app);
 
-        if (platform === "github") {
-          queued = await pollGitHubApp(env, app);
-        } else if (platform === "gitlab") {
-          queued = await pollGitLabApp(env, app);
-        } else if (platform === "codeberg") {
-          queued = await pollCodebergApp(env, app);
-        } else {
+        if (queued === undefined) {
           results.skipped++;
           await setAppLastRepoCheck(env, app.id);
           continue;
@@ -110,7 +154,7 @@ export async function runUpstreamPolls(env, options = {}) {
       } catch (e) {
         results.errors.push({
           appId:    app.id,
-          platform,
+          upstream: app.upstream,
           repoUrl:  app.repo_url,
           error:    String(e?.message || e),
         });
