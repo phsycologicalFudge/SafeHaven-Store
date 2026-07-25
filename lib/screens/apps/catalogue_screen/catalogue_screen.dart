@@ -28,6 +28,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
 
   int? _memoTimestamp;
   String? _memoCategory;
+  bool _memoCatsReady = false;
   List<PublicStoreApp> _memoAllApps = const [];
   List<PublicStoreApp> _memoFiltered = const [];
   List<PublicStoreApp> _memoTopCharts = const [];
@@ -72,6 +73,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
       _recommendedTimestamp = null;
       _memoTimestamp = null;
       _memoCategory = null;
+      _memoCatsReady = false;
       _loadFuture(forceRefresh: true);
     });
 
@@ -81,10 +83,12 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   void _recompute(StoreIndex index) {
     final ts = index.timestamp;
     final cat = _selectedCategory;
-    if (ts == _memoTimestamp && cat == _memoCategory) return;
+    final catsReady = _shuffledCategoryKeys.isNotEmpty;
+    if (ts == _memoTimestamp && cat == _memoCategory && catsReady == _memoCatsReady) return;
 
     _memoTimestamp = ts;
     _memoCategory = cat;
+    _memoCatsReady = catsReady;
     _memoAllApps = index.apps;
     _memoFiltered = IndexService.instance.filterByCategory(_memoAllApps, cat);
     _memoTopCharts = IndexService.instance.topCharts(_memoFiltered);

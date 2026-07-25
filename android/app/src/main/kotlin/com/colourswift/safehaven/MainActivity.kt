@@ -16,11 +16,13 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val channelName = "safehaven/installer"
     private val debugChannelName = "safehaven/debug"
     private var usedCachedEngine = false
+    private val packageQueryExecutor = Executors.newSingleThreadExecutor()
 
     override fun provideFlutterEngine(context: Context): FlutterEngine? {
         val cached = FlutterEngineCache.getInstance().get(SafeHavenApplication.ENGINE_ID)
@@ -30,6 +32,11 @@ class MainActivity : FlutterActivity() {
             return cached
         }
         return null
+    }
+
+    override fun onDestroy() {
+        packageQueryExecutor.shutdown()
+        super.onDestroy()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -170,11 +177,11 @@ class MainActivity : FlutterActivity() {
                         result.error("invalid_package", "Package name is missing", null)
                         return@setMethodCallHandler
                     }
-                    getPackageState(targetPackage, result)
+                    packageQueryExecutor.execute { getPackageState(targetPackage, result) }
                 }
 
                 "getAllPackageStates" -> {
-                    getAllPackageStates(result)
+                    packageQueryExecutor.execute { getAllPackageStates(result) }
                 }
 
                 "openApp" -> {
@@ -342,9 +349,9 @@ class MainActivity : FlutterActivity() {
                     "installer" to installer
                 )
             }
-            result.success(map)
+            runOnUiThread { result.success(map) }
         } catch (e: Exception) {
-            result.error("package_query_failed", e.message, null)
+            runOnUiThread { result.error("package_query_failed", e.message, null) }
         }
     }
 
@@ -376,19 +383,18 @@ class MainActivity : FlutterActivity() {
                 packageManager.getInstallerPackageName(targetPackage)
             }
 
-            result.success(
-                mapOf(
-                    "installed" to true,
-                    "versionCode" to versionCode,
-                    "versionName" to info.versionName,
-                    "signingCertificateSha256" to getSigningCertificateSha256(info),
-                    "installer" to installer
-                )
+            val state = mapOf(
+                "installed" to true,
+                "versionCode" to versionCode,
+                "versionName" to info.versionName,
+                "signingCertificateSha256" to getSigningCertificateSha256(info),
+                "installer" to installer
             )
+            runOnUiThread { result.success(state) }
         } catch (_: PackageManager.NameNotFoundException) {
-            result.success(emptyPackageState())
+            runOnUiThread { result.success(emptyPackageState()) }
         } catch (_: SecurityException) {
-            result.success(emptyPackageState())
+            runOnUiThread { result.success(emptyPackageState()) }
         }
     }
 

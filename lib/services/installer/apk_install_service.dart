@@ -97,10 +97,10 @@ class ApkInstallService {
     if (!forceRefresh) {
       final cached = _stateCache;
       if (cached != null) return Future.value(cached);
-
-      final pending = _inFlightStates;
-      if (pending != null) return pending;
     }
+
+    final pending = _inFlightStates;
+    if (pending != null) return pending;
 
     final fetch = _fetchAllPackageStates();
     _inFlightStates = fetch;
