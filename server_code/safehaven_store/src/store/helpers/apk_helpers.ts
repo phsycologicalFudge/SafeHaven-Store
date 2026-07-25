@@ -1,15 +1,39 @@
-export const normalizeAssetText = (value) =>
+export interface ReleaseAsset {
+  name?: string | null;
+  state?: string | null;
+  browser_download_url?: string | null;
+  size?: number | null;
+}
+
+export interface Release {
+  assets?: ReleaseAsset[] | null;
+}
+
+export interface ScoreApkAssetOptions {
+  assetMatch?: string;
+}
+
+export type PresignedUploadUrlFn = (
+  env: unknown,
+  packageName: string,
+  versionCode: number,
+  ttlSeconds: number
+) => Promise<string>;
+
+export const normalizeAssetText = (value: string | null | undefined): string =>
   (value || "").toString().trim().toLowerCase();
 
-export const apkAssetsOf = (release) =>
-  (release?.assets || []).filter((asset) =>
-    asset?.name?.toLowerCase().endsWith(".apk") &&
+export const apkAssetsOf = (release: Release | null | undefined): ReleaseAsset[] =>
+  (release?.assets || []).filter((asset): asset is ReleaseAsset =>
+    !!asset &&
+    !!asset.name &&
+    asset.name.toLowerCase().endsWith(".apk") &&
     asset.state === "uploaded" &&
-    asset.browser_download_url &&
+    !!asset.browser_download_url &&
     !/debug|beta|alpha|snapshot|unsigned|source|src/i.test(asset.name)
   );
 
-export const scoreApkAsset = (asset, options = {}) => {
+export const scoreApkAsset = (asset: ReleaseAsset, options: ScoreApkAssetOptions = {}): number => {
   const name = normalizeAssetText(asset.name);
   let score = 0;
 
@@ -38,7 +62,10 @@ export const scoreApkAsset = (asset, options = {}) => {
   return score;
 };
 
-export const findApkAsset = (release, options = {}) => {
+export const findApkAsset = (
+  release: Release | null | undefined,
+  options: ScoreApkAssetOptions = {}
+): ReleaseAsset | null => {
   const assets = apkAssetsOf(release);
   if (!assets.length) return null;
 
@@ -64,7 +91,7 @@ export const findApkAsset = (release, options = {}) => {
   return candidates[0]?.asset || null;
 };
 
-export const tagToVersionCode = (tag) => {
+export const tagToVersionCode = (tag: string | null | undefined): number | null => {
   const clean = (tag || "")
     .toString()
     .trim()
@@ -93,7 +120,7 @@ export const tagToVersionCode = (tag) => {
   return major * 100000000 + minor * 100000 + patch * 100 + build;
 };
 
-export const versionNameToVersionCode = (versionName) => {
+export const versionNameToVersionCode = (versionName: string | null | undefined): number | null => {
   const clean = (versionName || "").toString().trim().replace(/^v/i, "");
   const parts = clean.match(/\d+/g);
   if (!parts || !parts.length) return null;
@@ -116,19 +143,25 @@ export const versionNameToVersionCode = (versionName) => {
   return major * 100000000 + minor * 100000 + patch * 100 + build;
 };
 
-export const assetNameToVersionName = (assetName) => {
+export const assetNameToVersionName = (assetName: string | null | undefined): string | null => {
   const name = (assetName || "").toString().trim();
   const versionMatch = name.match(/(?:^|[-_])v(\d+(?:[._]\d+){1,5}(?:[+._-][a-z0-9.]+)?)(?=\.apk$|[-_])/i);
   if (!versionMatch) return null;
   return `v${versionMatch[1].replace(/_/g, ".")}`;
 };
 
-export const uploadBufferToStaging = async (env, packageName, versionCode, buffer, getPresignedStagingUploadUrl) => {
+export const uploadBufferToStaging = async (
+  env: unknown,
+  packageName: string,
+  versionCode: number,
+  buffer: ArrayBuffer | Uint8Array | Blob,
+  getPresignedStagingUploadUrl: PresignedUploadUrlFn
+): Promise<void> => {
   const url = await getPresignedStagingUploadUrl(env, packageName, versionCode, 300);
   const res = await fetch(url, {
     method: "PUT",
     headers: { "content-type": "application/vnd.android.package-archive" },
-    body: buffer,
+    body: buffer as BodyInit,
   });
   if (!res.ok) throw new Error(`staging_upload_failed:${res.status}`);
 };
