@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../services/installer/update_mode_service.dart';
 import '../../../services/logs/debug_log_service.dart';
 import '../../../services/theme/theme_manager.dart';
 import '../../../widgets/animated_tap.dart';
@@ -16,10 +16,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const _channel = MethodChannel('safehaven/installer');
-
   String _appVersion = 'Loading...';
-  bool _foregroundEnabled = true;
+  UpdateMode _updateMode = UpdateMode.light;
   bool _debugEnabled = false;
   bool _hasLog = false;
 
@@ -27,7 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadVersionInfo();
-    _loadForegroundPref();
+    _loadUpdateMode();
     _loadDebugState();
   }
 
@@ -46,14 +44,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _loadForegroundPref() async {
-    try {
-      final enabled = await _channel.invokeMethod<bool>('getForegroundService');
-      if (!mounted) return;
-      setState(() {
-        _foregroundEnabled = enabled ?? true;
-      });
-    } catch (_) {}
+  Future<void> _loadUpdateMode() async {
+    final mode = await UpdateModeService.getMode();
+    if (!mounted) return;
+    setState(() {
+      _updateMode = mode;
+    });
   }
 
   Future<void> _loadDebugState() async {
@@ -66,11 +62,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  Future<void> _setForegroundEnabled(bool value) async {
-    setState(() => _foregroundEnabled = value);
-    try {
-      await _channel.invokeMethod('setForegroundService', {'enabled': value});
-    } catch (_) {}
+  Future<void> _setUpdateMode(UpdateMode mode) async {
+    setState(() => _updateMode = mode);
+    await UpdateModeService.setMode(mode);
   }
 
   Future<void> _setDebugEnabled(bool value) async {
@@ -92,6 +86,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  String _updateModeSubtitle(UpdateMode mode) => switch (mode) {
+    UpdateMode.none => 'Off',
+    UpdateMode.light => 'Light',
+    UpdateMode.full => 'Full',
+  };
+
+  Future<void> _showUpdateModePicker() async {
+    final colors = SafeHavenTheme.of(context);
+    final selected = await showModalBottomSheet<UpdateMode>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (sheetContext) {
+        return Material(
+          color: colors.background,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
+            side: BorderSide(
+              color: colors.border.withOpacity(0.66),
+            ),
+          ),
+          child:
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    child: Text(
+                      'Flawless Updates',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colors.text,
+                      ),
+                    ),
+                  ),
+                  Container(height: 0.5, color: colors.border),
+                  const SizedBox(height: 4),
+                  _UpdateModeOption(
+                    title: 'None',
+                    subtitle:
+                    'SafeHaven will not automatically update apps for you.',
+                    selected: _updateMode == UpdateMode.none,
+                    onTap: () =>
+                        Navigator.of(sheetContext).pop(UpdateMode.none),
+                  ),
+                  _UpdateModeOption(
+                    title: 'Light',
+                    subtitle:
+                    'SafeHaven will periodically every 6 hours check for updates. This uses minimum battery, but apps may not be updated quickly.',
+                    selected: _updateMode == UpdateMode.light,
+                    onTap: () =>
+                        Navigator.of(sheetContext).pop(UpdateMode.light),
+                  ),
+                  _UpdateModeOption(
+                    title: 'Full',
+                    subtitle:
+                    'SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]',
+                    selected: _updateMode == UpdateMode.full,
+                    onTap: () =>
+                        Navigator.of(sheetContext).pop(UpdateMode.full),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && selected != _updateMode) {
+      await _setUpdateMode(selected);
     }
   }
 
@@ -118,12 +194,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   showArrow: false,
                   onTap: () => themeManager.toggle(),
                 ),
-                _SettingsToggleTile(
+                _SettingsActionTile(
                   icon: Icons.bolt_rounded,
                   title: 'Flawless Updates',
-                  subtitle: 'Keeps the app running to apply updates quickly',
-                  value: _foregroundEnabled,
-                  onChanged: _setForegroundEnabled,
+                  subtitle: _updateModeSubtitle(_updateMode),
+                  onTap: _showUpdateModePicker,
                 ),
               ],
             ),
@@ -478,6 +553,68 @@ class _SettingsInfoTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _UpdateModeOption extends StatelessWidget {
+  const _UpdateModeOption({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 0,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              size: 20,
+              color: selected ? colors.text : colors.textMuted,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: colors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.3,
+                      color: colors.textSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

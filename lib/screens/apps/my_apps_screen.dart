@@ -30,7 +30,10 @@ class MyAppsScreen extends StatefulWidget {
 
 class _MyAppsScreenState extends State<MyAppsScreen>
     with WidgetsBindingObserver {
-  late Future<List<StoreUpdateCheck>> _future;
+  List<StoreUpdateCheck> _checks = const [];
+  bool _initialLoading = true;
+  bool _refreshing = false;
+  Object? _error;
   bool _triggering = false;
   bool _autoTriggered = false;
   DateTime? _lastLifecycleLoad;
@@ -39,7 +42,7 @@ class _MyAppsScreenState extends State<MyAppsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _future = _loadInstalledStoreApps();
+    _load();
   }
 
   @override
@@ -57,9 +60,30 @@ class _MyAppsScreenState extends State<MyAppsScreen>
         return;
       }
       _lastLifecycleLoad = now;
+      _autoTriggered = false;
+      _load();
+    }
+  }
+
+  Future<void> _load({bool forceRefresh = false}) async {
+    if (!_initialLoading) {
+      setState(() => _refreshing = true);
+    }
+    try {
+      final result = await _loadInstalledStoreApps(forceRefresh: forceRefresh);
+      if (!mounted) return;
       setState(() {
-        _autoTriggered = false;
-        _future = _loadInstalledStoreApps();
+        _checks = result;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _initialLoading = false;
+        _refreshing = false;
       });
     }
   }
@@ -87,7 +111,7 @@ class _MyAppsScreenState extends State<MyAppsScreen>
     try {
       final eligible = <StoreUpdateCheck>[];
       for (final check in checks) {
-        if (!check.installedState.isInstalledBySafeHaven) {
+        if (check.hasConfirmedSignatureMismatch) {
           failed.add(UpdateFailure(
             appName: check.app.name,
             reason: 'App cannot be updated by SafeHaven',
@@ -117,10 +141,12 @@ class _MyAppsScreenState extends State<MyAppsScreen>
       );
 
       final updates = <Map<String, dynamic>>[];
+      final startedChecks = <StoreUpdateCheck>[];
       for (var i = 0; i < eligible.length; i++) {
         final url = urlResults[i];
         if (url != null) {
           updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
+          startedChecks.add(eligible[i]);
         } else {
           failed.add(UpdateFailure(
             appName: eligible[i].app.name,
@@ -134,6 +160,7 @@ class _MyAppsScreenState extends State<MyAppsScreen>
       }
 
       await UnattendedUpdateService.triggerManualBatchUpdate(updates);
+      _scheduleUpdateRecheck(startedChecks);
       return _UpdateOutcome(started: updates.length, failed: failed);
     } catch (e, s) {
       DebugLog.e('MyApps', 'autoTriggerUpdates failed', e, s);
@@ -149,19 +176,34 @@ class _MyAppsScreenState extends State<MyAppsScreen>
     }
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _autoTriggered = false;
-      _future = _loadInstalledStoreApps(forceRefresh: true);
-    });
-    await _future;
+  void _scheduleUpdateRecheck(List<StoreUpdateCheck> started) {
+    for (final delay in const [
+      Duration(seconds: 8),
+      Duration(seconds: 20),
+      Duration(seconds: 45),
+    ]) {
+      Future.delayed(delay, () async {
+        if (!mounted) return;
+        for (final c in started) {
+          try {
+            final fresh = await StoreUpdateService.instance.checkAppCached(
+              c.app,
+              forceRefresh: true,
+            );
+            InstallSync.cachedCheck[c.app.packageName] = fresh;
+          } catch (_) {}
+        }
+        InstallSync.bumpCheck();
+      });
+    }
   }
+
+  Future<void> _reload() => _load(forceRefresh: true);
 
   Future<void> _triggerUpdateAll(List<StoreUpdateCheck> checks) async {
     if (_triggering) return;
-    final updatable = checks.where((c) {
-      final live = InstallSync.cachedCheck[c.app.packageName];
-      return (live ?? c).canUpdate && (live ?? c).latestVersion != null;
+    final updatable = checks.map((c) => InstallSync.cachedCheck[c.app.packageName] ?? c).where((c) {
+      return c.canUpdate && c.latestVersion != null;
     }).toList();
     if (updatable.isEmpty) return;
     setState(() => _triggering = true);
@@ -178,45 +220,47 @@ class _MyAppsScreenState extends State<MyAppsScreen>
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final checks = _checks;
 
-    return FutureBuilder<List<StoreUpdateCheck>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final loading = snapshot.connectionState == ConnectionState.waiting;
-        final checks = snapshot.data ?? const <StoreUpdateCheck>[];
-        return PullRefresh(
-          onRefresh: _reload,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              if (loading)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 54, 18, 54),
-                    child: Center(child: CircularProgressIndicator(color: colors.accentEnd)),
-                  ),
-                ),
-              if (snapshot.hasError)
-                SliverToBoxAdapter(
-                  child: _ErrorBlock(message: snapshot.error.toString(), onRetry: _reload),
-                ),
-              if (!loading && !snapshot.hasError && checks.isEmpty)
-                const SliverToBoxAdapter(child: _EmptyBlock()),
-              if (!loading && !snapshot.hasError && checks.isNotEmpty) ...[
-                SliverToBoxAdapter(
-                  child: _UpdateBanner(
-                    checks: checks,
-                    triggering: _triggering,
-                    onUpdateAll: () => _triggerUpdateAll(checks),
-                  ),
-                ),
-                SliverToBoxAdapter(child: _InstalledSection(checks: checks)),
-              ],
-              const SliverToBoxAdapter(child: SizedBox(height: 18)),
-            ],
-          ),
-        );
-      },
+    return PullRefresh(
+      onRefresh: _reload,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (_initialLoading)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 54, 18, 54),
+                child: Center(child: CircularProgressIndicator(color: colors.accentEnd)),
+              ),
+            ),
+          if (_refreshing && !_initialLoading)
+            SliverToBoxAdapter(
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: colors.accentEnd,
+                backgroundColor: Colors.transparent,
+              ),
+            ),
+          if (!_initialLoading && _error != null && checks.isEmpty)
+            SliverToBoxAdapter(
+              child: _ErrorBlock(message: _error.toString(), onRetry: _reload),
+            ),
+          if (!_initialLoading && _error == null && checks.isEmpty)
+            const SliverToBoxAdapter(child: _EmptyBlock()),
+          if (!_initialLoading && checks.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: _UpdateBanner(
+                checks: checks,
+                triggering: _triggering,
+                onUpdateAll: () => _triggerUpdateAll(checks),
+              ),
+            ),
+            SliverToBoxAdapter(child: _InstalledSection(checks: checks)),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 18)),
+        ],
+      ),
     );
   }
 }
