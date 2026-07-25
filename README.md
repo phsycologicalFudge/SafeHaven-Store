@@ -12,6 +12,8 @@ SafeHaven is an Android app store that is focused on trust, source visibility, a
 [![Downloads](https://img.shields.io/github/downloads/phsycologicalFudge/SafeHaven/total?logo=github&label=downloads&color=10b981)](https://github.com/phsycologicalFudge/SafeHaven/releases)
 [![License](https://img.shields.io/github/license/phsycologicalFudge/SafeHaven?label=license&color=64748b)](LICENSE)
 
+<a href="https://trendshift.io/repositories/51794?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-51794" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/51794/daily?language=Dart" alt="phsycologicalFudge%2FSafeHaven-Store | Trendshift" width="250" height="55"/></a>
+
 <a href="https://buymeacoffee.com/ryanfromcolourswift">
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="40" alt="Buy me a coffee">
 </a>
