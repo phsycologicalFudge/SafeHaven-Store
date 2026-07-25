@@ -5,12 +5,18 @@ import '../logs/debug_log_service.dart';
 import '../index_service.dart';
 import '../store_service.dart';
 import 'apk_install_service.dart';
+import 'update_mode_service.dart';
 
 class UnattendedUpdateService {
   static const _channel = MethodChannel('safehaven/installer');
   static const _triggeredUpdatesKey = 'safehaven_triggered_update_versions';
 
   static Future<void> triggerManualBatchUpdate(List<Map<String, dynamic>> updates) async {
+    final mode = await UpdateModeService.getMode();
+    if (mode == UpdateMode.none) {
+      DebugLog.d('Unattended', 'skipped batch update, mode is none');
+      return;
+    }
     await _channel.invokeMethod('startUnattendedUpdates', {'updates': updates});
   }
 

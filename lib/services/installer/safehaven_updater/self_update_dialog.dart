@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:safehaven/services/installer/safehaven_updater/self_update_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../widgets/animated_tap.dart';
+import '../../logs/debug_log_service.dart';
 import '../../theme/theme_manager.dart';
 
 class SelfUpdateDialog extends StatefulWidget {
@@ -57,7 +58,8 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
 
     try {
       await SelfUpdateService.instance.installApk(path);
-    } catch (_) {
+    } catch (e, s) {
+      DebugLog.e('SelfUpdate', 'install failed', e, s);
       if (!mounted) return;
       setState(() {
         _phase = _UpdatePhase.failed;

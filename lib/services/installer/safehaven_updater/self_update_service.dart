@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../logs/debug_log_service.dart';
 import '../../store_service.dart';
 
 class SelfUpdateInfo {
@@ -90,7 +91,8 @@ class SelfUpdateService {
         parsedNotes: _parseReleaseNotes(latest.whatsNew ?? ''),
         releaseUrl: 'https://github.com/$_repo/releases/tag/v$latestVersion',
       );
-    } catch (_) {
+    } catch (e, s) {
+      DebugLog.e('SelfUpdate', 'check failed', e, s);
       return null;
     }
   }
@@ -119,7 +121,8 @@ class SelfUpdateService {
         packageName: _selfPackage,
         versionCode: versionCode,
       );
-    } catch (_) {
+    } catch (e, s) {
+      DebugLog.e('SelfUpdate', 'getDownloadUrl failed', e, s);
       return null;
     }
 
@@ -131,6 +134,7 @@ class SelfUpdateService {
       final response = await request.close();
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        DebugLog.e('SelfUpdate', 'download failed: http_${response.statusCode}');
         return null;
       }
 
@@ -148,7 +152,8 @@ class SelfUpdateService {
 
       await sink.close();
       return file.path;
-    } catch (_) {
+    } catch (e, s) {
+      DebugLog.e('SelfUpdate', 'download failed', e, s);
       try {
         await file.delete();
       } catch (_) {}

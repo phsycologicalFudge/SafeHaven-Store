@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../services/installer/apk_install_service.dart';
+import '../../../../services/logs/debug_log_service.dart';
 import '../../../../services/installer/install_sync.dart';
 import '../../../../services/installer/store_update_service.dart';
 import '../../../../services/store_service.dart';
@@ -170,17 +171,21 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
 
     try {
       await downloadFuture;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, s) {
+      DebugLog.e('ApkInstall', 'install failed: $_pkg ${e.code}', e, s);
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
       final message = e.code == 'install_permission_required'
           ? 'Allow SafeHaven to install apps, then tap Install again.'
           : 'Could not start the installer.';
       SimpleMessageDialog.show(context, title: 'Install failed', message: message);
-    } catch (e) {
+    } catch (e, s) {
+      final msg = e.toString();
+      if (msg != 'download_cancelled') {
+        DebugLog.e('ApkInstall', 'install failed: $_pkg $msg', e, s);
+      }
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
-      final msg = e.toString();
       if (msg != 'download_cancelled') {
         final text = switch (msg) {
           'sha256_mismatch' || 'sha256_missing' => 'APK integrity check failed.',

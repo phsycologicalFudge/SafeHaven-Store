@@ -244,6 +244,7 @@ class ApkInstallService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         client.close(force: true);
         _client = null;
+        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} http_${response.statusCode}');
         throw StoreApiException('download_http_${response.statusCode}');
       }
 
@@ -267,6 +268,7 @@ class ApkInstallService {
           }
         },
         onError: (Object error, StackTrace stackTrace) {
+          DebugLog.e('ApkInstall', 'download stream failed: ${app.packageName}', error, stackTrace);
           if (!completer.isCompleted) {
             completer.completeError(error, stackTrace);
           }
@@ -300,6 +302,7 @@ class ApkInstallService {
       if (version.apkSize > 0 && file.lengthSync() != version.apkSize) {
         await _deleteFile(file);
         _activeFile = null;
+        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} apk_size_mismatch');
         throw const StoreApiException('apk_size_mismatch');
       }
 
@@ -309,21 +312,28 @@ class ApkInstallService {
       if (expectedSha256.isEmpty) {
         await _deleteFile(file);
         _activeFile = null;
+        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} sha256_missing');
         throw const StoreApiException('sha256_missing');
       }
 
       if (actualSha256 != expectedSha256) {
         await _deleteFile(file);
         _activeFile = null;
+        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} sha256_mismatch');
         throw const StoreApiException('sha256_mismatch');
       }
 
       onProgress(1);
 
-      await _channel.invokeMethod('installApk', {
-        'path': file.path,
-        'packageName': app.packageName,
-      });
+      try {
+        await _channel.invokeMethod('installApk', {
+          'path': file.path,
+          'packageName': app.packageName,
+        });
+      } catch (e, s) {
+        DebugLog.e('ApkInstall', 'install failed: ${app.packageName}', e, s);
+        rethrow;
+      }
       invalidateStateCache();
 
       _scheduleInstallCacheCleanup(installDir, file);

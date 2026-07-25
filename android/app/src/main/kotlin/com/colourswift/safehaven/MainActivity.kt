@@ -98,12 +98,12 @@ class MainActivity : FlutterActivity() {
             channelName
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                "setForegroundService" -> {
-                    val enabled = call.argument<Boolean>("enabled") ?: false
+                "setUpdateMode" -> {
+                    val mode = call.argument<String>("mode") ?: "light"
                     getSharedPreferences("safehaven_prefs", MODE_PRIVATE)
-                        .edit().putBoolean("foreground_service_enabled", enabled).apply()
+                        .edit().putString("update_mode", mode).apply()
                     val serviceIntent = Intent(this, StoreKeepAliveService::class.java)
-                    if (enabled) {
+                    if (mode == "full") {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             startForegroundService(serviceIntent)
                         } else {
@@ -115,9 +115,9 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                "getForegroundService" -> {
+                "getUpdateMode" -> {
                     val prefs = getSharedPreferences("safehaven_prefs", MODE_PRIVATE)
-                    result.success(prefs.getBoolean("foreground_service_enabled", true))
+                    result.success(prefs.getString("update_mode", "light"))
                 }
 
                 "installApk" -> {
