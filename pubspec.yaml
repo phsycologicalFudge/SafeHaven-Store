@@ -1,7 +1,7 @@
 name: safehaven
 description: "A new Flutter project."
 publish_to: 'none'
-version: 2.0.5+11
+version: 2.0.6+12
 
 environment:
   sdk: ^3.9.2
