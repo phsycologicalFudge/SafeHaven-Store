@@ -16,6 +16,7 @@ class UpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val packageName = intent.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME) ?: ""
+        val isBatch = intent.getBooleanExtra("isBatch", false)
 
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
@@ -28,7 +29,7 @@ class UpdateReceiver : BroadcastReceiver() {
 
                 if (confirmIntent == null) {
                     CrashLogService.log("UpdateReceiver", "W", "PENDING_USER_ACTION with no confirm intent: pkg=$packageName")
-                    UpdateForegroundService.onInstallResult(context, false, packageName)
+                    if (isBatch) UpdateForegroundService.onInstallResult(context, false, packageName)
                     return
                 }
 
@@ -65,13 +66,14 @@ class UpdateReceiver : BroadcastReceiver() {
                 manager.notify(packageName.hashCode(), notification)
             }
             PackageInstaller.STATUS_SUCCESS -> {
-                UpdateForegroundService.onInstallResult(context, true, packageName)
+                CrashLogService.log("UpdateReceiver", "D", "Install succeeded: pkg=$packageName")
+                if (isBatch) UpdateForegroundService.onInstallResult(context, true, packageName)
             }
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "no message"
                 val statusCode = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)
                 CrashLogService.log("UpdateReceiver", "E", "Install failed: pkg=$packageName status=$statusCode msg=$message")
-                UpdateForegroundService.onInstallResult(context, false, packageName)
+                if (isBatch) UpdateForegroundService.onInstallResult(context, false, packageName)
             }
         }
     }

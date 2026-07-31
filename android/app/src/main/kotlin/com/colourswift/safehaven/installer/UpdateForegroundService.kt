@@ -245,6 +245,7 @@ class UpdateForegroundService : Service() {
 
             val intent = Intent(this, UpdateReceiver::class.java).apply {
                 putExtra(PackageInstaller.EXTRA_PACKAGE_NAME, packageName)
+                putExtra("isBatch", true)
             }
             val pendingIntent = PendingIntent.getBroadcast(
                 this,
