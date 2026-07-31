@@ -14,9 +14,8 @@ SafeHaven is an Android app store that is focused on trust, source visibility, a
 
 <a href="https://trendshift.io/repositories/51794?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-51794" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/51794/daily?language=Dart" alt="phsycologicalFudge%2FSafeHaven-Store | Trendshift" width="250" height="55"/></a>
 
-<a href="https://buymeacoffee.com/ryanfromcolourswift">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="40" alt="Buy me a coffee">
-</a>
+[<img src="https://store.colourswift.com/badge.svg" alt="Get it on SafeHaven Store">](https://store.colourswift.com/app/com.colourswift.safehaven)
+[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButtonGreyBorder_nofont.png" height="62" alt="Get it at IzzyOnDroid">](https://apt.izzysoft.de/packages/com.colourswift.safehaven)
 
 </div>
 
@@ -100,8 +99,14 @@ Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial s
   <a href="https://discord.gg/VYubQJfcYM">
     <img src="https://img.shields.io/badge/Community-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord">
   </a>
+  <a href="https://buymeacoffee.com/ryanfromcolourswift">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.svg" height="40" alt="Buy me a coffee">
+</a>
 </p>
 
 ## Licence
 
-MIT
+## Licence
+SafeHaven Store is split in two categories. The client code & Server code
+- Client: MIT [LICENSE](./LICENSE)
+- Backend/Server: AGPL-3.0 [server_code/LICENSE](./server_code/LICENSE)
