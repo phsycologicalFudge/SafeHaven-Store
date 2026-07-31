@@ -18,6 +18,8 @@ SafeHaven is an Android app store that is focused on trust, source visibility, a
   <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="40" alt="Buy me a coffee">
 </a>
 
+[![Get it on SafeHaven Store](https://store.colourswift.com/badge.png)](https://store.colourswift.com/app/com.colourswift.safehaven)
+
 </div>
 
 ---
