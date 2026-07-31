@@ -1,74 +1,28 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'store_service/store_auth_service.dart';
+import 'store_service/store_config.dart';
+import 'store_service/store_exceptions.dart';
+import 'store_service/store_http_utils.dart';
+
+export 'store_service/store_exceptions.dart';
+export 'store_service/store_auth_service.dart' show StoreAccount, StoreAuthService;
 
 class StoreService {
   StoreService._();
 
   static final StoreService instance = StoreService._();
 
-  static const String defaultBaseUrl = 'https://api.colourswift.com';
-  static const String _tokenKey = 'safehaven_developer_token';
-
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_tokenKey)?.trim();
-    if (token == null || token.isEmpty) return null;
-    return token;
-  }
-
-  Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token.trim());
-  }
-
-  Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-  }
-
-  Uri loginUri() {
-    return Uri.parse('$defaultBaseUrl/login?app=store');
-  }
-
-  Future<Uri> dashboardUri() async {
-    final token = await _requireToken();
-    return Uri.parse('$defaultBaseUrl/account?token=${Uri.encodeComponent(token)}');
-  }
-
-  Future<void> saveTokenFromAuthUri(Uri uri) async {
-    final token = uri.queryParameters['token']?.trim();
-    if (token == null || token.isEmpty) {
-      throw const StoreApiException('missing_token');
-    }
-    await saveToken(token);
-  }
-
-  Future<StoreAccount> fetchMe() async {
-    final token = await _requireToken();
-    final res = await http.get(
-      Uri.parse('$defaultBaseUrl/me'),
-      headers: _authHeaders(token),
-    );
-
-    _throwIfBad(res);
-
-    final body = _decode(res.body);
-    final user = body['user'];
-    if (user is! Map<String, dynamic>) {
-      throw const StoreApiException('user_missing');
-    }
-
-    return StoreAccount.fromJson(user);
-  }
+  static const String defaultBaseUrl = storeDefaultBaseUrl;
 
   Future<StoreIndex> fetchIndex() async {
     final uri = Uri.parse('$defaultBaseUrl/store/index.json');
     final res = await http.get(uri);
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
 
-    return StoreIndex.fromJson(_decode(res.body));
+    return StoreIndex.fromJson(storeDecodeMap(res.body));
   }
 
   Future<PublicStoreApp> fetchPublicApp(String packageName) async {
@@ -77,21 +31,21 @@ class StoreService {
     );
     final res = await http.get(uri);
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
 
-    return PublicStoreApp.fromJson(_decode(res.body));
+    return PublicStoreApp.fromJson(storeDecodeMap(res.body));
   }
 
   Future<List<DeveloperStoreApp>> fetchDeveloperApps() async {
-    final token = await _requireToken();
+    final token = await StoreAuthService.instance.requireToken();
     final res = await http.get(
       Uri.parse('$defaultBaseUrl/store/apps'),
-      headers: _authHeaders(token),
+      headers: storeAuthHeaders(token),
     );
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
 
-    final body = _decode(res.body);
+    final body = storeDecodeMap(res.body);
     final apps = body['apps'];
     if (apps is! List) return const [];
 
@@ -102,15 +56,15 @@ class StoreService {
   }
 
   Future<DeveloperAppDetail> fetchDeveloperApp(String appId) async {
-    final token = await _requireToken();
+    final token = await StoreAuthService.instance.requireToken();
     final res = await http.get(
       Uri.parse('$defaultBaseUrl/store/apps/$appId'),
-      headers: _authHeaders(token),
+      headers: storeAuthHeaders(token),
     );
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
 
-    return DeveloperAppDetail.fromJson(_decode(res.body));
+    return DeveloperAppDetail.fromJson(storeDecodeMap(res.body));
   }
 
   Future<String> getDownloadUrl({
@@ -123,10 +77,10 @@ class StoreService {
       ),
     );
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
 
-    final body = _decode(res.body);
-    final url  = body['url'];
+    final body = storeDecodeMap(res.body);
+    final url = body['url'];
     if (url == null || url.toString().isEmpty) {
       throw const StoreApiException('missing_url');
     }
@@ -148,81 +102,8 @@ class StoreService {
       }),
     );
 
-    _throwIfBad(res);
+    storeThrowIfBad(res);
     return 'ok';
-  }
-
-  Future<String> _requireToken() async {
-    final token = await getToken();
-    if (token == null) throw const StoreApiException('missing_token');
-    return token;
-  }
-
-  Map<String, String> _authHeaders(String token) {
-    return {
-      'authorization': 'Bearer $token',
-      'content-type': 'application/json; charset=utf-8',
-    };
-  }
-
-  Map<String, dynamic> _decode(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is Map<String, dynamic>) return decoded;
-    throw const StoreApiException('invalid_response');
-  }
-
-  void _throwIfBad(http.Response res) {
-    if (res.statusCode >= 200 && res.statusCode < 300) return;
-
-    try {
-      final decoded = jsonDecode(res.body);
-      if (decoded is Map<String, dynamic>) {
-        throw StoreApiException(
-          decoded['error']?.toString() ??
-              decoded['reason']?.toString() ??
-              'http_${res.statusCode}',
-        );
-      }
-    } catch (e) {
-      if (e is StoreApiException) rethrow;
-    }
-
-    throw StoreApiException('http_${res.statusCode}');
-  }
-}
-
-class StoreApiException implements Exception {
-  const StoreApiException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-class StoreAccount {
-  const StoreAccount({
-    required this.id,
-    required this.email,
-    required this.displayName,
-    required this.developerEnabled,
-  });
-
-  final String id;
-  final String email;
-  final String displayName;
-  final bool developerEnabled;
-
-  factory StoreAccount.fromJson(Map<String, dynamic> json) {
-    return StoreAccount(
-      id: _asString(json['id']),
-      email: _asString(json['email']),
-      displayName: _asString(json['display_name'], fallback: 'User'),
-      developerEnabled: _asBool(json['developer_enabled']) ||
-          _asBool(json['developerEnabled']) ||
-          _asBool(json['is_developer']) ||
-          _asBool(json['isDeveloper']),
-    );
   }
 }
 
@@ -678,7 +559,7 @@ String? _asNullableString(dynamic value) {
   return clean;
 }
 
-const _cdnBase = '${StoreService.defaultBaseUrl}/store/img';
+const _cdnBase = '$storeDefaultBaseUrl/store/img';
 
 String? _normaliseImageUrl(String? url) {
   if (url == null || url.isEmpty) return null;

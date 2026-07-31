@@ -1,0 +1,1 @@
+const String storeDefaultBaseUrl = 'https://api.colourswift.com';

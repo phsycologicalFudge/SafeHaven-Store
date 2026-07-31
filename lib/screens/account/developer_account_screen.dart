@@ -18,6 +18,7 @@ class DeveloperAccountScreen extends StatefulWidget {
 
 class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
   final StoreService _service = StoreService.instance;
+  final StoreAuthService _auth = StoreAuthService.instance;
   final AppLinks _appLinks = AppLinks();
 
   StreamSubscription<Uri>? _linkSub;
@@ -55,7 +56,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
         });
 
         try {
-          await _service.saveTokenFromAuthUri(uri);
+          await _auth.saveTokenFromAuthUri(uri);
           await _load(showLoading: false);
         } catch (e) {
           if (!mounted) return;
@@ -83,7 +84,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
     }
 
     try {
-      final token = await _service.getToken();
+      final token = await _auth.getToken();
       if (token == null) {
         if (!mounted) return;
         setState(() {
@@ -96,7 +97,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
       }
 
       final results = await Future.wait([
-        _service.fetchMe(),
+        _auth.fetchMe(),
         IndexService.instance.fetchIndex(),
       ]);
 
@@ -133,7 +134,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
 
     try {
       final ok = await launchUrl(
-        _service.loginUri(),
+        _auth.loginUri(),
         mode: LaunchMode.externalApplication,
       );
       if (!ok && mounted) {
@@ -153,7 +154,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
     });
 
     try {
-      final uri = await _service.dashboardUri();
+      final uri = await _auth.dashboardUri();
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && mounted) {
         setState(() => _error = 'Could not open dashboard.');
@@ -166,7 +167,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
   }
 
   Future<void> _logout() async {
-    await _service.clearToken();
+    await _auth.clearToken();
     if (!mounted) return;
     setState(() {
       _account = null;
