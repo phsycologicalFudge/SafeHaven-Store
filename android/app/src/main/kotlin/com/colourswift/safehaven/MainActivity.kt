@@ -1,14 +1,14 @@
 package com.colourswift.safehaven
 
-import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
-import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -247,44 +247,58 @@ class MainActivity : FlutterActivity() {
 
         CrashLogService.log("Installer", "D", "APK exists, size=${file.length()}")
 
-        try {
-            val packageInstaller = packageManager.packageInstaller
-            val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-            try {
-                params.setInstallerPackageName(packageName)
-            } catch (e: Exception) {
-                CrashLogService.log("Installer", "W", "setInstallerPackageName failed: ${e.message}")
+        val apkUri = try {
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        } catch (e: IllegalArgumentException) {
+            CrashLogService.log("Installer", "E", "FileProvider failed: ${e.message}")
+            result.error("fileprovider_error", e.message, null)
+            return
+        }
+
+        CrashLogService.log("Installer", "D", "URI created, launching installer")
+
+        fun buildIntent(pkg: String? = null): Intent =
+            Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                putExtra(Intent.EXTRA_RETURN_RESULT, false)
+                if (pkg != null) setPackage(pkg)
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
-    
+        fun resolveSystemInstaller(): String? {
+            val probe = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                type = "application/vnd.android.package-archive"
             }
-
-            val sessionId = packageInstaller.createSession(params)
-            val session = packageInstaller.openSession(sessionId)
-
-            try {
-                file.inputStream().use { input ->
-                    session.openWrite("package_install_session", 0, file.length()).use { output ->
-                        input.copyTo(output)
-                        session.fsync(output)
-                    }
+            return packageManager.queryIntentActivities(probe, 0)
+                .firstOrNull {
+                    it.activityInfo.applicationInfo.flags and
+                            android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
                 }
+                ?.activityInfo?.packageName
+        }
 
-                val intent = Intent(this, UpdateReceiver::class.java)
-                val pendingIntent = PendingIntent.getBroadcast(
-                    this,
-                    sessionId,
-                    intent,
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-                )
-
-                session.commit(pendingIntent.intentSender)
-                CrashLogService.log("Installer", "D", "session committed, sessionId=$sessionId")
-                result.success(true)
-            } finally {
-                session.close()
+        try {
+            startActivity(buildIntent())
+            CrashLogService.log("Installer", "D", "startActivity succeeded")
+            result.success(true)
+        } catch (e: ActivityNotFoundException) {
+            CrashLogService.log("Installer", "W", "ActivityNotFoundException, trying system installer fallback")
+            val systemPkg = resolveSystemInstaller()
+            if (systemPkg != null) {
+                try {
+                    startActivity(buildIntent(systemPkg))
+                    CrashLogService.log("Installer", "D", "fallback startActivity succeeded, pkg=$systemPkg")
+                    result.success(true)
+                } catch (e2: ActivityNotFoundException) {
+                    CrashLogService.log("Installer", "E", "fallback failed: ${e2.message}")
+                    result.error("installer_not_found", e2.message, null)
+                }
+            } else {
+                CrashLogService.log("Installer", "E", "no system installer found")
+                result.error("installer_not_found", e.message, null)
             }
         } catch (e: Exception) {
             CrashLogService.log("Installer", "E", "${e.javaClass.simpleName}: ${e.message}")
