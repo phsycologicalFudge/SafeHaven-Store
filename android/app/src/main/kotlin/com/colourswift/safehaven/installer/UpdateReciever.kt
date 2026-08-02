@@ -17,7 +17,8 @@ class UpdateReceiver : BroadcastReceiver() {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val packageName = intent.getStringExtra(PackageInstaller.EXTRA_PACKAGE_NAME) ?: ""
         val isBatch = intent.getBooleanExtra("isBatch", false)
-
+        CrashLogService.log("UpdateReceiver", "D", "onReceive status=$status pkg=$packageName isBatch=$isBatch")
+        
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirmIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
