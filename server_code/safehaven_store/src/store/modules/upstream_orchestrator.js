@@ -79,8 +79,14 @@ const pollIzzyApp = async (env, app) => {
   return !!outcome?.imported;
 };
 
+
+const resolveUpstream = (app) => {
+  if (app.upstream === "fdroid" || app.upstream === "izzyondroid") return app.upstream;
+  return detectPlatform(app.repo_url) || app.upstream || null;
+};
+
 const pollByUpstream = async (env, app) => {
-  switch (app.upstream) {
+  switch (resolveUpstream(app)) {
     case "fdroid":
       return pollFdroidApp(env, app);
     case "izzyondroid":
@@ -97,25 +103,25 @@ const pollByUpstream = async (env, app) => {
 };
 
 export async function forcePollApp(env, app) {
-  const upstream = app.upstream || null;
+  const upstream = resolveUpstream(app);
 
   if (!upstream) {
-    return { checked: true, submitted: false, skipped: true, reason: "unknown_upstream", upstream: null };
+    return { checked: true, submitted: false, skipped: true, reason: "unknown_upstream", upstream: null, platform: null };
   }
 
   try {
     const queued = await pollByUpstream(env, app);
 
     if (queued === undefined) {
-      return { checked: true, submitted: false, skipped: true, reason: "unsupported_upstream", upstream };
+      return { checked: true, submitted: false, skipped: true, reason: "unsupported_upstream", upstream, platform: upstream };
     }
 
     await setAppLastRepoCheck(env, app.id);
 
-    return { checked: true, submitted: !!queued, skipped: false, upstream };
+    return { checked: true, submitted: !!queued, skipped: false, upstream, platform: upstream };
   } catch (e) {
     await setAppLastRepoCheck(env, app.id).catch(() => {});
-    return { checked: true, submitted: false, skipped: false, upstream, error: String(e?.message || e) };
+    return { checked: true, submitted: false, skipped: false, upstream, platform: upstream, error: String(e?.message || e) };
   }
 }
 

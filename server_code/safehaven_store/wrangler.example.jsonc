@@ -9,8 +9,14 @@
       "database_id": "replace-with-your-d1-id"
     }
   ],
-    "triggers": {
-    "crons": ["0 * * * *", "0 */6 * * *", "0 3 3 * *"]
+  "kv_namespaces": [
+    {
+      "binding": "STORE_INDEX_KV",
+      "id": "replace-with-your-kv-id"
+    }
+  ],
+  "triggers": {
+    "crons": ["* * * * *", "0 * * * *", "0 */6 * * *", "0 3 3 * *"]
   },
   "vars": {
     "DEMO_DEV_TOKEN": "dev-token-change-me",
@@ -21,6 +27,8 @@
     "SH_S3_BUCKET": "safehaven-store",
     "SH_S3_REGION": "auto",
     "SH_S3_ACCESS_KEY": "replace-me",
-    "SH_S3_SECRET_KEY": "replace-me"
+    "SH_S3_SECRET_KEY": "replace-me",
+    "STORE_WEB_HOSTNAME": "store.example.com",
+    "STORE_UNDER_CONSTRUCTION": "false"
   }
 }

@@ -5,9 +5,11 @@ import {
   runGitHubReadmeSweep, 
   runFdroidCronJob,
   runIzzyCronJob,
+  runUpstreamPolls,
 } from "./store/store.js";
 import { demoAuth } from "./store/auth_demo.js";
 import { renderDashboardHtml } from "./store/web/dashboard.js";
+import { handleStoreWeb } from "./store/web/store_web_router.js";
 
 const html = (body, status = 200) =>
   new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
@@ -17,6 +19,12 @@ export default {
     const url    = new URL(request.url);
     const path   = url.pathname;
     const method = request.method;
+
+    if (env.STORE_WEB_HOSTNAME && url.hostname === env.STORE_WEB_HOSTNAME) {
+      const storeWebRes = await handleStoreWeb(request, env, path);
+      if (storeWebRes) return storeWebRes;
+      return new Response("Not found", { status: 404 });
+    }
 
     if (method === "GET" && (path === "/" || path === "/admin")) {
       return html(renderDashboardHtml());
@@ -40,7 +48,6 @@ export default {
         break;
       case "0 3 3 * *":
         ctx.waitUntil(runGitHubBootstrapImport(env));
-        ctx.waitUntil(tryRunMonthlyReset(env));
         break;
     }
   },

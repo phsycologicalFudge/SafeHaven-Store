@@ -432,9 +432,11 @@ export async function handleStore(request, env, auth, ctx) {
       return json({
         action: "patch",
         timestamp: latestTimestamp,
-        updates: Array.from(finalUpdates.values()),
-        removes: Array.from(finalRemoves)
-      });
+        updates: Array.from(finalUpdates.values()).filter(
+          (a) => Array.isArray(a.versions) && a.versions.length > 0
+        ),
+        removes: Array.from(finalRemoves),
+        });
     }
 
     if (method === "GET" && path === "/store/index.json") {
@@ -467,6 +469,20 @@ export async function handleStore(request, env, auth, ctx) {
       const versionCode = Number(parts[1] || "");
       if (!packageName || !Number.isFinite(versionCode)) return badRequest("invalid_params");
       const dlUrl = await getPresignedDownloadUrl(env, apkKey(packageName, versionCode), 300);
+      const params = new URL(request.url).searchParams;
+      const wantsRedirect = params.get("redirect") === "1";
+      if (wantsRedirect) {
+        const filename = (params.get("filename") || "").trim();
+        if (filename) {
+          const upstream = await fetch(dlUrl);
+          if (!upstream.ok) return new Response("download_failed", { status: 502 });
+          const headers = new Headers(upstream.headers);
+          headers.set("content-disposition", `attachment; filename="${filename}"`);
+          headers.set("content-type", "application/vnd.android.package-archive");
+          return new Response(upstream.body, { status: 200, headers });
+        }
+        return new Response(null, { status: 302, headers: { location: dlUrl } });
+      }
       return json({ url: dlUrl });
     }
 
