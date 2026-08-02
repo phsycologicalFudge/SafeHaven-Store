@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 import 'package:safehaven/services/installer/background_tasks.dart';
 import 'package:safehaven/services/logs/debug_log_service.dart';
 import 'screens/boot_screen/boot.dart';
@@ -27,6 +29,8 @@ class SafeHavenApp extends StatelessWidget {
         return MaterialApp(
           title: 'SafeHaven',
           debugShowCheckedModeBanner: false,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: ThemeData(
             brightness: isDark ? Brightness.dark : Brightness.light,
             scaffoldBackgroundColor: currentColors.background,

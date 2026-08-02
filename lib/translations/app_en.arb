@@ -1,0 +1,205 @@
+{
+  "@@locale": "en",
+
+  "tabApps": "Apps",
+  "tabRecents": "Recents",
+  "tabSearch": "Search",
+  "tabMyApps": "My Apps",
+  "tabSettings": "Settings",
+  "titleRecentlyViewed": "Recently Viewed",
+
+  "retry": "Retry",
+  "dismiss": "Dismiss",
+  "allApps": "All apps",
+
+  "catalogueTopCharts": "Top charts",
+  "catalogueTopInCategory": "Top in {category}",
+  "@catalogueTopInCategory": {
+    "placeholders": {
+      "category": { "type": "String" }
+    }
+  },
+  "catalogueNewArrivals": "New arrivals",
+  "catalogueNewBadge": "NEW",
+  "catalogueForYou": "For you",
+  "catalogueBrowseAll": "Browse all apps",
+  "catalogueSearchApps": "Search apps",
+  "catalogueCouldNotLoad": "Could not load catalogue",
+  "catalogueNoApps": "No apps are live yet.",
+  "catalogueAllCategories": "All categories",
+  "catalogueAnyRating": "Any rating",
+  "catalogueRating1": "1★ and up",
+  "catalogueRating2": "2★ and up",
+  "catalogueRating3": "3★ and up",
+  "catalogueRating4": "4★ and up",
+  "catalogueRating5": "5★ only",
+  "catalogueSearchPrompt": "Search for an app to begin.",
+  "catalogueNoResults": "No apps matched your filters.",
+
+  "buttonGet": "Get",
+  "buttonUpdate": "Update",
+  "buttonOpen": "Open",
+  "buttonInstall": "Install",
+  "buttonUninstall": "Uninstall",
+  "buttonUnavailable": "Unavailable",
+  "buttonChecking": "Checking",
+  "buttonNoLiveApk": "No live APK yet",
+  "buttonPaused": "Paused",
+  "buttonDownloading": "Downloading {percent}%",
+  "@buttonDownloading": {
+    "placeholders": {
+      "percent": { "type": "String" }
+    }
+  },
+
+  "historyEmpty": "Apps you view will appear here.",
+
+  "myAppsUpdatesAvailable": "{count, plural, =1{1 update available} other{{count} updates available}}",
+  "@myAppsUpdatesAvailable": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "myAppsUpdateAll": "Update All",
+  "myAppsEmptyTitle": "No installed store apps found.",
+  "myAppsEmptyBody": "Apps only appear here when their package name matches an app in the catalogue.",
+  "myAppsErrorTitle": "Could not load your apps",
+
+  "appOptionsTitle": "App options",
+  "appCopyRepoLink": "Copy repo link",
+  "appNoRepoLink": "No repository link is available yet.",
+  "appRepoLinkCopied": "Repo link copied",
+
+  "appMetaRating": "Rating",
+  "appMetaVersion": "Version",
+  "appMetaRepo": "Repo",
+  "appMetaNone": "None",
+  "appRateTitle": "Rate this app",
+  "appRateSubtitle": "Tell others what you think",
+  "appPreviewTitle": "Preview",
+  "appAboutTitle": "About this app",
+  "appNoDescription": "No description provided.",
+  "appNoShortDescription": "No short description provided.",
+  "appWhatsNew": "What's New?",
+
+  "securitySignals": "Security signals",
+  "securityVerifiedSig": "Verified signature",
+  "securityVerifiedSigBody": "Updates are verified against the original developer signature.",
+  "securityLatestScan": "Latest scan",
+  "securityNoScanTimestamp": "No completed scan timestamp is available yet.",
+  "securityNoThreats": "No threats detected. Last scanned {date}.",
+  "@securityNoThreats": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+
+  "technicalAppInfo": "App info",
+  "technicalPackage": "Package",
+  "technicalRepository": "Repository",
+  "technicalSha256": "SHA-256",
+  "technicalApkSize": "APK size",
+  "technicalLastScanned": "Last scanned",
+  "technicalNotProvided": "Not provided",
+  "technicalNotAvailable": "Not available",
+
+  "installFailed": "Install failed",
+  "installPermissionRequired": "Allow SafeHaven to install apps, then tap Install again.",
+  "installCouldNotStart": "Could not start the installer.",
+  "installIntegrityFailed": "APK integrity check failed.",
+  "installIncomplete": "APK download appears incomplete.",
+  "installFailedGeneric": "Install failed: {error}",
+  "@installFailedGeneric": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "couldNotOpenApp": "Could not open app",
+  "couldNotOpenAppBody": "Could not open this app.",
+
+  "nicknameTitle": "Choose a nickname",
+  "nicknameSubtitle": "This is used for unique ratings. It is not public.",
+  "nicknameHint": "e.g. alex",
+  "nicknameEmpty": "Enter a nickname to continue.",
+  "nicknameTooShort": "Nickname must be at least 2 characters.",
+  "nicknameSaving": "Saving...",
+  "nicknameContinue": "Continue",
+  "somethingWentWrong": "Something went wrong.",
+
+  "ratingTapStar": "Tap a star to rate this app",
+  "ratingSubmit": "Submit rating",
+  "ratingSubmitting": "Submitting...",
+  "ratingThanks": "Thanks for your rating!",
+  "ratingAlreadyRated": "You've already rated this app.",
+  "ratingRateLimited": "Too many ratings submitted. Try again later.",
+  "ratingNotFound": "App not found.",
+  "ratingError": "Something went wrong. Please try again.",
+
+  "updateResultsTitle": "Some apps couldn't be updated",
+  "updateResultsBody": "Install through SafeHaven to update",
+  "updateFailureCannotUpdate": "App cannot be updated by SafeHaven",
+  "updateFailureNoLink": "Could not get download link",
+  "updateFailureGeneric": "Could not start update",
+
+  "settingsOptions": "Options",
+  "settingsTheme": "Theme",
+  "settingsThemeSubtitle": "Tap to change",
+  "settingsFlawlessUpdates": "Flawless Updates",
+  "settingsUpdateOff": "Off",
+  "settingsUpdateLight": "Light",
+  "settingsUpdateFull": "Full",
+  "settingsUpdateNoneDesc": "SafeHaven will not automatically update apps for you.",
+  "settingsUpdateLightDesc": "SafeHaven will periodically every 6 hours check for updates. This uses minimum battery, but apps may not be updated quickly.",
+  "settingsUpdateFullDesc": "SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]",
+  "settingsDeveloper": "Developer",
+  "settingsAccount": "Account",
+  "settingsAccountSubtitle": "Manage your developer profile",
+  "settingsAbout": "About",
+  "settingsHowThisWorks": "How This Works",
+  "settingsHowThisWorksSubtitle": "Tap to find out",
+  "settingsSubmitApp": "Want to submit an app?",
+  "settingsSubmitAppSubtitle": "Tap to find out how",
+  "settingsVersion": "Version",
+  "settingsVersionLoading": "Loading...",
+  "settingsVersionUnknown": "Unknown",
+  "settingsDebugging": "Debugging",
+  "settingsDebugLogging": "Debug Logging",
+  "settingsShareLog": "Share Log",
+  "settingsShareLogSubtitle": "Send the debug log file",
+  "settingsClearLog": "Clear Log",
+  "settingsClearLogSubtitle": "Delete the current log file",
+
+  "devAccountTitle": "Developer account",
+  "devNotSignedIn": "Not signed in",
+  "devSignIn": "Sign in",
+  "devSignOut": "Sign out",
+  "devDashboard": "Dashboard",
+  "devOpening": "Opening...",
+  "devOpenDashboard": "Open dashboard",
+  "devYourApps": "Your apps",
+  "devSignInPrompt": "Sign in to manage developer submissions, review status, signing keys, and dashboard access.",
+  "devNoDevAccess": "Developer access is not enabled. Open the dashboard to agree to the developer terms.",
+  "devNoApps": "No apps registered yet. Open the dashboard to register your first app.",
+  "devCouldNotOpenLogin": "Could not open login page.",
+  "devCouldNotOpenDashboard": "Could not open dashboard.",
+  "devRepository": "Repository",
+  "devRepoVerified": "Repo verified",
+  "devRepoVerifiedYes": "Yes",
+  "devRepoVerifiedNo": "Not yet",
+  "devSigningKey": "Signing key",
+  "devSigningKeyNone": "Not locked yet",
+  "devSubmissions": "Submissions",
+  "devVersionCode": "Version {code}",
+  "@devVersionCode": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+
+  "selfUpdateTitle": "Update available",
+  "selfUpdateDismiss": "Dismiss",
+  "selfUpdateRetry": "Retry",
+  "selfUpdateButton": "Update",
+  "selfUpdateDownloadFailed": "Download failed. Check your connection and try again.",
+  "selfUpdateInstallFailed": "Could not start the installer."
+}

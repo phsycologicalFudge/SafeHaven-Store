@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/animated_tap.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueCategoryTabs extends StatelessWidget {
   const CatalogueCategoryTabs({
@@ -34,7 +35,7 @@ class CatalogueCategoryTabs extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         children: [
           _CategoryTabItem(
-            label: 'For you',
+            label: AppLocalizations.of(context)!.catalogueForYou,
             selected: selected == null,
             onTap: () => onSelected(null),
           ),

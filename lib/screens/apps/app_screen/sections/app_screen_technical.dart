@@ -3,6 +3,7 @@ import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../app_screen_helpers.dart';
 import 'app_screen_layout.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class AppScreenTrustSection extends StatelessWidget {
   const AppScreenTrustSection({super.key, required this.app});
@@ -14,7 +15,7 @@ class AppScreenTrustSection extends StatelessWidget {
     final colors = SafeHavenTheme.of(context);
 
     return AppScreenSection(
-      title: 'Security signals',
+      title: AppLocalizations.of(context)!.securitySignals,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Column(
@@ -27,18 +28,18 @@ class AppScreenTrustSection extends StatelessWidget {
               body: app.trustDescription,
               color: app.hasTrustBadge ? colors.accentEnd : colors.textMuted,
             ),
-            const _SignalRow(
+            _SignalRow(
               icon: Icons.fingerprint_rounded,
-              title: 'Verified signature',
-              body: 'Updates are verified against the original developer signature.',
+              title: AppLocalizations.of(context)!.securityVerifiedSig,
+              body: AppLocalizations.of(context)!.securityVerifiedSigBody,
               color: null,
             ),
             _SignalRow(
               icon: Icons.manage_search_rounded,
-              title: 'Latest scan',
+              title: AppLocalizations.of(context)!.securityLatestScan,
               body: app.latestVersion == null || app.latestVersion!.scannedAt == 0
-                  ? 'No completed scan timestamp is available yet.'
-                  : 'No threats detected. Last scanned ${formatScannedAt(app.latestVersion!.scannedAt)}.',
+                  ? AppLocalizations.of(context)!.securityNoScanTimestamp
+                  : AppLocalizations.of(context)!.securityNoThreats(formatScannedAt(app.latestVersion!.scannedAt)),
               color: null,
             ),
           ],
@@ -58,32 +59,32 @@ class AppScreenTechnicalSection extends StatelessWidget {
     final version = app.latestVersion;
 
     return AppScreenExpandableSection(
-      title: 'App info',
+      title: AppLocalizations.of(context)!.technicalAppInfo,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Column(
           children: [
-            _InfoRow(label: 'Package', value: app.packageName),
+            _InfoRow(label: AppLocalizations.of(context)!.technicalPackage, value: app.packageName),
             _InfoRow(
-              label: 'Repository',
-              value: app.repoUrl.isEmpty ? 'Not provided' : app.repoUrl,
+              label: AppLocalizations.of(context)!.technicalRepository,
+              value: app.repoUrl.isEmpty ? AppLocalizations.of(context)!.technicalNotProvided : app.repoUrl,
             ),
             _InfoRow(
-              label: 'SHA-256',
+              label: AppLocalizations.of(context)!.technicalSha256,
               value: version == null || version.sha256.isEmpty
-                  ? 'Not available'
+                  ? AppLocalizations.of(context)!.technicalNotAvailable
                   : version.sha256,
             ),
             _InfoRow(
-              label: 'APK size',
+              label: AppLocalizations.of(context)!.technicalApkSize,
               value: version == null || version.apkSize == 0
-                  ? 'Not available'
+                  ? AppLocalizations.of(context)!.technicalNotAvailable
                   : formatBytes(version.apkSize),
             ),
             _InfoRow(
-              label: 'Last scanned',
+              label: AppLocalizations.of(context)!.technicalLastScanned,
               value: version == null || version.scannedAt == 0
-                  ? 'Not available'
+                  ? AppLocalizations.of(context)!.technicalNotAvailable
                   : formatScannedAt(version.scannedAt),
             ),
           ],

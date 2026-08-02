@@ -7,6 +7,7 @@ import '../catalogue_navigation.dart';
 import '../widgets/catalogue_app_icons.dart';
 import '../widgets/catalogue_download_button.dart';
 import '../widgets/catalogue_shared_widgets.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueTopInCategorySection extends StatelessWidget {
   const CatalogueTopInCategorySection({
@@ -28,7 +29,7 @@ class CatalogueTopInCategorySection extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
-          CatalogueSectionHeader(title: 'Top in $categoryLabel'),
+          CatalogueSectionHeader(title: AppLocalizations.of(context)!.catalogueTopInCategory(categoryLabel)),
           const SizedBox(height: 10),
           SizedBox(
             height: 186,
@@ -66,7 +67,7 @@ class CatalogueNewArrivalsSection extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
-          const CatalogueSectionHeader(title: 'New arrivals'),
+          CatalogueSectionHeader(title: AppLocalizations.of(context)!.catalogueNewArrivals),
           const SizedBox(height: 10),
           SizedBox(
             height: 186,
@@ -210,7 +211,7 @@ class _NewArrivalCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'NEW',
+                      AppLocalizations.of(context)!.catalogueNewBadge,
                       style: TextStyle(
                         fontSize: 8,
                         fontWeight: FontWeight.w900,

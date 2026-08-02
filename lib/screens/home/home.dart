@@ -12,6 +12,7 @@ import '../apps/history_screen.dart';
 import '../apps/my_apps_screen.dart';
 import '../apps/search_screen.dart';
 import 'top_banner.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,13 +41,16 @@ class _HomeScreenState extends State<HomeScreen>
     SettingsScreen(),
   ];
 
-  static const List<String> _titles = [
-    'SafeHaven',
-    'Recently Viewed',
-    'Search',
-    'My Apps',
-    'Settings',
-  ];
+  List<String> _titles(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return [
+      'SafeHaven',
+      l.titleRecentlyViewed,
+      l.tabSearch,
+      l.tabMyApps,
+      l.tabSettings,
+    ];
+  }
 
   @override
   void initState() {
@@ -163,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen>
           appBar: _selectedIndex == 0
               ? TopBanner.home()
               : TopBanner.defaultScreen(
-            title: _titles[_selectedIndex],
+            title: _titles(context)[_selectedIndex],
           ),
           body: SafeArea(
             top: false,

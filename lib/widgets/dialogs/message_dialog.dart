@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/theme/theme_manager.dart';
 import '../animated_tap.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SimpleMessageDialog extends StatelessWidget {
   const SimpleMessageDialog({
@@ -88,7 +89,7 @@ class SimpleMessageDialog extends StatelessWidget {
                           border: Border.all(color: colors.border),
                         ),
                         child: Text(
-                          'Dismiss',
+                          AppLocalizations.of(context)!.dismiss,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,

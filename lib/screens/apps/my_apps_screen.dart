@@ -13,6 +13,7 @@ import '../../widgets/refresh/pull_to_refresh.dart';
 import 'app_screen/app_screen.dart';
 import 'catalogue_screen/catalogue_navigation.dart';
 import 'catalogue_screen/widgets/catalogue_download_button.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class _UpdateOutcome {
   const _UpdateOutcome({required this.started, required this.failed});
@@ -299,7 +300,7 @@ class _UpdateBanner extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '$liveCount update${liveCount == 1 ? '' : 's'} available',
+                      AppLocalizations.of(context)!.myAppsUpdatesAvailable(liveCount),
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: colors.buttonText),
                     ),
                   ),
@@ -322,7 +323,7 @@ class _UpdateBanner extends StatelessWidget {
                         ),
                       )
                           : Text(
-                        'Update All',
+                        AppLocalizations.of(context)!.myAppsUpdateAll,
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.buttonText),
                       ),
                     ),
@@ -471,13 +472,13 @@ class _EmptyBlock extends StatelessWidget {
             Icon(Icons.apps_rounded, size: 38, color: colors.textMuted),
             const SizedBox(height: 14),
             Text(
-              'No installed store apps found.',
+              AppLocalizations.of(context)!.myAppsEmptyTitle,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: colors.text),
             ),
             const SizedBox(height: 6),
             Text(
-              'Apps only appear here when their package name matches an app in the catalogue.',
+              AppLocalizations.of(context)!.myAppsEmptyBody,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, height: 1.4, color: colors.textMuted),
             ),
@@ -506,7 +507,7 @@ class _ErrorBlock extends StatelessWidget {
             Icon(Icons.error_outline_rounded, size: 36, color: colors.textMuted),
             const SizedBox(height: 14),
             Text(
-              'Could not load your apps',
+              AppLocalizations.of(context)!.myAppsErrorTitle,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: colors.text),
             ),
@@ -523,7 +524,7 @@ class _ErrorBlock extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
                     child: Center(
-                      child: Text('Retry', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.buttonText)),
+                      child: Text(AppLocalizations.of(context)!.retry, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.buttonText)),
                     ),
                   ),
                 ),

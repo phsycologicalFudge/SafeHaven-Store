@@ -7,6 +7,7 @@ import '../../app_screen/app_screen.dart';
 import '../catalogue_navigation.dart';
 import '../widgets/catalogue_app_icons.dart';
 import '../widgets/catalogue_shared_widgets.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SeeMoreAppsScreen extends StatefulWidget {
   const SeeMoreAppsScreen({
@@ -178,7 +179,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                             color: colors.text,
                           ),
                           decoration: InputDecoration(
-                            hintText: 'Search apps',
+                            hintText: AppLocalizations.of(context)!.catalogueSearchApps,
                             hintStyle: TextStyle(
                               fontSize: 15,
                               color: colors.textMuted,

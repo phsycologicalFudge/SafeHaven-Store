@@ -3,6 +3,7 @@ import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/animated_tap.dart';
 import '../../search_screen.dart';
 import '../catalogue_navigation.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueSearchButton extends StatelessWidget {
   const CatalogueSearchButton();
@@ -46,7 +47,7 @@ class CatalogueSearchButton extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Search apps',
+                  AppLocalizations.of(context)!.catalogueSearchApps,
                   style: TextStyle(
                     fontSize: 15,
                     color: colors.textMuted,

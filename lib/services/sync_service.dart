@@ -93,6 +93,10 @@ class SyncService {
 
     for (final update in updates) {
       final app = PublicStoreApp.fromJson(update);
+      if (app.versions.isEmpty && appMap.containsKey(app.packageName)) {
+        final existing = appMap[app.packageName]!;
+        if (existing.versions.isNotEmpty) continue;
+      }
       appMap[app.packageName] = app;
     }
 

@@ -5,6 +5,7 @@ import '../../../../services/installer/apk_install_service.dart';
 import '../../../../services/installer/install_sync.dart';
 import '../../../../services/installer/store_update_service.dart';
 import '../../../../widgets/animated_tap.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueDownloadButton extends StatefulWidget {
   const CatalogueDownloadButton({
@@ -189,15 +190,15 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
           onTap = _cancelDownload;
         } else if (!installed) {
           stateKey = 'get';
-          inner = _buildButtonText('Get', colors.text);
+          inner = _buildButtonText(AppLocalizations.of(context)!.buttonGet, colors.text);
           onTap = _startDownload;
         } else if (canUpdate) {
           stateKey = 'update';
-          inner = _buildButtonText('Update', colors.text);
+          inner = _buildButtonText(AppLocalizations.of(context)!.buttonUpdate, colors.text);
           onTap = _startDownload;
         } else {
           stateKey = 'open';
-          inner = _buildButtonText('Open', colors.text);
+          inner = _buildButtonText(AppLocalizations.of(context)!.buttonOpen, colors.text);
           onTap = _open;
         }
 

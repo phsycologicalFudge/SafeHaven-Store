@@ -7,6 +7,7 @@ import '../catalogue_navigation.dart';
 import '../widgets/catalogue_app_icons.dart';
 import '../widgets/catalogue_download_button.dart';
 import '../widgets/catalogue_shared_widgets.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueTopChartsSection extends StatelessWidget {
   const CatalogueTopChartsSection({
@@ -26,7 +27,7 @@ class CatalogueTopChartsSection extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16),
       child: Column(
         children: [
-          const CatalogueSectionHeader(title: 'Top charts'),
+          CatalogueSectionHeader(title: AppLocalizations.of(context)!.catalogueTopCharts),
           const SizedBox(height: 10),
           SizedBox(
             height: 186,

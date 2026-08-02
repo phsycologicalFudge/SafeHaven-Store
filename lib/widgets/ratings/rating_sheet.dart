@@ -5,6 +5,7 @@ import '../../services/ratings/rating_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../identity_setup_dialog.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class RatingSheet extends StatefulWidget {
   const RatingSheet({super.key, required this.app});
@@ -79,7 +80,7 @@ class _RatingSheetState extends State<RatingSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tap a star to rate this app',
+            AppLocalizations.of(context)!.ratingTapStar,
             style: TextStyle(fontSize: 13, color: colors.textSoft),
           ),
           const SizedBox(height: 24),
@@ -134,7 +135,7 @@ class _RatingSheetState extends State<RatingSheet> {
                   onTap: canSubmit ? _submit : null,
                   child: Center(
                     child: Text(
-                      _submitting ? 'Submitting...' : 'Submit rating',
+                      _submitting ? AppLocalizations.of(context)!.ratingSubmitting : AppLocalizations.of(context)!.ratingSubmit,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
@@ -152,17 +153,18 @@ class _RatingSheetState extends State<RatingSheet> {
   }
 
   String _resultMessage(RatingResult result) {
+    final context = this.context;
     switch (result) {
       case RatingResult.ok:
-        return 'Thanks for your rating!';
+        return AppLocalizations.of(context)!.ratingThanks;
       case RatingResult.alreadyRated:
-        return "You've already rated this app.";
+        return AppLocalizations.of(context)!.ratingAlreadyRated;
       case RatingResult.rateLimited:
-        return 'Too many ratings submitted. Try again later.';
+        return AppLocalizations.of(context)!.ratingRateLimited;
       case RatingResult.notFound:
-        return 'App not found.';
+        return AppLocalizations.of(context)!.ratingNotFound;
       case RatingResult.error:
-        return 'Something went wrong. Please try again.';
+        return AppLocalizations.of(context)!.ratingError;
     }
   }
 }

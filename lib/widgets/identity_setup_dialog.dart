@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/device_identity_service.dart';
 import '../services/theme/theme_manager.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class IdentitySetupDialog extends StatefulWidget {
   const IdentitySetupDialog({super.key});
@@ -34,11 +35,11 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
   Future<void> _save() async {
     final nickname = _controller.text.trim();
     if (nickname.isEmpty) {
-      setState(() => _error = 'Enter a nickname to continue.');
+      setState(() => _error = AppLocalizations.of(context)!.nicknameEmpty);
       return;
     }
     if (nickname.length < 2) {
-      setState(() => _error = 'Nickname must be at least 2 characters.');
+      setState(() => _error = AppLocalizations.of(context)!.nicknameTooShort);
       return;
     }
 
@@ -53,7 +54,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
     } catch (_) {
       setState(() {
         _saving = false;
-        _error = 'Something went wrong.';
+        _error = AppLocalizations.of(context)!.somethingWentWrong;
       });
     }
   }
@@ -72,7 +73,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Choose a nickname',
+              AppLocalizations.of(context)!.nicknameTitle,
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
@@ -82,7 +83,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'This is used for unique ratings. It is not public.',
+              AppLocalizations.of(context)!.nicknameSubtitle,
               style: TextStyle(
                 fontSize: 13,
                 color: colors.textSoft,
@@ -97,7 +98,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _save(),
               decoration: InputDecoration(
-                hintText: 'e.g. alex',
+                hintText: AppLocalizations.of(context)!.nicknameHint,
                 counterText: '',
                 filled: true,
                 fillColor: colors.surfaceSoft,
@@ -144,7 +145,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
                     onTap: _saving ? null : _save,
                     child: Center(
                       child: Text(
-                        _saving ? 'Saving...' : 'Continue',
+                        _saving ? AppLocalizations.of(context)!.nicknameSaving : AppLocalizations.of(context)!.nicknameContinue,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,

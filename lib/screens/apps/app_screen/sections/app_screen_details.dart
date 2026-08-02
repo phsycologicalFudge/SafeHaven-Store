@@ -7,6 +7,7 @@ import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/ratings/rating_sheet.dart';
 import '../app_screen_helpers.dart';
 import 'app_screen_layout.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class AppScreenRateButton extends StatelessWidget {
   const AppScreenRateButton({super.key, required this.app});
@@ -22,7 +23,7 @@ class AppScreenRateButton extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Rate this app',
+            AppLocalizations.of(context)!.appRateTitle,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -32,7 +33,7 @@ class AppScreenRateButton extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Tell others what you think',
+            AppLocalizations.of(context)!.appRateSubtitle,
             style: TextStyle(
               fontSize: 13,
               color: colors.textMuted,
@@ -126,7 +127,7 @@ class AppScreenPreviewSection extends StatelessWidget {
     }
 
     return AppScreenSection(
-      title: 'Preview',
+      title: AppLocalizations.of(context)!.appPreviewTitle,
       child: SizedBox(
         height: 220,
         child: ListView.separated(
@@ -186,7 +187,7 @@ class AppScreenWhatsNewSection extends StatelessWidget {
     }
 
     return AppScreenExpandableSection(
-      title: "What's New?",
+      title: AppLocalizations.of(context)!.appWhatsNew,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: MarkdownBody(
@@ -221,14 +222,14 @@ class AppScreenAboutSection extends StatelessWidget {
       .replaceAll(r'\r', '')
       .trim();
 
-  String get _shortText {
+  String _shortText(BuildContext context) {
     final summary = _normalize(app.summary);
     if (summary.isNotEmpty) return summary;
 
-    return 'No short description provided.';
+    return AppLocalizations.of(context)!.appNoShortDescription;
   }
 
-  String get _fullText {
+  String _fullText(BuildContext context) {
     final description = _normalize(app.description);
     if (description.isNotEmpty) return description;
 
@@ -240,7 +241,7 @@ class AppScreenAboutSection extends StatelessWidget {
 
   void _showFull(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
-    final fullText = _fullText;
+    final fullText = _fullText(context);
 
     showDialog(
       context: context,
@@ -257,7 +258,7 @@ class AppScreenAboutSection extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                 child: Text(
-                  'About this app',
+                  AppLocalizations.of(context)!.appAboutTitle,
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
@@ -273,7 +274,7 @@ class AppScreenAboutSection extends StatelessWidget {
                   child: MarkdownBody(
                     data: fullText.isNotEmpty
                         ? fullText
-                        : 'No description provided.',
+                        : AppLocalizations.of(context)!.appNoDescription,
                     selectable: true,
                     softLineBreak: true,
                     styleSheet: markdownStyle(context),
@@ -301,10 +302,10 @@ class AppScreenAboutSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
-    final shortText = _shortText;
+    final shortText = _shortText(context);
 
     return AppScreenSection(
-      title: 'About this app',
+      title: AppLocalizations.of(context)!.appAboutTitle,
       onHeaderTap: () => _showFull(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),

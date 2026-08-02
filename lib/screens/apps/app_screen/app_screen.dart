@@ -9,6 +9,7 @@ import '../../../services/history_service.dart';
 import '../../../services/store_service.dart';
 import '../../../services/theme/theme_manager.dart';
 import 'app_screen_helpers.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class AppScreen extends StatefulWidget {
   const AppScreen({super.key, required this.app});
@@ -89,7 +90,7 @@ class _AppScreenState extends State<AppScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'App options',
+                AppLocalizations.of(context)!.appOptionsTitle,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -99,9 +100,9 @@ class _AppScreenState extends State<AppScreen> {
               const SizedBox(height: 16),
               _ActionSheetItem(
                 icon: Icons.content_copy_rounded,
-                title: 'Copy repo link',
+                title: AppLocalizations.of(context)!.appCopyRepoLink,
                 subtitle: repoUrl.isEmpty
-                    ? 'No repository link is available yet.'
+                    ? AppLocalizations.of(context)!.appNoRepoLink
                     : repoUrl,
                 enabled: repoUrl.isNotEmpty,
                 onTap: () async {
@@ -109,7 +110,7 @@ class _AppScreenState extends State<AppScreen> {
                   if (!mounted) return;
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Repo link copied')),
+                    SnackBar(content: Text(AppLocalizations.of(context)!.appRepoLinkCopied)),
                   );
                 },
               ),

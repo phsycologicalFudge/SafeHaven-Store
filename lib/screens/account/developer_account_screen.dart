@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class DeveloperAccountScreen extends StatefulWidget {
   const DeveloperAccountScreen({super.key});
@@ -138,7 +139,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
         mode: LaunchMode.externalApplication,
       );
       if (!ok && mounted) {
-        setState(() => _error = 'Could not open login page.');
+        setState(() => _error = AppLocalizations.of(context)!.devCouldNotOpenLogin);
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -157,7 +158,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
       final uri = await _auth.dashboardUri();
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && mounted) {
-        setState(() => _error = 'Could not open dashboard.');
+        setState(() => _error = AppLocalizations.of(context)!.devCouldNotOpenDashboard);
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -218,7 +219,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
             if (!_loading && _account != null) ...[
               SliverToBoxAdapter(
                 child: _SectionHeader(
-                  title: 'Your apps',
+                  title: AppLocalizations.of(context)!.devYourApps,
                   count: _account!.developerEnabled ? _apps.length : null,
                 ),
               ),
@@ -226,8 +227,8 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
                 SliverToBoxAdapter(
                   child: _MessageBlock(
                     message:
-                    'Developer access is not enabled. Open the dashboard to agree to the developer terms.',
-                    actionLabel: 'Open dashboard',
+                    AppLocalizations.of(context)!.devNoDevAccess,
+                    actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
                     onAction: _openDashboard,
                   ),
                 )
@@ -235,8 +236,8 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
                 SliverToBoxAdapter(
                   child: _MessageBlock(
                     message:
-                    'No apps registered yet. Open the dashboard to register your first app.',
-                    actionLabel: 'Open dashboard',
+                    AppLocalizations.of(context)!.devNoApps,
+                    actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
                     onAction: _openDashboard,
                   ),
                 )
@@ -259,7 +260,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
                   child: Text(
-                    'Sign in to manage developer submissions, review status, signing keys, and dashboard access.',
+                    AppLocalizations.of(context)!.devSignInPrompt,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13.5,
@@ -307,8 +308,8 @@ class _AccountHeader extends StatelessWidget {
         : email.isNotEmpty
         ? email
         : signedIn
-        ? 'Developer account'
-        : 'Developer account';
+        ? AppLocalizations.of(context)!.devAccountTitle
+        : AppLocalizations.of(context)!.devAccountTitle;
     final initial = label.isNotEmpty ? label.substring(0, 1).toUpperCase() : 'S';
 
     final safeTop = MediaQuery.of(context).padding.top;
@@ -346,7 +347,7 @@ class _AccountHeader extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            signedIn ? label : 'Not signed in',
+            signedIn ? label : AppLocalizations.of(context)!.devNotSignedIn,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -373,19 +374,19 @@ class _AccountHeader extends StatelessWidget {
               children: [
                 Expanded(
                   child: _GradientButton(
-                    label: openingDashboard ? 'Opening...' : 'Dashboard',
+                    label: openingDashboard ? AppLocalizations.of(context)!.devOpening : AppLocalizations.of(context)!.devDashboard,
                     onTap: openingDashboard ? null : onDashboard,
                   ),
                 ),
                 const SizedBox(width: 10),
-                _PlainActionButton(label: 'Sign out', onTap: onLogout),
+                _PlainActionButton(label: AppLocalizations.of(context)!.devSignOut, onTap: onLogout),
               ],
             )
           else
             SizedBox(
               width: double.infinity,
               child: _GradientButton(
-                label: openingLogin ? 'Opening...' : 'Sign in',
+                label: openingLogin ? AppLocalizations.of(context)!.devOpening : AppLocalizations.of(context)!.devSignIn,
                 onTap: openingLogin ? null : onLogin,
               ),
             ),
@@ -605,21 +606,21 @@ class _DeveloperAppDetail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DetailRow(label: 'Repository', value: app.repoUrl.isEmpty ? 'None' : app.repoUrl),
-        _DetailRow(label: 'Repo verified', value: app.repoVerified ? 'Yes' : 'Not yet'),
+        _DetailRow(label: AppLocalizations.of(context)!.devRepository, value: app.repoUrl.isEmpty ? AppLocalizations.of(context)!.appMetaNone : app.repoUrl),
+        _DetailRow(label: AppLocalizations.of(context)!.devRepoVerified, value: app.repoVerified ? AppLocalizations.of(context)!.devRepoVerifiedYes : AppLocalizations.of(context)!.devRepoVerifiedNo),
         _DetailRow(
-          label: 'Signing key',
-          value: app.signingKeyHash.isEmpty ? 'Not locked yet' : app.signingKeyHash,
+          label: AppLocalizations.of(context)!.devSigningKey,
+          value: app.signingKeyHash.isEmpty ? AppLocalizations.of(context)!.devSigningKeyNone : app.signingKeyHash,
         ),
         if (publicApp != null && publicApp!.ratingCount > 0)
           _DetailRow(
-            label: 'Rating',
+            label: AppLocalizations.of(context)!.appMetaRating,
             value: '${publicApp!.displayRating} ★ (${publicApp!.ratingCount})',
           ),
         if (detail.submissions.isNotEmpty) ...[
           const SizedBox(height: 14),
           Text(
-            'Submissions',
+            AppLocalizations.of(context)!.devSubmissions,
             style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
@@ -652,7 +653,7 @@ class _SubmissionRow extends StatelessWidget {
           Expanded(
             child: Text(
               submission.versionName.isEmpty
-                  ? 'Version ${submission.versionCode}'
+                  ? AppLocalizations.of(context)!.devVersionCode(submission.versionCode.toString())
                   : 'v${submission.versionName}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

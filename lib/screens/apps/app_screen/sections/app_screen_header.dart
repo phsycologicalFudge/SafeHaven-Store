@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 
 class AppScreenHeader extends StatelessWidget {
@@ -114,14 +115,14 @@ class AppScreenMetadataRow extends StatelessWidget {
           Expanded(
             child: _MetaItem(
               top: app.ratingCount > 0 ? '${app.displayRating} ★' : '—',
-              bottom: 'Rating',
+              bottom: AppLocalizations.of(context)!.appMetaRating,
             ),
           ),
           const _DividerLine(),
           Expanded(
             child: _MetaItem(
-              top: version?.versionName ?? 'None',
-              bottom: 'Version',
+              top: version?.versionName ?? AppLocalizations.of(context)!.appMetaNone,
+              bottom: AppLocalizations.of(context)!.appMetaVersion,
             ),
           ),
           const _DividerLine(),
@@ -147,7 +148,7 @@ class AppScreenMetadataRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Repo',
+                      AppLocalizations.of(context)!.appMetaRepo,
                       style: TextStyle(
                         fontSize: 12,
                         color: colors.textMuted,

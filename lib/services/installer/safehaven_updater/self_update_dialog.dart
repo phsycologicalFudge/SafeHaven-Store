@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../widgets/animated_tap.dart';
 import '../../logs/debug_log_service.dart';
 import '../../theme/theme_manager.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SelfUpdateDialog extends StatefulWidget {
   const SelfUpdateDialog({super.key, required this.info});
@@ -49,7 +50,7 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
     if (path == null) {
       setState(() {
         _phase = _UpdatePhase.failed;
-        _error = 'Download failed. Check your connection and try again.';
+        _error = AppLocalizations.of(context)!.selfUpdateDownloadFailed;
       });
       return;
     }
@@ -63,7 +64,7 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
       if (!mounted) return;
       setState(() {
         _phase = _UpdatePhase.failed;
-        _error = 'Could not start the installer.';
+        _error = AppLocalizations.of(context)!.selfUpdateInstallFailed;
       });
     }
   }
@@ -110,7 +111,7 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Update available',
+            AppLocalizations.of(context)!.selfUpdateTitle,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -334,7 +335,7 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
                     border: Border.all(color: colors.border),
                   ),
                   child: Text(
-                    'Dismiss',
+                    AppLocalizations.of(context)!.selfUpdateDismiss,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -402,8 +403,8 @@ class _SelfUpdateDialogState extends State<SelfUpdateDialog> {
                             downloading
                                 ? '${(_progress * 100).round()}%'
                                 : (_phase == _UpdatePhase.failed
-                                ? 'Retry'
-                                : 'Update'),
+                                ? AppLocalizations.of(context)!.selfUpdateRetry
+                                : AppLocalizations.of(context)!.selfUpdateButton),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w900,

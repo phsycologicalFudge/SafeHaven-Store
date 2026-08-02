@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/theme/theme_manager.dart';
 import '../animated_tap.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class UpdateFailure {
   const UpdateFailure({
@@ -63,7 +64,7 @@ class UpdateResultsDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Some apps couldn\'t be updated',
+                        AppLocalizations.of(context)!.updateResultsTitle,
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -73,7 +74,7 @@ class UpdateResultsDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Install through SafeHaven to update',
+                        AppLocalizations.of(context)!.updateResultsBody,
                         style: TextStyle(
                           fontSize: 13.5,
                           height: 1.4,
@@ -116,7 +117,7 @@ class UpdateResultsDialog extends StatelessWidget {
                           border: Border.all(color: colors.border),
                         ),
                         child: Text(
-                          'Dismiss',
+                          AppLocalizations.of(context)!.dismiss,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,

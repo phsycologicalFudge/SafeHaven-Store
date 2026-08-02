@@ -7,6 +7,7 @@ import '../../../services/theme/theme_manager.dart';
 import '../../../widgets/animated_tap.dart';
 import '../../apps/catalogue_screen/catalogue_navigation.dart';
 import '../developer_account_screen.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,7 +17,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _appVersion = 'Loading...';
+  String? _appVersion;
   UpdateMode _updateMode = UpdateMode.light;
   bool _debugEnabled = false;
   bool _hasLog = false;
@@ -39,7 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _appVersion = 'Unknown';
+        _appVersion = null;
       });
     }
   }
@@ -89,11 +90,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _updateModeSubtitle(UpdateMode mode) => switch (mode) {
-    UpdateMode.none => 'Off',
-    UpdateMode.light => 'Light',
-    UpdateMode.full => 'Full',
-  };
+  String _updateModeSubtitle(BuildContext context, UpdateMode mode) {
+    final l = AppLocalizations.of(context)!;
+    return switch (mode) {
+      UpdateMode.none => l.settingsUpdateOff,
+      UpdateMode.light => l.settingsUpdateLight,
+      UpdateMode.full => l.settingsUpdateFull,
+    };
+  }
 
   Future<void> _showUpdateModePicker() async {
     final colors = SafeHavenTheme.of(context);
@@ -124,7 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                     child: Text(
-                      'Flawless Updates',
+                      AppLocalizations.of(context)!.settingsFlawlessUpdates,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -135,25 +139,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(height: 0.5, color: colors.border),
                   const SizedBox(height: 4),
                   _UpdateModeOption(
-                    title: 'None',
+                    title: AppLocalizations.of(context)!.settingsUpdateOff,
                     subtitle:
-                    'SafeHaven will not automatically update apps for you.',
+                    AppLocalizations.of(context)!.settingsUpdateNoneDesc,
                     selected: _updateMode == UpdateMode.none,
                     onTap: () =>
                         Navigator.of(sheetContext).pop(UpdateMode.none),
                   ),
                   _UpdateModeOption(
-                    title: 'Light',
+                    title: AppLocalizations.of(context)!.settingsUpdateLight,
                     subtitle:
-                    'SafeHaven will periodically every 6 hours check for updates. This uses minimum battery, but apps may not be updated quickly.',
+                    AppLocalizations.of(context)!.settingsUpdateLightDesc,
                     selected: _updateMode == UpdateMode.light,
                     onTap: () =>
                         Navigator.of(sheetContext).pop(UpdateMode.light),
                   ),
                   _UpdateModeOption(
-                    title: 'Full',
+                    title: AppLocalizations.of(context)!.settingsUpdateFull,
                     subtitle:
-                    'SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]',
+                    AppLocalizations.of(context)!.settingsUpdateFullDesc,
                     selected: _updateMode == UpdateMode.full,
                     onTap: () =>
                         Navigator.of(sheetContext).pop(UpdateMode.full),
@@ -185,19 +189,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: 'Options',
+              title: AppLocalizations.of(context)!.settingsOptions,
               children: [
                 _SettingsActionTile(
                   icon: Icons.palette_rounded,
-                  title: 'Theme',
-                  subtitle: 'Tap to change',
+                  title: AppLocalizations.of(context)!.settingsTheme,
+                  subtitle: AppLocalizations.of(context)!.settingsThemeSubtitle,
                   showArrow: false,
                   onTap: () => themeManager.toggle(),
                 ),
                 _SettingsActionTile(
                   icon: Icons.bolt_rounded,
-                  title: 'Flawless Updates',
-                  subtitle: _updateModeSubtitle(_updateMode),
+                  title: AppLocalizations.of(context)!.settingsFlawlessUpdates,
+                  subtitle: _updateModeSubtitle(context, _updateMode),
                   onTap: _showUpdateModePicker,
                 ),
               ],
@@ -205,12 +209,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: 'Developer',
+              title: AppLocalizations.of(context)!.settingsDeveloper,
               children: [
                 _SettingsActionTile(
                   icon: Icons.person_rounded,
-                  title: 'Account',
-                  subtitle: 'Manage your developer profile',
+                  title: AppLocalizations.of(context)!.settingsAccount,
+                  subtitle: AppLocalizations.of(context)!.settingsAccountSubtitle,
                   onTap: () {
                     Navigator.of(context).push(
                       pushRoute(const DeveloperAccountScreen()),
@@ -222,37 +226,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: 'About',
+              title: AppLocalizations.of(context)!.settingsAbout,
               children: [
                 _SettingsActionTile(
                   icon: Icons.help_outline_rounded,
-                  title: 'How This Works',
-                  subtitle: 'Tap to find out',
+                  title: AppLocalizations.of(context)!.settingsHowThisWorks,
+                  subtitle: AppLocalizations.of(context)!.settingsHowThisWorksSubtitle,
                   showArrow: false,
                   onTap: () => _openLink('https://colourswift.com/safehaven/#overview'),
                 ),
                 _SettingsActionTile(
                   icon: Icons.upload_rounded,
-                  title: 'Want to submit an app?',
-                  subtitle: 'Tap to find out how',
+                  title: AppLocalizations.of(context)!.settingsSubmitApp,
+                  subtitle: AppLocalizations.of(context)!.settingsSubmitAppSubtitle,
                   showArrow: false,
                   onTap: () => _openLink('https://api.colourswift.com/submit'),
                 ),
                 _SettingsInfoTile(
                   icon: Icons.info_outline_rounded,
-                  title: 'Version',
-                  subtitle: _appVersion,
+                  title: AppLocalizations.of(context)!.settingsVersion,
+                  subtitle: _appVersion ?? AppLocalizations.of(context)!.settingsVersionLoading,
                 ),
               ],
             ),
           ),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: 'Debugging',
+              title: AppLocalizations.of(context)!.settingsDebugging,
               children: [
                 _SettingsToggleTile(
                   icon: Icons.bug_report_rounded,
-                  title: 'Debug Logging',
+                  title: AppLocalizations.of(context)!.settingsDebugLogging,
                   subtitle: '/storage/emulated/0/Documents',
                   value: _debugEnabled,
                   onChanged: _setDebugEnabled,
@@ -260,15 +264,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (_hasLog) ...[
                   _SettingsActionTile(
                     icon: Icons.share_rounded,
-                    title: 'Share Log',
-                    subtitle: 'Send the debug log file',
+                    title: AppLocalizations.of(context)!.settingsShareLog,
+                    subtitle: AppLocalizations.of(context)!.settingsShareLogSubtitle,
                     showArrow: false,
                     onTap: _shareLogs,
                   ),
                   _SettingsActionTile(
                     icon: Icons.delete_outline_rounded,
-                    title: 'Clear Log',
-                    subtitle: 'Delete the current log file',
+                    title: AppLocalizations.of(context)!.settingsClearLog,
+                    subtitle: AppLocalizations.of(context)!.settingsClearLogSubtitle,
                     showArrow: false,
                     onTap: _clearLogs,
                   ),

@@ -11,6 +11,7 @@ import 'sections/catalogue_category_tabs.dart';
 import 'sections/catalogue_recommended_section.dart';
 import 'sections/catalogue_extra_sections.dart';
 import 'sections/see_more_apps_screen.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class CatalogueScreen extends StatefulWidget {
   const CatalogueScreen({super.key});
@@ -131,7 +132,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
     Navigator.of(context).push(
       pushRoute(
         SeeMoreAppsScreen(
-          title: 'All apps',
+          title: AppLocalizations.of(context)!.allApps,
           apps: allApps,
         ),
       ),

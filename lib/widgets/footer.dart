@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/theme/theme_manager.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SafeHavenFooter extends StatelessWidget {
   const SafeHavenFooter({
@@ -31,35 +32,35 @@ class SafeHavenFooter extends StatelessWidget {
             index: 0,
             selectedIndex: selectedIndex,
             icon: Icons.widgets_rounded,
-            label: 'Apps',
+            label: AppLocalizations.of(context)!.tabApps,
             onSelected: onSelected,
           ),
           _FooterItem(
             index: 1,
             selectedIndex: selectedIndex,
             icon: Icons.update_rounded,
-            label: 'Recents',
+            label: AppLocalizations.of(context)!.tabRecents,
             onSelected: onSelected,
           ),
           _FooterItem(
             index: 2,
             selectedIndex: selectedIndex,
             icon: Icons.manage_search_rounded,
-            label: 'Search',
+            label: AppLocalizations.of(context)!.tabSearch,
             onSelected: onSelected,
           ),
           _FooterItem(
             index: 3,
             selectedIndex: selectedIndex,
             icon: Icons.phone_android_rounded,
-            label: 'My Apps',
+            label: AppLocalizations.of(context)!.tabMyApps,
             onSelected: onSelected,
           ),
           _FooterItem(
             index: 4,
             selectedIndex: selectedIndex,
             icon: Icons.tune_rounded,
-            label: 'Settings',
+            label: AppLocalizations.of(context)!.tabSettings,
             onSelected: onSelected,
           ),
         ],

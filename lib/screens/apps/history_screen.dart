@@ -8,6 +8,7 @@ import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
 import 'app_screen/app_screen.dart';
 import 'catalogue_screen/catalogue_navigation.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -105,7 +106,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       foregroundColor: colors.text,
                       side: BorderSide(color: colors.border),
                     ),
-                    child: const Text('Retry'),
+                    child: Text(AppLocalizations.of(context)!.retry),
                   ),
                 ],
               ),
@@ -120,7 +121,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Padding(
               padding: const EdgeInsets.all(28),
               child: Text(
-                'Apps you view will appear here.',
+                AppLocalizations.of(context)!.historyEmpty,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -139,7 +140,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 18),
             children: [
-              const _SectionHeader(title: 'Recently viewed'),
+              _SectionHeader(title: AppLocalizations.of(context)!.titleRecentlyViewed),
               ...apps.map((app) => _AppRow(app: app)),
             ],
           ),

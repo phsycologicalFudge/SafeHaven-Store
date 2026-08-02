@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/animated_tap.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 
 String compactAppName(String name) {
@@ -58,7 +59,7 @@ class CatalogueAllAppsTextButton extends StatelessWidget {
         child: Row(
           children: [
             Text(
-              'All apps',
+              AppLocalizations.of(context)!.allApps,
               style: TextStyle(
                 fontSize: 15.5,
                 fontWeight: FontWeight.w800,
@@ -171,7 +172,7 @@ class _CatalogueSeeAllBlockState extends State<CatalogueSeeAllBlock>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Browse all apps',
+                      AppLocalizations.of(context)!.catalogueBrowseAll,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -246,7 +247,7 @@ class CatalogueErrorBlock extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'Could not load catalogue',
+            AppLocalizations.of(context)!.catalogueCouldNotLoad,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -278,7 +279,7 @@ class CatalogueErrorBlock extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: Center(
                     child: Text(
-                      'Retry',
+                      AppLocalizations.of(context)!.retry,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
@@ -307,7 +308,7 @@ class CatalogueEmptyBlock extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 54, 18, 54),
       child: Center(
         child: Text(
-          'No apps are live yet.',
+          AppLocalizations.of(context)!.catalogueNoApps,
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,

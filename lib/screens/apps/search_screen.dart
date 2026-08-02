@@ -7,6 +7,7 @@ import '../../services/theme/theme_manager.dart';
 import '../../widgets/animated_tap.dart';
 import 'app_screen/app_screen.dart';
 import 'catalogue_screen/catalogue_navigation.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -118,8 +119,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     !_hasActiveSearch
-                        ? 'Search for an app to begin.'
-                        : 'No apps matched your filters.',
+                        ? AppLocalizations.of(context)!.catalogueSearchPrompt
+                        : AppLocalizations.of(context)!.catalogueNoResults,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -175,7 +176,7 @@ class _SearchBar extends StatelessWidget {
                 controller: controller,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search apps',
+                  hintText: AppLocalizations.of(context)!.catalogueSearchApps,
                   border: InputBorder.none,
                   isCollapsed: true,
                   hintStyle: TextStyle(
@@ -227,8 +228,8 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categoryLabel = selectedCategory == null
-        ? 'All categories'
-        : categories[selectedCategory] ?? 'All categories';
+        ? AppLocalizations.of(context)!.catalogueAllCategories
+        : categories[selectedCategory] ?? AppLocalizations.of(context)!.catalogueAllCategories;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
@@ -241,7 +242,7 @@ class _FilterRow extends StatelessWidget {
               items: [
                 _FilterMenuItem(
                   value: allCategoriesValue,
-                  label: 'All categories',
+                  label: AppLocalizations.of(context)!.catalogueAllCategories,
                 ),
                 ...categories.entries.map(
                       (e) => _FilterMenuItem(
@@ -257,14 +258,14 @@ class _FilterRow extends StatelessWidget {
           Expanded(
             child: _FilterMenu<double>(
               value: minRating,
-              label: _ratingLabel(minRating),
-              items: const [
-                _FilterMenuItem(value: 0.0, label: 'Any rating'),
-                _FilterMenuItem(value: 1.0, label: '1★ and up'),
-                _FilterMenuItem(value: 2.0, label: '2★ and up'),
-                _FilterMenuItem(value: 3.0, label: '3★ and up'),
-                _FilterMenuItem(value: 4.0, label: '4★ and up'),
-                _FilterMenuItem(value: 5.0, label: '5★ only'),
+              label: _ratingLabel(context, minRating),
+              items: [
+                _FilterMenuItem(value: 0.0, label: AppLocalizations.of(context)!.catalogueAnyRating),
+                _FilterMenuItem(value: 1.0, label: AppLocalizations.of(context)!.catalogueRating1),
+                _FilterMenuItem(value: 2.0, label: AppLocalizations.of(context)!.catalogueRating2),
+                _FilterMenuItem(value: 3.0, label: AppLocalizations.of(context)!.catalogueRating3),
+                _FilterMenuItem(value: 4.0, label: AppLocalizations.of(context)!.catalogueRating4),
+                _FilterMenuItem(value: 5.0, label: AppLocalizations.of(context)!.catalogueRating5),
               ],
               onChanged: onRatingChanged,
             ),
@@ -274,20 +275,21 @@ class _FilterRow extends StatelessWidget {
     );
   }
 
-  static String _ratingLabel(double rating) {
+  String _ratingLabel(BuildContext context, double rating) {
+    final l = AppLocalizations.of(context)!;
     switch (rating) {
       case 1.0:
-        return '1★ and up';
+        return l.catalogueRating1;
       case 2.0:
-        return '2★ and up';
+        return l.catalogueRating2;
       case 3.0:
-        return '3★ and up';
+        return l.catalogueRating3;
       case 4.0:
-        return '4★ and up';
+        return l.catalogueRating4;
       case 5.0:
-        return '5★ only';
+        return l.catalogueRating5;
       default:
-        return 'Any rating';
+        return l.catalogueAnyRating;
     }
   }
 }

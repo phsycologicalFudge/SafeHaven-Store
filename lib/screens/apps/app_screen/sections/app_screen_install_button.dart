@@ -8,6 +8,7 @@ import '../../../../services/installer/store_update_service.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/dialogs/message_dialog.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class AppScreenInstallButton extends StatefulWidget {
   const AppScreenInstallButton({
@@ -115,8 +116,8 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       if (!mounted) return;
       SimpleMessageDialog.show(
         context,
-        title: 'Could not open app',
-        message: 'Could not open this app.',
+        title: AppLocalizations.of(context)!.couldNotOpenApp,
+        message: AppLocalizations.of(context)!.couldNotOpenAppBody,
       );
     }
   }
@@ -176,9 +177,9 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
       final message = e.code == 'install_permission_required'
-          ? 'Allow SafeHaven to install apps, then tap Install again.'
-          : 'Could not start the installer.';
-      SimpleMessageDialog.show(context, title: 'Install failed', message: message);
+          ? AppLocalizations.of(context)!.installPermissionRequired
+          : AppLocalizations.of(context)!.installCouldNotStart;
+      SimpleMessageDialog.show(context, title: AppLocalizations.of(context)!.installFailed, message: message);
     } catch (e, s) {
       final msg = e.toString();
       if (msg != 'download_cancelled') {
@@ -188,11 +189,11 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       InstallSync.preparing[_pkg]!.value = false;
       if (msg != 'download_cancelled') {
         final text = switch (msg) {
-          'sha256_mismatch' || 'sha256_missing' => 'APK integrity check failed.',
-          'apk_size_mismatch' => 'APK download appears incomplete.',
-          _ => 'Install failed: $e',
+          'sha256_mismatch' || 'sha256_missing' => AppLocalizations.of(context)!.installIntegrityFailed,
+          'apk_size_mismatch' => AppLocalizations.of(context)!.installIncomplete,
+          _ => AppLocalizations.of(context)!.installFailedGeneric(e.toString()),
         };
-        SimpleMessageDialog.show(context, title: 'Install failed', message: text);
+        SimpleMessageDialog.show(context, title: AppLocalizations.of(context)!.installFailed, message: text);
       }
     } finally {
       InstallSync.active[_pkg]!.value = false;
@@ -232,27 +233,27 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
     } catch (_) {}
   }
 
-  String _getLabelText(bool isInstalling, bool isPaused, double fillProgress, bool isChecking, StoreUpdateCheck? check) {
-    if (!_hasVersion) return 'No live APK yet';
+  String _getLabelText(BuildContext context, bool isInstalling, bool isPaused, double fillProgress, bool isChecking, StoreUpdateCheck? check) {
+    if (!_hasVersion) return AppLocalizations.of(context)!.buttonNoLiveApk;
 
     if (isInstalling) {
       final percent = (fillProgress * 100).clamp(0, 100).round();
-      return isPaused ? 'Paused' : 'Downloading $percent%';
+      return isPaused ? AppLocalizations.of(context)!.buttonPaused : AppLocalizations.of(context)!.buttonDownloading(percent.toString());
     }
 
-    if (isChecking) return 'Checking';
+    if (isChecking) return AppLocalizations.of(context)!.buttonChecking;
 
     switch (check?.status) {
       case StoreUpdateStatus.notInstalled:
-        return 'Install';
+        return AppLocalizations.of(context)!.buttonInstall;
       case StoreUpdateStatus.updateAvailable:
-        return 'Update';
+        return AppLocalizations.of(context)!.buttonUpdate;
       case StoreUpdateStatus.current:
       case StoreUpdateStatus.installedNewerThanStore:
-        return 'Open';
+        return AppLocalizations.of(context)!.buttonOpen;
       case StoreUpdateStatus.missingStoreVersion:
       case null:
-        return 'Unavailable';
+        return AppLocalizations.of(context)!.buttonUnavailable;
     }
   }
 
@@ -283,7 +284,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
         final radius = BorderRadius.circular(widget.compact ? 8 : 12);
 
         final hasBorder = (!_hasVersion || isInstalling);
-        final labelText = _getLabelText(isInstalling, isPaused, fillProgress, isChecking, check);
+        final labelText = _getLabelText(context, isInstalling, isPaused, fillProgress, isChecking, check);
 
         final buttonRow = Row(
           children: [
@@ -388,7 +389,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
               const SizedBox(width: 10),
               _InstallIconButton(
                 icon: Icons.delete_outline_rounded,
-                tooltip: 'Uninstall',
+                tooltip: AppLocalizations.of(context)!.buttonUninstall,
                 onTap: _uninstall,
               ),
             ],
