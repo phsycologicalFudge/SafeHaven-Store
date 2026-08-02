@@ -256,6 +256,11 @@ class MainActivity : FlutterActivity() {
                 CrashLogService.log("Installer", "W", "setInstallerPackageName failed: ${e.message}")
             }
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+    
+            }
+
             val sessionId = packageInstaller.createSession(params)
             val session = packageInstaller.openSession(sessionId)
 
