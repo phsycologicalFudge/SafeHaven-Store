@@ -1,12 +1,17 @@
+import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/index_service.dart';
 import '../../services/installer/safehaven_updater/self_update_dialog.dart';
 import '../../services/installer/safehaven_updater/self_update_service.dart';
 import '../../services/installer/store_update_service.dart';
+import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/footer.dart';
 import '../account/settings/settings_screen.dart';
+import '../apps/app_screen/app_screen.dart';
+import '../apps/catalogue_screen/catalogue_navigation.dart';
 import '../apps/catalogue_screen/catalogue_screen.dart';
 import '../apps/history_screen.dart';
 import '../apps/my_apps_screen.dart';
@@ -32,6 +37,8 @@ class _HomeScreenState extends State<HomeScreen>
   DateTime? _lastSelfUpdateCheck;
   DateTime? _selfUpdateDismissedUntil;
   bool _selfUpdateDialogOpen = false;
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _deepLinkSub;
 
   static const List<Widget> _screens = [
     CatalogueScreen(),
@@ -67,12 +74,14 @@ class _HomeScreenState extends State<HomeScreen>
       _requestNotificationPermission();
       _checkForUpdates();
       _checkForSelfUpdate();
+      _initDeepLinks();
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _deepLinkSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -153,6 +162,33 @@ class _HomeScreenState extends State<HomeScreen>
     if (status.isDenied) {
       await Permission.notification.request();
     }
+  }
+
+  void _initDeepLinks() {
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleDeepLink(uri);
+    }).catchError((_) {});
+
+    _deepLinkSub = _appLinks.uriLinkStream.listen(
+      _handleDeepLink,
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _handleDeepLink(Uri uri) async {
+    if (uri.host != 'store.colourswift.com') return;
+    if (!uri.path.startsWith('/app/')) return;
+
+    final packageName = Uri.decodeComponent(
+      uri.path.replaceFirst('/app/', '').replaceAll('/', ''),
+    );
+    if (packageName.isEmpty) return;
+
+    try {
+      final app = await StoreService.instance.fetchPublicApp(packageName);
+      if (!mounted) return;
+      Navigator.of(context).push(pushRoute(AppScreen(app: app)));
+    } catch (_) {}
   }
 
   @override
