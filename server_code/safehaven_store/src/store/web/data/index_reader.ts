@@ -10,7 +10,7 @@ export const getStorefrontIndex = async (env) => {
   const index = await getIndex(env);
 
   if (env.STORE_INDEX_KV) {
-    await env.STORE_INDEX_KV.put("index", JSON.stringify(index));
+    await env.STORE_INDEX_KV.put("index", JSON.stringify(index), { expirationTtl: 300 });
     await env.STORE_INDEX_KV.put("index_timestamp", String(index.timestamp));
   }
 
@@ -62,7 +62,7 @@ export const getLiteIndex = async (env) => {
   const lite = buildLiteIndex(fullIndex);
 
   if (env.STORE_INDEX_KV) {
-    await env.STORE_INDEX_KV.put("index_lite", JSON.stringify(lite));
+    await env.STORE_INDEX_KV.put("index_lite", JSON.stringify(lite), { expirationTtl: 300 });
     await env.STORE_INDEX_KV.put("index_timestamp", String(fullIndex.timestamp));
   }
 

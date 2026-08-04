@@ -46,5 +46,6 @@ app.*.map.json
 
 # Custom files
 *.txt
+/server_code/safehaven_store/src/store/auth_colourswift.js
 /android/build
 /backup
