@@ -105,8 +105,6 @@ Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial s
 </p>
 
 ## Licence
-
-## Licence
 SafeHaven Store is split in two categories. The client code & Server code
 - Client: MIT [LICENSE](./LICENSE)
 - Backend/Server: AGPL-3.0 [server_code/LICENSE](./server_code/LICENSE)
