@@ -165,10 +165,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _initDeepLinks() {
-    _appLinks.getInitialLink().then((uri) {
-      if (uri != null) _handleDeepLink(uri);
-    }).catchError((_) {});
-
     _deepLinkSub = _appLinks.uriLinkStream.listen(
       _handleDeepLink,
       onError: (_) {},
@@ -177,11 +173,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _handleDeepLink(Uri uri) async {
     if (uri.host != 'store.colourswift.com') return;
-    if (!uri.path.startsWith('/app/')) return;
+    if (uri.pathSegments.length < 2 || uri.pathSegments[0] != 'app') return;
 
-    final packageName = Uri.decodeComponent(
-      uri.path.replaceFirst('/app/', '').replaceAll('/', ''),
-    );
+    final packageName = uri.pathSegments[1];
     if (packageName.isEmpty) return;
 
     try {
