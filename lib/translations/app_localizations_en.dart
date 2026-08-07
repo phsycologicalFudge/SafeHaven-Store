@@ -343,6 +343,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsThemeSubtitle => 'Tap to change';
 
   @override
+  String get settingsLanguage => 'Language';
+
+  @override
   String get settingsFlawlessUpdates => 'Flawless Updates';
 
   @override
@@ -479,6 +482,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get devSubmissions => 'Submissions';
+
+  @override
+  String get devSeeAllHistory => 'See all history';
+
+  @override
+  String get devStatusInactive => 'Inactive';
 
   @override
   String devVersionCode(String code) {

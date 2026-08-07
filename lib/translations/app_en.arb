@@ -1,22 +1,21 @@
 {
   "@@locale": "en",
-
   "tabApps": "Apps",
   "tabRecents": "Recents",
   "tabSearch": "Search",
   "tabMyApps": "My Apps",
   "tabSettings": "Settings",
   "titleRecentlyViewed": "Recently Viewed",
-
   "retry": "Retry",
   "dismiss": "Dismiss",
   "allApps": "All apps",
-
   "catalogueTopCharts": "Top charts",
   "catalogueTopInCategory": "Top in {category}",
   "@catalogueTopInCategory": {
     "placeholders": {
-      "category": { "type": "String" }
+      "category": {
+        "type": "String"
+      }
     }
   },
   "catalogueNewArrivals": "New arrivals",
@@ -35,7 +34,6 @@
   "catalogueRating5": "5★ only",
   "catalogueSearchPrompt": "Search for an app to begin.",
   "catalogueNoResults": "No apps matched your filters.",
-
   "buttonGet": "Get",
   "buttonUpdate": "Update",
   "buttonOpen": "Open",
@@ -48,28 +46,28 @@
   "buttonDownloading": "Downloading {percent}%",
   "@buttonDownloading": {
     "placeholders": {
-      "percent": { "type": "String" }
+      "percent": {
+        "type": "String"
+      }
     }
   },
-
   "historyEmpty": "Apps you view will appear here.",
-
   "myAppsUpdatesAvailable": "{count, plural, =1{1 update available} other{{count} updates available}}",
   "@myAppsUpdatesAvailable": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "myAppsUpdateAll": "Update All",
   "myAppsEmptyTitle": "No installed store apps found.",
   "myAppsEmptyBody": "Apps only appear here when their package name matches an app in the catalogue.",
   "myAppsErrorTitle": "Could not load your apps",
-
   "appOptionsTitle": "App options",
   "appCopyRepoLink": "Copy repo link",
   "appNoRepoLink": "No repository link is available yet.",
   "appRepoLinkCopied": "Repo link copied",
-
   "appMetaRating": "Rating",
   "appMetaVersion": "Version",
   "appMetaRepo": "Repo",
@@ -81,7 +79,6 @@
   "appNoDescription": "No description provided.",
   "appNoShortDescription": "No short description provided.",
   "appWhatsNew": "What's New?",
-
   "securitySignals": "Security signals",
   "securityVerifiedSig": "Verified signature",
   "securityVerifiedSigBody": "Updates are verified against the original developer signature.",
@@ -90,10 +87,11 @@
   "securityNoThreats": "No threats detected. Last scanned {date}.",
   "@securityNoThreats": {
     "placeholders": {
-      "date": { "type": "String" }
+      "date": {
+        "type": "String"
+      }
     }
   },
-
   "technicalAppInfo": "App info",
   "technicalPackage": "Package",
   "technicalRepository": "Repository",
@@ -102,7 +100,6 @@
   "technicalLastScanned": "Last scanned",
   "technicalNotProvided": "Not provided",
   "technicalNotAvailable": "Not available",
-
   "installFailed": "Install failed",
   "installPermissionRequired": "Allow SafeHaven to install apps, then tap Install again.",
   "installCouldNotStart": "Could not start the installer.",
@@ -111,12 +108,13 @@
   "installFailedGeneric": "Install failed: {error}",
   "@installFailedGeneric": {
     "placeholders": {
-      "error": { "type": "String" }
+      "error": {
+        "type": "String"
+      }
     }
   },
   "couldNotOpenApp": "Could not open app",
   "couldNotOpenAppBody": "Could not open this app.",
-
   "nicknameTitle": "Choose a nickname",
   "nicknameSubtitle": "This is used for unique ratings. It is not public.",
   "nicknameHint": "e.g. alex",
@@ -125,7 +123,6 @@
   "nicknameSaving": "Saving...",
   "nicknameContinue": "Continue",
   "somethingWentWrong": "Something went wrong.",
-
   "ratingTapStar": "Tap a star to rate this app",
   "ratingSubmit": "Submit rating",
   "ratingSubmitting": "Submitting...",
@@ -134,16 +131,15 @@
   "ratingRateLimited": "Too many ratings submitted. Try again later.",
   "ratingNotFound": "App not found.",
   "ratingError": "Something went wrong. Please try again.",
-
   "updateResultsTitle": "Some apps couldn't be updated",
   "updateResultsBody": "Install through SafeHaven to update",
   "updateFailureCannotUpdate": "App cannot be updated by SafeHaven",
   "updateFailureNoLink": "Could not get download link",
   "updateFailureGeneric": "Could not start update",
-
   "settingsOptions": "Options",
   "settingsTheme": "Theme",
   "settingsThemeSubtitle": "Tap to change",
+  "settingsLanguage": "Language",
   "settingsFlawlessUpdates": "Flawless Updates",
   "settingsUpdateOff": "Off",
   "settingsUpdateLight": "Light",
@@ -168,7 +164,6 @@
   "settingsShareLogSubtitle": "Send the debug log file",
   "settingsClearLog": "Clear Log",
   "settingsClearLogSubtitle": "Delete the current log file",
-
   "devAccountTitle": "Developer account",
   "devNotSignedIn": "Not signed in",
   "devSignIn": "Sign in",
@@ -189,13 +184,16 @@
   "devSigningKey": "Signing key",
   "devSigningKeyNone": "Not locked yet",
   "devSubmissions": "Submissions",
+  "devSeeAllHistory": "See all history",
+  "devStatusInactive": "Inactive",
   "devVersionCode": "Version {code}",
   "@devVersionCode": {
     "placeholders": {
-      "code": { "type": "String" }
+      "code": {
+        "type": "String"
+      }
     }
   },
-
   "selfUpdateTitle": "Update available",
   "selfUpdateDismiss": "Dismiss",
   "selfUpdateRetry": "Retry",

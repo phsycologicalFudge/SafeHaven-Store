@@ -1,0 +1,203 @@
+{
+  "@@locale": "es",
+  "tabApps": "Aplicaciones",
+  "tabRecents": "Recientes",
+  "tabSearch": "Buscar",
+  "tabMyApps": "Mis aplicaciones",
+  "tabSettings": "Ajustes",
+  "titleRecentlyViewed": "Visto recientemente",
+  "retry": "Reintentar",
+  "dismiss": "Cerrar",
+  "allApps": "Todas las aplicaciones",
+  "catalogueTopCharts": "Más populares",
+  "catalogueTopInCategory": "Lo mejor de {category}",
+  "@catalogueTopInCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogueNewArrivals": "Novedades",
+  "catalogueNewBadge": "NUEVO",
+  "catalogueForYou": "Para ti",
+  "catalogueBrowseAll": "Explorar todas las aplicaciones",
+  "catalogueSearchApps": "Buscar aplicaciones",
+  "catalogueCouldNotLoad": "No se pudo cargar el catálogo",
+  "catalogueNoApps": "Aún no hay aplicaciones disponibles.",
+  "catalogueAllCategories": "Todas las categorías",
+  "catalogueAnyRating": "Cualquier valoración",
+  "catalogueRating1": "1★ o más",
+  "catalogueRating2": "2★ o más",
+  "catalogueRating3": "3★ o más",
+  "catalogueRating4": "4★ o más",
+  "catalogueRating5": "Solo 5★",
+  "catalogueSearchPrompt": "Busca una aplicación para comenzar.",
+  "catalogueNoResults": "Ninguna aplicación coincide con tus filtros.",
+  "buttonGet": "Obtener",
+  "buttonUpdate": "Actualizar",
+  "buttonOpen": "Abrir",
+  "buttonInstall": "Instalar",
+  "buttonUninstall": "Desinstalar",
+  "buttonUnavailable": "No disponible",
+  "buttonChecking": "Comprobando",
+  "buttonNoLiveApk": "Aún no hay APK disponible",
+  "buttonPaused": "En pausa",
+  "buttonDownloading": "Descargando {percent}%",
+  "@buttonDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "historyEmpty": "Las aplicaciones que veas aparecerán aquí.",
+  "myAppsUpdatesAvailable": "{count, plural, =1{1 actualización disponible} other{{count} actualizaciones disponibles}}",
+  "@myAppsUpdatesAvailable": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myAppsUpdateAll": "Actualizar todo",
+  "myAppsEmptyTitle": "No se encontraron aplicaciones instaladas desde la tienda.",
+  "myAppsEmptyBody": "Las aplicaciones solo aparecen aquí cuando el nombre de su paquete coincide con una aplicación del catálogo.",
+  "myAppsErrorTitle": "No se pudieron cargar tus aplicaciones",
+  "appOptionsTitle": "Opciones de la aplicación",
+  "appCopyRepoLink": "Copiar enlace del repositorio",
+  "appNoRepoLink": "Aún no hay ningún enlace al repositorio disponible.",
+  "appRepoLinkCopied": "Enlace del repositorio copiado",
+  "appMetaRating": "Valoración",
+  "appMetaVersion": "Versión",
+  "appMetaRepo": "Repositorio",
+  "appMetaNone": "Ninguno",
+  "appRateTitle": "Valorar esta aplicación",
+  "appRateSubtitle": "Dile a los demás qué te parece",
+  "appPreviewTitle": "Vista previa",
+  "appAboutTitle": "Acerca de esta aplicación",
+  "appNoDescription": "No se ha proporcionado ninguna descripción.",
+  "appNoShortDescription": "No se ha proporcionado ninguna descripción breve.",
+  "appWhatsNew": "¿Qué hay de nuevo?",
+  "securitySignals": "Indicadores de seguridad",
+  "securityVerifiedSig": "Firma verificada",
+  "securityVerifiedSigBody": "Las actualizaciones se verifican con la firma original del desarrollador.",
+  "securityLatestScan": "Último análisis",
+  "securityNoScanTimestamp": "Aún no hay disponible una marca de tiempo de un análisis completado.",
+  "securityNoThreats": "No se detectaron amenazas. Último análisis: {date}.",
+  "@securityNoThreats": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "technicalAppInfo": "Información de la aplicación",
+  "technicalPackage": "Paquete",
+  "technicalRepository": "Repositorio",
+  "technicalSha256": "SHA-256",
+  "technicalApkSize": "Tamaño del APK",
+  "technicalLastScanned": "Último análisis",
+  "technicalNotProvided": "No proporcionado",
+  "technicalNotAvailable": "No disponible",
+  "installFailed": "Error de instalación",
+  "installPermissionRequired": "Permite que SafeHaven instale aplicaciones y vuelve a tocar «Instalar».",
+  "installCouldNotStart": "No se pudo iniciar el instalador.",
+  "installIntegrityFailed": "Falló la comprobación de integridad del APK.",
+  "installIncomplete": "La descarga del APK parece estar incompleta.",
+  "installFailedGeneric": "Error de instalación: {error}",
+  "@installFailedGeneric": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenApp": "No se pudo abrir la aplicación",
+  "couldNotOpenAppBody": "No se pudo abrir esta aplicación.",
+  "nicknameTitle": "Elige un apodo",
+  "nicknameSubtitle": "Se utiliza para identificar valoraciones únicas. No es público.",
+  "nicknameHint": "p. ej., Alex",
+  "nicknameEmpty": "Introduce un apodo para continuar.",
+  "nicknameTooShort": "El apodo debe tener al menos 2 caracteres.",
+  "nicknameSaving": "Guardando...",
+  "nicknameContinue": "Continuar",
+  "somethingWentWrong": "Algo salió mal.",
+  "ratingTapStar": "Toca una estrella para valorar esta aplicación",
+  "ratingSubmit": "Enviar valoración",
+  "ratingSubmitting": "Enviando...",
+  "ratingThanks": "¡Gracias por tu valoración!",
+  "ratingAlreadyRated": "Ya has valorado esta aplicación.",
+  "ratingRateLimited": "Se han enviado demasiadas valoraciones. Vuelve a intentarlo más tarde.",
+  "ratingNotFound": "Aplicación no encontrada.",
+  "ratingError": "Algo salió mal. Vuelve a intentarlo.",
+  "updateResultsTitle": "No se pudieron actualizar algunas aplicaciones",
+  "updateResultsBody": "Instala mediante SafeHaven para actualizar",
+  "updateFailureCannotUpdate": "SafeHaven no puede actualizar la aplicación",
+  "updateFailureNoLink": "No se pudo obtener el enlace de descarga",
+  "updateFailureGeneric": "No se pudo iniciar la actualización",
+  "settingsOptions": "Opciones",
+  "settingsTheme": "Tema",
+  "settingsThemeSubtitle": "Toca para cambiar",
+  "settingsLanguage": "Idioma",
+  "settingsFlawlessUpdates": "Actualizaciones fluidas",
+  "settingsUpdateOff": "Desactivado",
+  "settingsUpdateLight": "Ligero",
+  "settingsUpdateFull": "Completo",
+  "settingsUpdateNoneDesc": "SafeHaven no actualizará automáticamente las aplicaciones.",
+  "settingsUpdateLightDesc": "SafeHaven comprobará si hay actualizaciones cada 6 horas. Esto consume muy poca batería, pero puede que las aplicaciones no se actualicen rápidamente.",
+  "settingsUpdateFullDesc": "SafeHaven comprobará si hay actualizaciones cada 6 horas y también se ejecutará como servicio en primer plano para buscarlas cada 5 minutos.\n\n[Esto consume aproximadamente entre un 1 y un 3 % más de batería.]",
+  "settingsDeveloper": "Desarrollador",
+  "settingsAccount": "Cuenta",
+  "settingsAccountSubtitle": "Gestiona tu perfil de desarrollador",
+  "settingsAbout": "Acerca de",
+  "settingsHowThisWorks": "Cómo funciona",
+  "settingsHowThisWorksSubtitle": "Toca para obtener más información",
+  "settingsSubmitApp": "¿Quieres enviar una aplicación?",
+  "settingsSubmitAppSubtitle": "Toca para saber cómo",
+  "settingsVersion": "Versión",
+  "settingsVersionLoading": "Cargando...",
+  "settingsVersionUnknown": "Desconocida",
+  "settingsDebugging": "Depuración",
+  "settingsDebugLogging": "Registro de depuración",
+  "settingsShareLog": "Compartir registro",
+  "settingsShareLogSubtitle": "Enviar el archivo de registro de depuración",
+  "settingsClearLog": "Borrar registro",
+  "settingsClearLogSubtitle": "Eliminar el archivo de registro actual",
+  "devAccountTitle": "Cuenta de desarrollador",
+  "devNotSignedIn": "Sesión no iniciada",
+  "devSignIn": "Iniciar sesión",
+  "devSignOut": "Cerrar sesión",
+  "devDashboard": "Panel",
+  "devOpening": "Abriendo...",
+  "devOpenDashboard": "Abrir panel",
+  "devYourApps": "Tus aplicaciones",
+  "devSignInPrompt": "Inicia sesión para gestionar los envíos de desarrollador, el estado de revisión, las claves de firma y el acceso al panel.",
+  "devNoDevAccess": "El acceso de desarrollador no está habilitado. Abre el panel para aceptar los términos para desarrolladores.",
+  "devNoApps": "Aún no hay aplicaciones registradas. Abre el panel para registrar tu primera aplicación.",
+  "devCouldNotOpenLogin": "No se pudo abrir la página de inicio de sesión.",
+  "devCouldNotOpenDashboard": "No se pudo abrir el panel.",
+  "devRepository": "Repositorio",
+  "devRepoVerified": "Repositorio verificado",
+  "devRepoVerifiedYes": "Sí",
+  "devRepoVerifiedNo": "Aún no",
+  "devSigningKey": "Clave de firma",
+  "devSigningKeyNone": "Aún no fijada",
+  "devSubmissions": "Envíos",
+  "devSeeAllHistory": "Ver todo el historial",
+  "devStatusInactive": "Inactivo",
+  "devVersionCode": "Versión {code}",
+  "@devVersionCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "selfUpdateTitle": "Actualización disponible",
+  "selfUpdateDismiss": "Cerrar",
+  "selfUpdateRetry": "Reintentar",
+  "selfUpdateButton": "Actualizar",
+  "selfUpdateDownloadFailed": "Error de descarga. Comprueba tu conexión y vuelve a intentarlo.",
+  "selfUpdateInstallFailed": "No se pudo iniciar el instalador."
+}

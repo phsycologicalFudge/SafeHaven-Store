@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
+import '../../widgets/animated_tap.dart';
+import '../../widgets/settings_picker_dialog.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 
 class DeveloperAccountScreen extends StatefulWidget {
@@ -184,94 +186,98 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
 
     return Scaffold(
       backgroundColor: colors.backgroundFrost,
-      body: RefreshIndicator(
-        onRefresh: () => _load(showLoading: false),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: _AccountHeader(
-                account: _account,
-                loading: _loading,
-                openingLogin: _openingLogin,
-                openingDashboard: _openingDashboard,
-                onLogin: _login,
-                onDashboard: _openDashboard,
-                onLogout: _logout,
-              ),
-            ),
-            if (_error != null)
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: () => _load(showLoading: false),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFFE85D75),
-                      height: 1.35,
+                child: _AccountHeader(
+                  account: _account,
+                  loading: _loading,
+                  openingLogin: _openingLogin,
+                  openingDashboard: _openingDashboard,
+                  onLogin: _login,
+                  onDashboard: _openDashboard,
+                  onLogout: _logout,
+                ),
+              ),
+              if (_error != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFFE85D75),
+                        height: 1.35,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            if (_loading)
-              const SliverToBoxAdapter(child: _LoadingBlock()),
-            if (!_loading && _account != null) ...[
-              SliverToBoxAdapter(
-                child: _SectionHeader(
-                  title: AppLocalizations.of(context)!.devYourApps,
-                  count: _account!.developerEnabled ? _apps.length : null,
-                ),
-              ),
-              if (!_account!.developerEnabled)
+              if (_loading)
+                const SliverToBoxAdapter(child: _LoadingBlock()),
+              if (!_loading && _account != null) ...[
                 SliverToBoxAdapter(
-                  child: _MessageBlock(
-                    message:
-                    AppLocalizations.of(context)!.devNoDevAccess,
-                    actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
-                    onAction: _openDashboard,
-                  ),
-                )
-              else if (_apps.isEmpty)
-                SliverToBoxAdapter(
-                  child: _MessageBlock(
-                    message:
-                    AppLocalizations.of(context)!.devNoApps,
-                    actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
-                    onAction: _openDashboard,
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                      final app = _apps[index];
-                      return _DeveloperAppRow(
-                        app: app,
-                        publicApp: _publicApps[app.packageName],
-                      );
-                    },
-                    childCount: _apps.length,
+                  child: _SectionHeader(
+                    title: AppLocalizations.of(context)!.devYourApps,
+                    count: _account!.developerEnabled ? _apps.length : null,
                   ),
                 ),
+                if (!_account!.developerEnabled)
+                  SliverToBoxAdapter(
+                    child: _MessageBlock(
+                      message:
+                      AppLocalizations.of(context)!.devNoDevAccess,
+                      actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
+                      onAction: _openDashboard,
+                    ),
+                  )
+                else if (_apps.isEmpty)
+                  SliverToBoxAdapter(
+                    child: _MessageBlock(
+                      message:
+                      AppLocalizations.of(context)!.devNoApps,
+                      actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
+                      onAction: _openDashboard,
+                    ),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                        final app = _apps[index];
+                        return _DeveloperAppRow(
+                          app: app,
+                          publicApp: _publicApps[app.packageName],
+                        );
+                      },
+                      childCount: _apps.length,
+                    ),
+                  ),
+              ],
+              if (!_loading && _account == null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                    child: Text(
+                      AppLocalizations.of(context)!.devSignInPrompt,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.45,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
             ],
-            if (!_loading && _account == null)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
-                  child: Text(
-                    AppLocalizations.of(context)!.devSignInPrompt,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      height: 1.45,
-                      color: colors.textMuted,
-                    ),
-                  ),
-                ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
-          ],
+          ),
         ),
       ),
     );
@@ -312,10 +318,8 @@ class _AccountHeader extends StatelessWidget {
         : AppLocalizations.of(context)!.devAccountTitle;
     final initial = label.isNotEmpty ? label.substring(0, 1).toUpperCase() : 'S';
 
-    final safeTop = MediaQuery.of(context).padding.top;
-
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, safeTop + 18, 18, 22),
+      padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
       child: Column(
         children: [
           Container(
@@ -407,7 +411,7 @@ class _SectionHeader extends StatelessWidget {
     final colors = SafeHavenTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+      padding: const EdgeInsets.fromLTRB(22, 10, 22, 8),
       child: Row(
         children: [
           Expanded(
@@ -495,7 +499,7 @@ class _DeveloperAppRowState extends State<_DeveloperAppRow> {
         InkWell(
           onTap: _toggle,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
             child: Row(
               children: [
                 _AppIcon(iconUrl: publicApp?.iconUrl ?? '', size: 52),
@@ -557,7 +561,7 @@ class _DeveloperAppRowState extends State<_DeveloperAppRow> {
           child: !_expanded
               ? const SizedBox.shrink()
               : Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
             child: _loading
                 ? LinearProgressIndicator(
               minHeight: 2,
@@ -602,6 +606,7 @@ class _DeveloperAppDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final latestLive = _latestLiveSubmission(detail.submissions);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,23 +633,155 @@ class _DeveloperAppDetail extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          ...detail.submissions.map((submission) {
-            return _SubmissionRow(submission: submission);
+          ..._visibleSubmissions(detail.submissions, latestLive).map((submission) {
+            return _SubmissionRow(
+              submission: submission,
+              statusOverride: _statusOverride(context, submission, latestLive),
+            );
           }),
+          if (detail.submissions.length > 3)
+            _SeeAllHistoryButton(
+              onTap: () => _showSubmissionHistory(
+                context,
+                detail.submissions,
+                latestLive,
+              ),
+            ),
         ],
       ],
     );
   }
 }
 
-class _SubmissionRow extends StatelessWidget {
-  const _SubmissionRow({required this.submission});
+StoreSubmission? _latestLiveSubmission(List<StoreSubmission> submissions) {
+  StoreSubmission? latest;
+  for (final s in submissions) {
+    if (s.statusLabel.toLowerCase() != 'live') continue;
+    if (latest == null || s.versionCode > latest.versionCode) {
+      latest = s;
+    }
+  }
+  return latest;
+}
 
-  final StoreSubmission submission;
+bool _isSupersededLive(StoreSubmission submission, StoreSubmission? latestLive) {
+  if (submission.statusLabel.toLowerCase() != 'live') return false;
+  if (latestLive == null) return false;
+  return submission.versionCode != latestLive.versionCode;
+}
+
+String? _statusOverride(
+    BuildContext context,
+    StoreSubmission submission,
+    StoreSubmission? latestLive,
+    ) {
+  if (!_isSupersededLive(submission, latestLive)) return null;
+  return AppLocalizations.of(context)!.devStatusInactive;
+}
+
+int _effectiveStatusOrder(StoreSubmission submission, StoreSubmission? latestLive) {
+  if (_isSupersededLive(submission, latestLive)) return 2;
+
+  switch (submission.statusLabel.toLowerCase()) {
+    case 'live':
+      return 0;
+    case 'rejected':
+      return 1;
+    case 'inactive':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+List<StoreSubmission> _visibleSubmissions(
+    List<StoreSubmission> submissions,
+    StoreSubmission? latestLive,
+    ) {
+  final filtered = submissions.where((s) {
+    final status = s.statusLabel.toLowerCase();
+    return status == 'live' || status == 'rejected' || status == 'inactive';
+  }).toList();
+
+  filtered.sort(
+        (a, b) => _effectiveStatusOrder(a, latestLive)
+        .compareTo(_effectiveStatusOrder(b, latestLive)),
+  );
+
+  return filtered.take(3).toList();
+}
+
+Future<void> _showSubmissionHistory(
+    BuildContext context,
+    List<StoreSubmission> submissions,
+    StoreSubmission? latestLive,
+    ) {
+  return SettingsPickerDialog.show<void>(
+    context: context,
+    title: AppLocalizations.of(context)!.devSubmissions,
+    children: submissions
+        .map((s) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: _SubmissionRow(
+        submission: s,
+        statusOverride: _statusOverride(context, s, latestLive),
+      ),
+    ))
+        .toList(),
+  );
+}
+
+class _SeeAllHistoryButton extends StatelessWidget {
+  const _SeeAllHistoryButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 8,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.devSeeAllHistory,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: colors.accentEnd,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 11,
+              color: colors.accentEnd,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubmissionRow extends StatelessWidget {
+  const _SubmissionRow({required this.submission, this.statusOverride});
+
+  final StoreSubmission submission;
+  final String? statusOverride;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+    final rawName = submission.versionName;
+    final trimmedName = rawName.startsWith('v') || rawName.startsWith('V')
+        ? rawName.substring(1)
+        : rawName;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -652,9 +789,9 @@ class _SubmissionRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              submission.versionName.isEmpty
+              trimmedName.isEmpty
                   ? AppLocalizations.of(context)!.devVersionCode(submission.versionCode.toString())
-                  : 'v${submission.versionName}',
+                  : 'v$trimmedName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -665,7 +802,7 @@ class _SubmissionRow extends StatelessWidget {
             ),
           ),
           Text(
-            submission.statusLabel,
+            statusOverride ?? submission.statusLabel,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -733,7 +870,7 @@ class _MessageBlock extends StatelessWidget {
     final colors = SafeHavenTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -847,7 +984,7 @@ class _LoadingBlock extends StatelessWidget {
     final colors = SafeHavenTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 44, 18, 44),
+      padding: const EdgeInsets.fromLTRB(22, 44, 22, 44),
       child: Center(child: CircularProgressIndicator(color: colors.accentEnd)),
     );
   }

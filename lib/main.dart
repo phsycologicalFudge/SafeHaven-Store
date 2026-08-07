@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 import 'package:safehaven/services/installer/background_tasks.dart';
+import 'package:safehaven/services/locale/locale_manager.dart';
 import 'package:safehaven/services/logs/debug_log_service.dart';
 import 'screens/boot_screen/boot.dart';
 import 'services/theme/theme_manager.dart';
@@ -12,6 +12,7 @@ Future<void> main() async {
   await DebugLog.init();
   await initBackgroundTasks();
   await SafeHavenThemeManager.instance.init();
+  await LocaleManager.instance.init();
   runApp(const SafeHavenApp());
 }
 
@@ -26,22 +27,28 @@ class SafeHavenApp extends StatelessWidget {
         final isDark = SafeHavenThemeManager.instance.isDark;
         final currentColors = isDark ? SafeHavenTheme.dark : SafeHavenTheme.light;
 
-        return MaterialApp(
-          title: 'SafeHaven',
-          debugShowCheckedModeBanner: false,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: ThemeData(
-            brightness: isDark ? Brightness.dark : Brightness.light,
-            scaffoldBackgroundColor: currentColors.background,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: currentColors.accentStart,
-              brightness: isDark ? Brightness.dark : Brightness.light,
-            ),
-            fontFamily: 'Roboto',
-            useMaterial3: true,
-          ),
-          home: const BootScreen(),
+        return ListenableBuilder(
+          listenable: LocaleManager.instance,
+          builder: (context, _) {
+            return MaterialApp(
+              title: 'SafeHaven',
+              debugShowCheckedModeBanner: false,
+              locale: LocaleManager.instance.locale,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              theme: ThemeData(
+                brightness: isDark ? Brightness.dark : Brightness.light,
+                scaffoldBackgroundColor: currentColors.background,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: currentColors.accentStart,
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                ),
+                fontFamily: 'Roboto',
+                useMaterial3: true,
+              ),
+              home: const BootScreen(),
+            );
+          },
         );
       },
     );

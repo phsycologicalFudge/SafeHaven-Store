@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../services/installer/update_mode_service.dart';
+import '../../../services/locale/locale_manager.dart';
 import '../../../services/logs/debug_log_service.dart';
 import '../../../services/theme/theme_manager.dart';
 import '../../../widgets/animated_tap.dart';
+import '../../../widgets/settings_picker_dialog.dart';
 import '../../apps/catalogue_screen/catalogue_navigation.dart';
 import '../developer_account_screen.dart';
 import 'package:safehaven/translations/app_localizations.dart';
@@ -100,79 +102,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showUpdateModePicker() async {
-    final colors = SafeHavenTheme.of(context);
-    final selected = await showModalBottomSheet<UpdateMode>(
+    final selected = await SettingsPickerDialog.show<UpdateMode>(
       context: context,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      builder: (sheetContext) {
-        return Material(
-          color: colors.background,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
-            side: BorderSide(
-              color: colors.border.withOpacity(0.66),
-            ),
-          ),
-          child:
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                    child: Text(
-                      AppLocalizations.of(context)!.settingsFlawlessUpdates,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: colors.text,
-                      ),
-                    ),
-                  ),
-                  Container(height: 0.5, color: colors.border),
-                  const SizedBox(height: 4),
-                  _UpdateModeOption(
-                    title: AppLocalizations.of(context)!.settingsUpdateOff,
-                    subtitle:
-                    AppLocalizations.of(context)!.settingsUpdateNoneDesc,
-                    selected: _updateMode == UpdateMode.none,
-                    onTap: () =>
-                        Navigator.of(sheetContext).pop(UpdateMode.none),
-                  ),
-                  _UpdateModeOption(
-                    title: AppLocalizations.of(context)!.settingsUpdateLight,
-                    subtitle:
-                    AppLocalizations.of(context)!.settingsUpdateLightDesc,
-                    selected: _updateMode == UpdateMode.light,
-                    onTap: () =>
-                        Navigator.of(sheetContext).pop(UpdateMode.light),
-                  ),
-                  _UpdateModeOption(
-                    title: AppLocalizations.of(context)!.settingsUpdateFull,
-                    subtitle:
-                    AppLocalizations.of(context)!.settingsUpdateFullDesc,
-                    selected: _updateMode == UpdateMode.full,
-                    onTap: () =>
-                        Navigator.of(sheetContext).pop(UpdateMode.full),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      title: AppLocalizations.of(context)!.settingsFlawlessUpdates,
+      children: [
+        _UpdateModeOption(
+          title: AppLocalizations.of(context)!.settingsUpdateOff,
+          subtitle: AppLocalizations.of(context)!.settingsUpdateNoneDesc,
+          selected: _updateMode == UpdateMode.none,
+          onTap: () => Navigator.of(context).pop(UpdateMode.none),
+        ),
+        _UpdateModeOption(
+          title: AppLocalizations.of(context)!.settingsUpdateLight,
+          subtitle: AppLocalizations.of(context)!.settingsUpdateLightDesc,
+          selected: _updateMode == UpdateMode.light,
+          onTap: () => Navigator.of(context).pop(UpdateMode.light),
+        ),
+        _UpdateModeOption(
+          title: AppLocalizations.of(context)!.settingsUpdateFull,
+          subtitle: AppLocalizations.of(context)!.settingsUpdateFullDesc,
+          selected: _updateMode == UpdateMode.full,
+          onTap: () => Navigator.of(context).pop(UpdateMode.full),
+        ),
+      ],
     );
 
     if (selected != null && selected != _updateMode) {
       await _setUpdateMode(selected);
     }
+  }
+
+  String _languageSubtitle() {
+    final locale = LocaleManager.instance.locale;
+    if (locale == null) return 'System';
+    return LocaleManager.instance.displayName(locale.languageCode);
+  }
+
+  Future<void> _showLanguagePicker() async {
+    final lm = LocaleManager.instance;
+    final locales = lm.supportedLocales;
+
+    final selected = await SettingsPickerDialog.show<Locale?>(
+      context: context,
+      title: AppLocalizations.of(context)!.settingsLanguage,
+      children: [
+        _LanguageOption(
+          title: 'System',
+          selected: lm.locale == null,
+          onTap: () => Navigator.of(context).pop(const Locale('system')),
+        ),
+        ...locales.map((l) => _LanguageOption(
+          title: lm.displayName(l.languageCode),
+          selected: lm.locale?.languageCode == l.languageCode,
+          onTap: () => Navigator.of(context).pop(l),
+        )),
+      ],
+    );
+
+    if (selected == null) return;
+    if (selected.languageCode == 'system') {
+      await lm.setLocale(null);
+    } else {
+      await lm.setLocale(selected);
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -203,6 +196,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: AppLocalizations.of(context)!.settingsFlawlessUpdates,
                   subtitle: _updateModeSubtitle(context, _updateMode),
                   onTap: _showUpdateModePicker,
+                ),
+                _SettingsActionTile(
+                  icon: Icons.language_rounded,
+                  title: AppLocalizations.of(context)!.settingsLanguage,
+                  subtitle: _languageSubtitle(),
+                  onTap: _showLanguagePicker,
                 ),
               ],
             ),
@@ -615,6 +614,48 @@ class _UpdateModeOption extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _LanguageOption extends StatelessWidget {
+  const _LanguageOption({
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 0,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              size: 20,
+              color: selected ? colors.text : colors.textMuted,
+            ),
+            const SizedBox(width: 14),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: colors.text,
               ),
             ),
           ],
