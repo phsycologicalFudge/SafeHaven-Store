@@ -395,7 +395,7 @@ class _AccountHeader extends StatelessWidget {
               if (signedIn)
                 Positioned(
                   top: -6,
-                  left: -6,
+                  right: -6,
                   child: AnimatedTap(
                     borderRadius: 12,
                     onTap: onEditProfile,
