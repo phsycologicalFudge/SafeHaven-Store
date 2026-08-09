@@ -481,6 +481,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devSigningKeyNone => 'Not locked yet';
 
   @override
+  String get devSigningKeyTapToCopy => 'Tap to copy';
+
+  @override
+  String get devSigningKeyCopied => 'Copied';
+
+  @override
   String get devSubmissions => 'Submissions';
 
   @override
@@ -512,4 +518,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selfUpdateInstallFailed => 'Could not start the installer.';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonDone => 'Done';
+
+  @override
+  String get commonSave => 'Save';
+
+  @override
+  String get devEditProfile => 'Edit profile';
+
+  @override
+  String get devRemovePhoto => 'Remove photo';
 }

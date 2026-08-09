@@ -183,6 +183,8 @@
   "devRepoVerifiedNo": "Not yet",
   "devSigningKey": "Signing key",
   "devSigningKeyNone": "Not locked yet",
+  "devSigningKeyTapToCopy": "Tap to copy",
+  "devSigningKeyCopied": "Copied",
   "devSubmissions": "Submissions",
   "devSeeAllHistory": "See all history",
   "devStatusInactive": "Inactive",
@@ -199,5 +201,10 @@
   "selfUpdateRetry": "Retry",
   "selfUpdateButton": "Update",
   "selfUpdateDownloadFailed": "Download failed. Check your connection and try again.",
-  "selfUpdateInstallFailed": "Could not start the installer."
+  "selfUpdateInstallFailed": "Could not start the installer.",
+  "commonCancel": "Cancel",
+  "commonDone": "Done",
+  "commonSave": "Save",
+  "devEditProfile": "Edit profile",
+  "devRemovePhoto": "Remove photo"
 }

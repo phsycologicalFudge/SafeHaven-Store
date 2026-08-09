@@ -988,6 +988,18 @@ abstract class AppLocalizations {
   /// **'Not locked yet'**
   String get devSigningKeyNone;
 
+  /// No description provided for @devSigningKeyTapToCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to copy'**
+  String get devSigningKeyTapToCopy;
+
+  /// No description provided for @devSigningKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get devSigningKeyCopied;
+
   /// No description provided for @devSubmissions.
   ///
   /// In en, this message translates to:
@@ -1047,6 +1059,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not start the installer.'**
   String get selfUpdateInstallFailed;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @commonDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get commonDone;
+
+  /// No description provided for @commonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// No description provided for @devEditProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get devEditProfile;
+
+  /// No description provided for @devRemovePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get devRemovePhoto;
 }
 
 class _AppLocalizationsDelegate

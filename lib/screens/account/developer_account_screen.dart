@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:app_links/app_links.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
+import '../../services/developer_profile_service.dart';
 import '../../widgets/animated_tap.dart';
+import '../../widgets/profile_edit_dialog.dart';
 import '../../widgets/settings_picker_dialog.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 
@@ -39,11 +43,18 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
     super.initState();
     _listenForAuthLinks();
     _load(showLoading: true);
+    DeveloperProfileService.instance.ensureLoaded();
+    DeveloperProfileService.instance.addListener(_onProfileChanged);
+  }
+
+  void _onProfileChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _linkSub?.cancel();
+    DeveloperProfileService.instance.removeListener(_onProfileChanged);
     super.dispose();
   }
 
@@ -203,6 +214,18 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
                   onLogin: _login,
                   onDashboard: _openDashboard,
                   onLogout: _logout,
+                  profileName: DeveloperProfileService.instance.displayName,
+                  avatarFile: DeveloperProfileService.instance.avatarFile,
+                  onEditProfile: () {
+                    final email = _account?.email.trim() ?? '';
+                    final displayName = _account?.displayName.trim() ?? '';
+                    final fallback = displayName.isNotEmpty ? displayName : email;
+                    ProfileEditDialog.show(
+                      context: context,
+                      currentName: DeveloperProfileService.instance.displayName,
+                      fallbackName: fallback,
+                    );
+                  },
                 ),
               ),
               if (_error != null)
@@ -293,6 +316,9 @@ class _AccountHeader extends StatelessWidget {
     required this.onLogin,
     required this.onDashboard,
     required this.onLogout,
+    required this.profileName,
+    required this.avatarFile,
+    required this.onEditProfile,
   });
 
   final StoreAccount? account;
@@ -302,6 +328,9 @@ class _AccountHeader extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onDashboard;
   final VoidCallback onLogout;
+  final String? profileName;
+  final File? avatarFile;
+  final VoidCallback onEditProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -309,45 +338,71 @@ class _AccountHeader extends StatelessWidget {
     final signedIn = account != null;
     final displayName = account?.displayName.trim() ?? '';
     final email = account?.email.trim() ?? '';
-    final label = displayName.isNotEmpty
+    final customName = profileName?.trim() ?? '';
+    final label = customName.isNotEmpty
+        ? customName
+        : displayName.isNotEmpty
         ? displayName
         : email.isNotEmpty
         ? email
-        : signedIn
-        ? AppLocalizations.of(context)!.devAccountTitle
         : AppLocalizations.of(context)!.devAccountTitle;
     final initial = label.isNotEmpty ? label.substring(0, 1).toUpperCase() : 'S';
+    final showEmailLine = signedIn && email.isNotEmpty && label != email;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
       child: Column(
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colors.iconBackground,
-              shape: BoxShape.circle,
-              border: Border.all(color: colors.border),
-            ),
-            child: loading
-                ? SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: colors.accentEnd,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedTap(
+                borderRadius: 40,
+                onTap: signedIn ? onEditProfile : null,
+                child: Container(
+                  width: 68,
+                  height: 68,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.iconBackground,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.border),
+                    image: avatarFile != null
+                        ? DecorationImage(image: FileImage(avatarFile!), fit: BoxFit.cover)
+                        : null,
+                  ),
+                  child: loading
+                      ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: colors.accentEnd,
+                    ),
+                  )
+                      : avatarFile != null
+                      ? null
+                      : Text(
+                    signedIn ? initial : 'S',
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      color: colors.text,
+                    ),
+                  ),
+                ),
               ),
-            )
-                : Text(
-              signedIn ? initial : 'S',
-              style: TextStyle(
-                fontSize: 27,
-                fontWeight: FontWeight.w800,
-                color: colors.text,
-              ),
-            ),
+              if (signedIn)
+                Positioned(
+                  top: -6,
+                  left: -6,
+                  child: AnimatedTap(
+                    borderRadius: 12,
+                    onTap: onEditProfile,
+                    child: Icon(Icons.edit_rounded, size: 14, color: colors.text),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           Text(
@@ -362,7 +417,7 @@ class _AccountHeader extends StatelessWidget {
               color: colors.text,
             ),
           ),
-          if (signedIn && email.isNotEmpty && displayName.isNotEmpty) ...[
+          if (showEmailLine) ...[
             const SizedBox(height: 4),
             Text(
               email,
@@ -611,12 +666,21 @@ class _DeveloperAppDetail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DetailRow(label: AppLocalizations.of(context)!.devRepository, value: app.repoUrl.isEmpty ? AppLocalizations.of(context)!.appMetaNone : app.repoUrl),
-        _DetailRow(label: AppLocalizations.of(context)!.devRepoVerified, value: app.repoVerified ? AppLocalizations.of(context)!.devRepoVerifiedYes : AppLocalizations.of(context)!.devRepoVerifiedNo),
-        _DetailRow(
-          label: AppLocalizations.of(context)!.devSigningKey,
-          value: app.signingKeyHash.isEmpty ? AppLocalizations.of(context)!.devSigningKeyNone : app.signingKeyHash,
+        _SourceRow(
+          label: AppLocalizations.of(context)!.devRepository,
+          repoUrl: app.repoUrl,
         ),
+        _DetailRow(label: AppLocalizations.of(context)!.devRepoVerified, value: app.repoVerified ? AppLocalizations.of(context)!.devRepoVerifiedYes : AppLocalizations.of(context)!.devRepoVerifiedNo),
+        if (app.signingKeyHash.isNotEmpty)
+          _CopySigningKeyRow(
+            label: AppLocalizations.of(context)!.devSigningKey,
+            signingKeyHash: app.signingKeyHash,
+          )
+        else
+          _DetailRow(
+            label: AppLocalizations.of(context)!.devSigningKey,
+            value: AppLocalizations.of(context)!.devSigningKeyNone,
+          ),
         if (publicApp != null && publicApp!.ratingCount > 0)
           _DetailRow(
             label: AppLocalizations.of(context)!.appMetaRating,
@@ -845,6 +909,179 @@ class _DetailRow extends StatelessWidget {
                 fontSize: 12.5,
                 height: 1.35,
                 color: colors.textSoft,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _repoSourceLabel(BuildContext context, String repoUrl) {
+  if (repoUrl.isEmpty) return AppLocalizations.of(context)!.appMetaNone;
+
+  final uri = Uri.tryParse(repoUrl);
+  final host = uri?.host.toLowerCase() ?? '';
+
+  if (host.contains('github')) return 'GitHub';
+  if (host.contains('gitlab')) return 'GitLab';
+  if (host.contains('codeberg')) return 'Codeberg';
+  if (host.isEmpty) return repoUrl;
+  return host;
+}
+
+class _SourceRow extends StatelessWidget {
+  const _SourceRow({required this.label, required this.repoUrl});
+
+  final String label;
+  final String repoUrl;
+
+  Future<void> _open(BuildContext context) async {
+    final uri = Uri.tryParse(repoUrl);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+    final hasRepo = repoUrl.isNotEmpty;
+    final sourceLabel = _repoSourceLabel(context, repoUrl);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12.5, color: colors.textMuted),
+            ),
+          ),
+          Expanded(
+            child: hasRepo
+                ? Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedTap(
+                borderRadius: 6,
+                onTap: () => _open(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        sourceLabel,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: colors.accentEnd,
+                          decoration: TextDecoration.underline,
+                          decorationColor: colors.accentEnd,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(Icons.north_east_rounded, size: 12, color: colors.accentEnd),
+                    ],
+                  ),
+                ),
+              ),
+            )
+                : Text(
+              sourceLabel,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.35,
+                color: colors.textSoft,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CopySigningKeyRow extends StatefulWidget {
+  const _CopySigningKeyRow({required this.label, required this.signingKeyHash});
+
+  final String label;
+  final String signingKeyHash;
+
+  @override
+  State<_CopySigningKeyRow> createState() => _CopySigningKeyRowState();
+}
+
+class _CopySigningKeyRowState extends State<_CopySigningKeyRow> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.signingKeyHash));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              widget.label,
+              style: TextStyle(fontSize: 12.5, color: colors.textMuted),
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedTap(
+                borderRadius: 6,
+                onTap: _copy,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _copied
+                            ? AppLocalizations.of(context)!.devSigningKeyCopied
+                            : AppLocalizations.of(context)!.devSigningKeyTapToCopy,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _copied ? colors.accentEnd : colors.textSoft,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _copied ? Icons.check_rounded : Icons.copy_rounded,
+                        size: 13,
+                        color: _copied ? colors.accentEnd : colors.textMuted,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

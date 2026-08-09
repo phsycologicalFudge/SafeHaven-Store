@@ -28,6 +28,8 @@ dependencies:
   permission_handler: ^11.3.1
   workmanager: ^0.9.0+3
   flutter_native_splash: ^2.4.7
+  image_picker: ^1.1.2
+  crop_your_image: ^1.0.0
   flutter_localizations:
     sdk: flutter
   intl: any

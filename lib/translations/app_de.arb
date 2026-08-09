@@ -183,6 +183,8 @@
   "devRepoVerifiedNo": "Noch nicht",
   "devSigningKey": "Signaturschlüssel",
   "devSigningKeyNone": "Noch nicht festgelegt",
+  "devSigningKeyTapToCopy": "Zum Kopieren tippen",
+  "devSigningKeyCopied": "Kopiert",
   "devSubmissions": "Einreichungen",
   "devSeeAllHistory": "Gesamten Verlauf anzeigen",
   "devStatusInactive": "Inaktiv",
@@ -199,5 +201,10 @@
   "selfUpdateRetry": "Erneut versuchen",
   "selfUpdateButton": "Aktualisieren",
   "selfUpdateDownloadFailed": "Download fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
-  "selfUpdateInstallFailed": "Das Installationsprogramm konnte nicht gestartet werden."
+  "selfUpdateInstallFailed": "Das Installationsprogramm konnte nicht gestartet werden.",
+  "commonCancel": "Abbrechen",
+  "commonDone": "Fertig",
+  "commonSave": "Speichern",
+  "devEditProfile": "Profil bearbeiten",
+  "devRemovePhoto": "Foto entfernen"
 }
