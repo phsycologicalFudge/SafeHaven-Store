@@ -12,7 +12,7 @@ SafeHaven is an Android app store that is focused on trust, source visibility, a
 [![Downloads](https://img.shields.io/github/downloads/phsycologicalFudge/SafeHaven/total?logo=github&label=downloads&color=10b981)](https://github.com/phsycologicalFudge/SafeHaven/releases)
 [![License](https://img.shields.io/github/license/phsycologicalFudge/SafeHaven?label=license&color=64748b)](LICENSE)
 
-<a href="https://trendshift.io/repositories/51794?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-51794" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/51794/daily?language=Dart" alt="phsycologicalFudge%2FSafeHaven-Store | Trendshift" width="250" height="55"/></a>
+<a href="https://hosted.weblate.org/engage/safehaven-store/"><img src="https://hosted.weblate.org/widget/safehaven-store/287x66-grey.png" alt="Translation status"></a>
 
 [<img src="https://store.colourswift.com/badge.svg" alt="Get it on SafeHaven Store">](https://store.colourswift.com/app/com.colourswift.safehaven)
 [<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButtonGreyBorder_nofont.png" height="62" alt="Get it at IzzyOnDroid">](https://apt.izzysoft.de/packages/com.colourswift.safehaven)
