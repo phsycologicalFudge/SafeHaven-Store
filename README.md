@@ -92,6 +92,9 @@ SafeHaven is still in early development.
 ## How 'safe' is SafeHaven
 Nobody can claim to be perfectly safe. However, SafeHaven leverages commercial security software in the live build to ensure malware doesnt slip through. Along with the work in progress BEP (build evaluation process), to ensure apps riddled with ads and trackers remain off the store.
 
+## Translations
+Translations with 70% or higher completion will be available in app
+<a href="https://hosted.weblate.org/engage/safehaven-store/"><img src="https://hosted.weblate.org/widget/safehaven-store/safehaven-store/matrix-auto.svg" alt="Translation status"></a>
 
 ## Project links
 
