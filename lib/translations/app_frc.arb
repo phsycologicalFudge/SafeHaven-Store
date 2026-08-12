@@ -1,1 +1,36 @@
-{}
+{
+    "tabApps": "Applications",
+    "tabRecents": "Récents",
+    "tabSearch": "Recherche",
+    "tabMyApps": "My Applications",
+    "tabSettings": "Paramètres",
+    "titleRecentlyViewed": "Récemment consultés",
+    "retry": "Réessayer",
+    "dismiss": "Rejeter",
+    "allApps": "Toutes les applications",
+    "catalogueTopCharts": "Classements",
+    "catalogueTopInCategory": "Meilleur de la catégorie {category}",
+    "@catalogueTopInCategory": {
+        "placeholders": {
+            "category": {
+                "type": "String"
+            }
+        }
+    },
+    "catalogueNewArrivals": "Nouveautés",
+    "catalogueNewBadge": "NOUVEAU",
+    "catalogueForYou": "Pour toi",
+    "catalogueBrowseAll": "Parcourir toutes les applications",
+    "catalogueSearchApps": "Rechercher les applications",
+    "catalogueCouldNotLoad": "Impossible de charger le catalogue",
+    "catalogueNoApps": "Aucune application n'est encore en ligne.",
+    "catalogueAllCategories": "Toutes les catégories",
+    "catalogueAnyRating": "Toute note",
+    "catalogueRating1": "1★ et plus",
+    "catalogueRating2": "2★ et plus",
+    "catalogueRating3": "3★ et plus",
+    "catalogueRating4": "4★ et plus",
+    "catalogueRating5": "5★ seulement",
+    "catalogueSearchPrompt": "Recherchez une application pour commencer.",
+    "catalogueNoResults": "Aucune application ne correspond à vos filtres."
+}
