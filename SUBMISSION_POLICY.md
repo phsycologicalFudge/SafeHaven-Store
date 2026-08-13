@@ -13,6 +13,14 @@ All applications are expected to serve a beneficial purpose for our users. An ap
 
 An application that displays a clock with the ability to create and customise widgets serves an immediate purpose and can be accepted into the store.
 
+### Privacy and Ads
+All applications are expected to follow best practices regarding user privacy. For more details, please visit:
+
+https://mas.owasp.org/MASVS/12-MASVS-PRIVACY
+
+#### Ads
+SafeHaven explicitly prohibits ads or trackers in applications it hosts. Apps found to contain ads or trackers, whether disclosed or undisclosed, will be removed permanently.
+
 ### Application Size
 Compiled releases are expected to be under 51 MB. Rare exceptions can be made for applications between 51 and 70 MB. Please open an issue for a manual review on application size.
 
