@@ -2,7 +2,7 @@
 
 If you discover a vulnerability, security-related bug, privacy issue, or behaviour that could put users or their data at risk, please report it immediately to:
 
-[reports@colourswift.com](mailto:repor@colourswift.com)
+[reports@colourswift.com](mailto:reports@colourswift.com)
 
 Please avoid opening a public GitHub issue for vulnerabilities that could be exploited.
 
