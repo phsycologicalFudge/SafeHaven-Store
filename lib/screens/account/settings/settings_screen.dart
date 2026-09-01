@@ -135,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _languageSubtitle() {
     final locale = LocaleManager.instance.locale;
     if (locale == null) return 'System';
-    return LocaleManager.instance.displayName(locale.languageCode);
+    return LocaleManager.instance.displayName(locale);
   }
 
   Future<void> _showLanguagePicker() async {
@@ -152,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () => Navigator.of(context).pop(const Locale('system')),
         ),
         ...locales.map((l) => _LanguageOption(
-          title: lm.displayName(l.languageCode),
+          title: lm.displayName(l),
           selected: lm.locale?.languageCode == l.languageCode,
           onTap: () => Navigator.of(context).pop(l),
         )),
