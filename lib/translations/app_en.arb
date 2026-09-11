@@ -81,7 +81,7 @@
   "appWhatsNew": "What's New?",
   "securitySignals": "Security signals",
   "securityVerifiedSig": "Verified signature",
-  "securityVerifiedSigBody": "Updates are verified against the original developer signature.",
+  "securityVerifiedSigBody": "Updates are verified against the original signature.",
   "securityLatestScan": "Latest scan",
   "securityNoScanTimestamp": "No completed scan timestamp is available yet.",
   "securityNoThreats": "No threats detected. Last scanned {date}.",
