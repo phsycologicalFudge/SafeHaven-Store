@@ -203,7 +203,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get securityVerifiedSigBody =>
-      'Updates are verified against the original developer signature.';
+      'Updates are verified against the original signature.';
 
   @override
   String get securityLatestScan => 'Latest scan';

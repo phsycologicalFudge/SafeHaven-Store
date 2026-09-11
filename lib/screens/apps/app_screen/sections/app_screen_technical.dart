@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../app_screen_helpers.dart';
 import 'app_screen_layout.dart';
 import 'package:safehaven/translations/app_localizations.dart';
+
+const _vttiIconAsset = 'assets/icons/vtti_logo.svg';
+
+Future<void> _openVttiSample(String sha256) async {
+  final uri = Uri.parse('https://platform.colourswift.com/sample/$sha256');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+String _breakLastWord(String text) {
+  final lastSpace = text.lastIndexOf(' ');
+  if (lastSpace == -1) return text;
+  return '${text.substring(0, lastSpace)}\n${text.substring(lastSpace + 1)}';
+}
 
 class AppScreenTrustSection extends StatelessWidget {
   const AppScreenTrustSection({super.key, required this.app});
@@ -13,6 +30,7 @@ class AppScreenTrustSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final version = app.latestVersion;
 
     return AppScreenSection(
       title: AppLocalizations.of(context)!.securitySignals,
@@ -31,16 +49,19 @@ class AppScreenTrustSection extends StatelessWidget {
             _SignalRow(
               icon: Icons.fingerprint_rounded,
               title: AppLocalizations.of(context)!.securityVerifiedSig,
-              body: AppLocalizations.of(context)!.securityVerifiedSigBody,
+              body: _breakLastWord(AppLocalizations.of(context)!.securityVerifiedSigBody),
               color: null,
             ),
             _SignalRow(
               icon: Icons.manage_search_rounded,
               title: AppLocalizations.of(context)!.securityLatestScan,
-              body: app.latestVersion == null || app.latestVersion!.scannedAt == 0
+              body: version == null || version.scannedAt == 0
                   ? AppLocalizations.of(context)!.securityNoScanTimestamp
-                  : AppLocalizations.of(context)!.securityNoThreats(formatScannedAt(app.latestVersion!.scannedAt)),
+                  : AppLocalizations.of(context)!.securityNoThreats(formatScannedAt(version.scannedAt)),
               color: null,
+              onTrailingTap: version == null || version.sha256.isEmpty
+                  ? null
+                  : () => _openVttiSample(version.sha256),
             ),
           ],
         ),
@@ -100,12 +121,14 @@ class _SignalRow extends StatelessWidget {
     required this.title,
     required this.body,
     required this.color,
+    this.onTrailingTap,
   });
 
   final IconData icon;
   final String title;
   final String body;
   final Color? color;
+  final VoidCallback? onTrailingTap;
 
   @override
   Widget build(BuildContext context) {
@@ -119,31 +142,71 @@ class _SignalRow extends StatelessWidget {
           Icon(icon, size: 22, color: color ?? colors.textMuted),
           const SizedBox(width: 13),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: colors.text,
-                  ),
+                Expanded(
+                  child: _SignalText(title: title, body: body),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  body,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.35,
-                    color: colors.textSoft,
+                if (onTrailingTap != null) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 1,
+                    height: 18,
+                    color: colors.textMuted.withOpacity(0.25),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: onTrailingTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: SvgPicture.asset(
+                      _vttiIconAsset,
+                      width: 18,
+                      height: 18,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SignalText extends StatelessWidget {
+  const _SignalText({super.key, required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: colors.text,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          body,
+          style: TextStyle(
+            fontSize: 12.5,
+            height: 1.35,
+            color: colors.textSoft,
+          ),
+        ),
+      ],
     );
   }
 }

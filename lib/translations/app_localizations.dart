@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' as intl;
 import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
 
@@ -98,6 +99,8 @@ abstract class AppLocalizations {
     Locale('de'),
     Locale('en'),
     Locale('es'),
+    Locale('zh'),
+    Locale('zh', 'MO'),
   ];
 
   /// No description provided for @tabApps.
@@ -463,7 +466,7 @@ abstract class AppLocalizations {
   /// No description provided for @securityVerifiedSigBody.
   ///
   /// In en, this message translates to:
-  /// **'Updates are verified against the original developer signature.'**
+  /// **'Updates are verified against the original signature.'**
   String get securityVerifiedSigBody;
 
   /// No description provided for @securityLatestScan.
@@ -1102,13 +1105,25 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['de', 'en', 'es'].contains(locale.languageCode);
+      <String>['de', 'en', 'es', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when language+country codes are specified.
+  switch (locale.languageCode) {
+    case 'zh':
+      {
+        switch (locale.countryCode) {
+          case 'MO':
+            return AppLocalizationsZhMo();
+        }
+        break;
+      }
+  }
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'de':
@@ -1117,6 +1132,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'zh':
+      return AppLocalizationsZh();
   }
 
   throw FlutterError(

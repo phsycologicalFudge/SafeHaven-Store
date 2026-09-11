@@ -59,6 +59,10 @@ class SelfUpdateService {
 
   static final _tagPrefix = RegExp(r'^v', caseSensitive: false);
   static final _tagPostfix = RegExp(r'[-+].*$');
+  static final _preReleaseTag = RegExp(
+    r'-beta(?:[.\-]?\d+)?',
+    caseSensitive: false,
+  );
   static final _hashToken = RegExp(r'\b[0-9a-f]{40}\b', caseSensitive: false);
   static final _hashTrim = RegExp(r'^[\s:\-–—]+|[\s:\-–—]+$');
   static final _discordCut = RegExp(r'_To keep up with.*$', dotAll: true);
@@ -79,6 +83,7 @@ class SelfUpdateService {
 
       final latest = storeApp.latestVersion;
       if (latest == null) return null;
+      if (_isPreRelease(latest.versionName)) return null;
 
       final latestVersion = _cleanTag(latest.versionName);
       if (latestVersion.isEmpty) return null;
@@ -168,6 +173,10 @@ class SelfUpdateService {
       'path': path,
       'packageName': _selfPackage,
     });
+  }
+
+  bool _isPreRelease(String tag) {
+    return _preReleaseTag.hasMatch(tag);
   }
 
   String _cleanTag(String tag) {
