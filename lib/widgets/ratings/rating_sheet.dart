@@ -62,7 +62,7 @@ class _RatingSheetState extends State<RatingSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
-    final canSubmit = _selected > 0 && !_submitting && _result == null;
+    final canSubmit = _selected > 0 && !_submitting && _result != RatingResult.ok;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
@@ -90,9 +90,12 @@ class _RatingSheetState extends State<RatingSheet> {
               final star = i + 1;
               final filled = star <= _selected;
               return GestureDetector(
-                onTap: _result == null
-                    ? () => setState(() => _selected = star)
-                    : null,
+                onTap: (_result == RatingResult.ok || _submitting)
+                    ? null
+                    : () => setState(() {
+                  _selected = star;
+                  _result = null;
+                }),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(
