@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
 import 'store_service/store_auth_service.dart';
 import 'store_service/store_config.dart';
 import 'store_service/store_exceptions.dart';
 import 'store_service/store_http_utils.dart';
-
 export 'store_service/store_exceptions.dart';
 export 'store_service/store_auth_service.dart' show StoreAccount, StoreAuthService;
 

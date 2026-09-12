@@ -32,21 +32,28 @@ async function getAggregatedRating(env, packageName) {
     .first();
 }
 
-async function checkRatingRateLimit(env, hashedIp) {
+function rateLimitKey(hashedIp, packageName) {
   const bucket = Math.floor(Date.now() / 1000 / 3600);
-  const key    = `${hashedIp}_${bucket}`;
-  const row    = await db(env)
+  return `${hashedIp}_${packageName}_${bucket}`;
+}
+
+async function isRatingRateLimited(env, hashedIp, packageName) {
+  const key = rateLimitKey(hashedIp, packageName);
+  const row = await db(env)
     .prepare("SELECT count FROM store_rating_rate_limits WHERE key = ?1 LIMIT 1")
     .bind(key)
     .first();
-  if (row && row.count >= 10) return false;
+  return !!(row && row.count >= 10);
+}
+
+async function incrementRatingRateLimit(env, hashedIp, packageName) {
+  const key = rateLimitKey(hashedIp, packageName);
   await db(env)
     .prepare(
       "INSERT INTO store_rating_rate_limits (key, count, expires_at) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = count + 1"
     )
     .bind(key, Math.floor(Date.now() / 1000) + 7200)
     .run();
-  return true;
 }
 
 async function getAllRatings(env) {
@@ -89,13 +96,13 @@ export async function handleRatingsRoute(request, env, path, method) {
 
   const ip       = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "";
   const hashedIp = await sha256Hex(ip);
-  const allowed  = await checkRatingRateLimit(env, hashedIp);
-  if (!allowed) return json({ error: "rate_limited" }, 429);
+  if (await isRatingRateLimited(env, hashedIp, packageName)) return json({ error: "rate_limited" }, 429);
 
   const hashedToken = await sha256Hex(deviceToken + packageName);
   const inserted    = await checkAndInsertRatingToken(env, hashedToken, packageName);
   if (!inserted) return json({ error: "already_rated" }, 409);
 
+  await incrementRatingRateLimit(env, hashedIp, packageName);
   await upsertAggregatedRating(env, packageName, value);
 
   const agg = await getAggregatedRating(env, packageName);

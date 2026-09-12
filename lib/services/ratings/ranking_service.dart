@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import '../history_service.dart';
 import '../store_service.dart';
 
