@@ -9,6 +9,7 @@ class LocaleManager extends ChangeNotifier {
     Locale('en'),
     Locale('de'),
     Locale('es'),
+    Locale('frc'),
     // Locale('fr'),
     // Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
   ];
@@ -58,6 +59,7 @@ class LocaleManager extends ChangeNotifier {
       'en': 'English',
       'de': 'Deutsch',
       'es': 'Español',
+      //'frc': 'Français cadien',
       //'zh_Hans': '简体中文',
     };
 

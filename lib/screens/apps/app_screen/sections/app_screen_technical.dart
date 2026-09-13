@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../services/store_service.dart';
@@ -75,9 +77,39 @@ class AppScreenTechnicalSection extends StatelessWidget {
 
   final PublicStoreApp app;
 
+  void _showShaDialog(BuildContext context, String sha256) {
+    final colors = SafeHavenTheme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (_) => AppAccentDialog(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppLocalizations.of(context)!.technicalSha256,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: colors.text,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ShaCopyItem(sha256: sha256),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final version = app.latestVersion;
+    final sha256 = version?.sha256 ?? '';
 
     return AppScreenExpandableSection(
       title: AppLocalizations.of(context)!.technicalAppInfo,
@@ -90,12 +122,16 @@ class AppScreenTechnicalSection extends StatelessWidget {
               label: AppLocalizations.of(context)!.technicalRepository,
               value: app.repoUrl.isEmpty ? AppLocalizations.of(context)!.technicalNotProvided : app.repoUrl,
             ),
-            _InfoRow(
-              label: AppLocalizations.of(context)!.technicalSha256,
-              value: version == null || version.sha256.isEmpty
-                  ? AppLocalizations.of(context)!.technicalNotAvailable
-                  : version.sha256,
-            ),
+            if (sha256.isEmpty)
+              _InfoRow(
+                label: AppLocalizations.of(context)!.technicalSha256,
+                value: AppLocalizations.of(context)!.technicalNotAvailable,
+              )
+            else
+              _TapToCopyInfoRow(
+                label: AppLocalizations.of(context)!.technicalSha256,
+                onTap: () => _showShaDialog(context, sha256),
+              ),
             _InfoRow(
               label: AppLocalizations.of(context)!.technicalApkSize,
               value: version == null || version.apkSize == 0
@@ -143,7 +179,7 @@ class _SignalRow extends StatelessWidget {
           const SizedBox(width: 13),
           Expanded(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: _SignalText(title: title, body: body),
@@ -207,6 +243,129 @@ class _SignalText extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TapToCopyInfoRow extends StatelessWidget {
+  const _TapToCopyInfoRow({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: colors.textMuted,
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    AppLocalizations.of(context)!.devSigningKeyTapToCopy,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: colors.textSoft,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.copy_rounded,
+                    size: 13,
+                    color: colors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShaCopyItem extends StatefulWidget {
+  const _ShaCopyItem({required this.sha256});
+
+  final String sha256;
+
+  @override
+  State<_ShaCopyItem> createState() => _ShaCopyItemState();
+}
+
+class _ShaCopyItemState extends State<_ShaCopyItem> {
+  bool _copied = false;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.sha256));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _copy,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                _copied ? Icons.check_rounded : Icons.content_copy_rounded,
+                color: _copied ? colors.accentEnd : colors.textMuted,
+                size: 22,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  widget.sha256,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                    color: colors.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
