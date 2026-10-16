@@ -3,8 +3,6 @@ package com.colourswift.safehaven
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -15,7 +13,6 @@ import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import java.io.File
-import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
@@ -207,19 +204,8 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isPlayStoreApp(packageName: String): Boolean {
-        return try {
-            val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                packageManager.getInstallSourceInfo(packageName).installingPackageName
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getInstallerPackageName(packageName)
-            }
-            installer == "com.android.vending"
-        } catch (_: Exception) {
-            false
-        }
-    }
+    private fun isPlayStoreApp(packageName: String): Boolean =
+        PackageStates.isPlayStoreApp(packageManager, packageName)
 
     private fun installApk(path: String, result: MethodChannel.Result) {
         CrashLogService.log("Installer", "D", "installApk called, sdk=${Build.VERSION.SDK_INT}")
@@ -308,121 +294,16 @@ class MainActivity : FlutterActivity() {
 
     private fun getAllPackageStates(result: MethodChannel.Result) {
         try {
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                PackageManager.GET_SIGNING_CERTIFICATES
-            } else {
-                @Suppress("DEPRECATION")
-                PackageManager.GET_SIGNATURES
-            }
-
-            val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags.toLong()))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getInstalledPackages(flags)
-            }
-
-            val map = mutableMapOf<String, Map<String, Any?>>()
-            for (info in packages) {
-                val pkgName = info.packageName
-                val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    info.longVersionCode
-                } else {
-                    @Suppress("DEPRECATION")
-                    info.versionCode.toLong()
-                }
-                val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    try {
-                        packageManager.getInstallSourceInfo(pkgName).installingPackageName
-                    } catch (_: Exception) {
-                        null
-                    }
-                } else {
-                    @Suppress("DEPRECATION")
-                    packageManager.getInstallerPackageName(pkgName)
-                }
-                map[pkgName] = mapOf(
-                    "installed" to true,
-                    "versionCode" to versionCode,
-                    "versionName" to info.versionName,
-                    "signingCertificateSha256" to getSigningCertificateSha256(info),
-                    "installer" to installer
-                )
-            }
-            runOnUiThread { result.success(map) }
+            val states = PackageStates.all(packageManager)
+            runOnUiThread { result.success(states) }
         } catch (e: Exception) {
             runOnUiThread { result.error("package_query_failed", e.message, null) }
         }
     }
 
     private fun getPackageState(targetPackage: String, result: MethodChannel.Result) {
-        try {
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                PackageManager.GET_SIGNING_CERTIFICATES
-            } else {
-                @Suppress("DEPRECATION")
-                PackageManager.GET_SIGNATURES
-            }
-
-            val info = packageManager.getPackageInfo(targetPackage, flags)
-            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                info.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                info.versionCode.toLong()
-            }
-
-            val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    packageManager.getInstallSourceInfo(targetPackage).installingPackageName
-                } catch (_: Exception) {
-                    null
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getInstallerPackageName(targetPackage)
-            }
-
-            val state = mapOf(
-                "installed" to true,
-                "versionCode" to versionCode,
-                "versionName" to info.versionName,
-                "signingCertificateSha256" to getSigningCertificateSha256(info),
-                "installer" to installer
-            )
-            runOnUiThread { result.success(state) }
-        } catch (_: PackageManager.NameNotFoundException) {
-            runOnUiThread { result.success(emptyPackageState()) }
-        } catch (_: SecurityException) {
-            runOnUiThread { result.success(emptyPackageState()) }
-        }
-    }
-
-    private fun emptyPackageState(): Map<String, Any?> {
-        return mapOf(
-            "installed" to false,
-            "versionCode" to 0L,
-            "versionName" to null,
-            "signingCertificateSha256" to null,
-            "installer" to null
-        )
-    }
-
-    private fun getSigningCertificateSha256(info: PackageInfo): String? {
-        val signature = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val signingInfo = info.signingInfo ?: return null
-            if (signingInfo.hasMultipleSigners()) {
-                signingInfo.apkContentsSigners.firstOrNull()
-            } else {
-                signingInfo.signingCertificateHistory.lastOrNull()
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            info.signatures?.firstOrNull()
-        } ?: return null
-
-        val digest = MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
+        val state = PackageStates.single(packageManager, targetPackage)
+        runOnUiThread { result.success(state) }
     }
 
     private fun openApp(targetPackage: String, result: MethodChannel.Result) {
