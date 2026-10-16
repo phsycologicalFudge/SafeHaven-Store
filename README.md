@@ -23,7 +23,7 @@ SafeHaven is an Android app store that is focused on trust, source visibility, a
 
 > [!CAUTION]
 > ### Android developer verification is coming...
-> Android FOSS is under threat. From September 30, 2026, Google will require developer verification for all Android apps on certified devices, including those installed outside of the Play Store. https://keepandroidopen.org/
+> Android FOSS is under threat. From 2027, Google will require developer verification for all Android apps on certified devices, including those installed outside of the Play Store. https://keepandroidopen.org/
 
 ## What is SafeHaven?
 
