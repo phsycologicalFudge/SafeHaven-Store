@@ -5,10 +5,19 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class StoreKeepAliveService : Service() {
     private val CHANNEL_ID = "safehaven_background"
     private val NOTIFICATION_ID = 889
+    private val CHECK_INTERVAL_MS = 5 * 60 * 1000L
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
@@ -38,6 +47,22 @@ class StoreKeepAliveService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        scope.launch {
+            while (isActive) {
+                delay(CHECK_INTERVAL_MS)
+                if (!FullModeChecker.isFullMode(this@StoreKeepAliveService)) {
+                    stopSelf()
+                    break
+                }
+                runCatching { FullModeChecker.run(this@StoreKeepAliveService) }
+                    .onFailure { CrashLogService.log("FullMode", "E", "check failed: ${it.message}") }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
