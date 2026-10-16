@@ -45,6 +45,9 @@ class UpdateForegroundService : Service() {
 
         fun onInstallResult(context: Context, success: Boolean, packageName: String) {
             if (packageName.isNotBlank() && !finalisedPackages.add(packageName)) return
+            if (packageName.isNotBlank()) {
+                Inbox.post(context, if (success) "updated" else "update_failed", packageName)
+            }
             val failed: Int
             val shouldNotify: Boolean
             synchronized(lock) {
