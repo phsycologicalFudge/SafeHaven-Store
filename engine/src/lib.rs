@@ -3,6 +3,7 @@ mod data;
 mod engine;
 mod modules;
 mod net;
+mod notice;
 
 use engine::engine::init;
 use engine::resolver::{call, EngineError, Result};
