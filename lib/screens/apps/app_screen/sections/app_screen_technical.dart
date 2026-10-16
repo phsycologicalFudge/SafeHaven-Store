@@ -1,15 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../app_screen_helpers.dart';
 import 'app_screen_layout.dart';
 import 'package:safehaven/translations/app_localizations.dart';
-
-const _vttiIconAsset = 'assets/icons/vtti_logo.svg';
 
 Future<void> _openVttiSample(String sha256) async {
   final uri = Uri.parse('https://platform.colourswift.com/sample/$sha256');
@@ -61,7 +58,7 @@ class AppScreenTrustSection extends StatelessWidget {
                   ? AppLocalizations.of(context)!.securityNoScanTimestamp
                   : AppLocalizations.of(context)!.securityNoThreats(formatScannedAt(version.scannedAt)),
               color: null,
-              onTrailingTap: version == null || version.sha256.isEmpty
+              onTap: version == null || version.sha256.isEmpty
                   ? null
                   : () => _openVttiSample(version.sha256),
             ),
@@ -157,56 +154,59 @@ class _SignalRow extends StatelessWidget {
     required this.title,
     required this.body,
     required this.color,
-    this.onTrailingTap,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String body;
   final Color? color;
-  final VoidCallback? onTrailingTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 22, color: color ?? colors.textMuted),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: _SignalText(title: title, body: body),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 10),
+                Container(
+                  width: 1,
+                  height: 18,
+                  color: colors.textMuted.withOpacity(0.25),
+                ),
+                const SizedBox(width: 10),
+                Icon(Icons.touch_app_rounded, size: 20, color: colors.textMuted),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 22, color: color ?? colors.textMuted),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: _SignalText(title: title, body: body),
-                ),
-                if (onTrailingTap != null) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 1,
-                    height: 18,
-                    color: colors.textMuted.withOpacity(0.25),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: onTrailingTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: SvgPicture.asset(
-                      _vttiIconAsset,
-                      width: 18,
-                      height: 18,
-                    ),
-                  ),
-                ],
-              ],
+      child: onTap == null
+          ? row
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: row,
+              ),
             ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:safehaven/translations/app_localizations.dart';
+import 'package:safehaven/services/engine/bridge.dart';
 import 'package:safehaven/services/installer/background_tasks.dart';
 import 'package:safehaven/services/locale/locale_manager.dart';
 import 'package:safehaven/services/logs/debug_log_service.dart';
@@ -10,6 +12,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   DebugLog.installCrashHandlers();
   await DebugLog.init();
+  await EngineBridge.instance.ensureReady();
   await initBackgroundTasks();
   await SafeHavenThemeManager.instance.init();
   await LocaleManager.instance.init();
@@ -45,6 +48,15 @@ class SafeHavenApp extends StatelessWidget {
                 ),
                 fontFamily: 'Roboto',
                 useMaterial3: true,
+              ),
+              builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  systemNavigationBarColor: currentColors.navBackground,
+                  systemNavigationBarDividerColor: currentColors.navBackground,
+                  systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+                  systemNavigationBarContrastEnforced: false,
+                ),
+                child: child!,
               ),
               home: const BootScreen(),
             );

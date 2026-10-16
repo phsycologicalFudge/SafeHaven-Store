@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:convert/convert.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
+import '../engine/bridge.dart';
 import '../logs/debug_log_service.dart';
 import '../store_service.dart';
+import 'package:safehaven/translations/app_localizations.dart';
 
 class InstalledPackageState {
   const InstalledPackageState({
@@ -23,6 +22,14 @@ class InstalledPackageState {
   final String? installer;
 
   bool get isInstalledBySafeHaven => installer == 'com.colourswift.safehaven';
+
+  Map<String, Object?> toJson() {
+    return {
+      'installed': installed,
+      'versionCode': versionCode,
+      'signingCertificateSha256': signingCertificateSha256,
+    };
+  }
 
   bool? signatureMismatchWith(String? storeSigningKeyHash) {
     final installedHash = signingCertificateSha256?.trim().toLowerCase();
@@ -55,22 +62,31 @@ class ApkInstallService {
 
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
   static const Duration _installCacheTtl = Duration(seconds: 30);
+  static const Duration _pollInterval = Duration(milliseconds: 120);
 
-  Future<void> _serialLock = Future.value();
+  final EngineBridge _bridge = EngineBridge.instance;
   final _cancelledPackages = <String>{};
+  final _jobs = <String, int>{};
   Map<String, InstalledPackageState>? _stateCache;
   Future<Map<String, InstalledPackageState>>? _inFlightStates;
 
-  HttpClient? _client;
-  StreamSubscription<List<int>>? _subscription;
-  Completer<void>? _downloadCompleter;
-  Timer? _cleanupTimer;
-  File? _activeFile;
-  String? _activePackage;
-  bool _cancelled = false;
+  int? _runningJob;
   bool _paused = false;
 
   bool get isPaused => _paused;
+
+  static Map<String, Object?> wire(Map<String, InstalledPackageState> states) {
+    return {for (final e in states.entries) e.key: e.value.toJson()};
+  }
+
+  static String failureMessage(Object error, AppLocalizations l) {
+    if (error is PlatformException) {
+      return error.code == 'install_permission_required'
+          ? l.installPermissionRequired
+          : l.installCouldNotStart;
+    }
+    return l.installFailedGeneric(error.toString());
+  }
 
   Future<InstalledPackageState> getPackageState({
     required String packageName,
@@ -84,13 +100,7 @@ class ApkInstallService {
       return const InstalledPackageState(installed: false, versionCode: 0);
     }
 
-    return InstalledPackageState(
-      installed: result['installed'] == true,
-      versionCode: _asInt(result['versionCode']),
-      versionName: _asString(result['versionName']),
-      signingCertificateSha256: _asString(result['signingCertificateSha256']),
-      installer: _asString(result['installer']),
-    );
+    return _stateFrom(result);
   }
 
   Future<Map<String, InstalledPackageState>> getAllPackageStates({bool forceRefresh = false}) {
@@ -121,19 +131,21 @@ class ApkInstallService {
 
     final map = <String, InstalledPackageState>{};
     for (final entry in result.entries) {
-      final pkg = entry.key as String;
-      final data = entry.value as Map<dynamic, dynamic>;
-      map[pkg] = InstalledPackageState(
-        installed: data['installed'] == true,
-        versionCode: _asInt(data['versionCode']),
-        versionName: _asString(data['versionName']),
-        signingCertificateSha256: _asString(data['signingCertificateSha256']),
-        installer: _asString(data['installer']),
-      );
+      map[entry.key as String] = _stateFrom(entry.value as Map<dynamic, dynamic>);
     }
 
     _stateCache = map;
     return _stateCache!;
+  }
+
+  InstalledPackageState _stateFrom(Map<dynamic, dynamic> data) {
+    return InstalledPackageState(
+      installed: data['installed'] == true,
+      versionCode: _asInt(data['versionCode']),
+      versionName: _asString(data['versionName']),
+      signingCertificateSha256: _asString(data['signingCertificateSha256']),
+      installer: _asString(data['installer']),
+    );
   }
 
   void invalidateStateCache() {
@@ -149,45 +161,31 @@ class ApkInstallService {
   }
 
   Future<void> pauseDownload() async {
-    final subscription = _subscription;
-    if (subscription == null || _paused) return;
-    subscription.pause();
+    final job = _runningJob;
+    if (job == null || _paused) return;
+    _bridge.callSync('download.pause', {'id': job});
     _paused = true;
   }
 
   Future<void> resumeDownload() async {
-    final subscription = _subscription;
-    if (subscription == null || !_paused) return;
-    subscription.resume();
+    final job = _runningJob;
+    if (job == null || !_paused) return;
+    _bridge.callSync('download.resume', {'id': job});
     _paused = false;
   }
 
   Future<void> cancelDownload({String? packageName}) async {
-    if (packageName != null && _activePackage != packageName) {
-      _cancelledPackages.add(packageName);
-      return;
+    if (packageName != null) {
+      final job = _jobs[packageName];
+      if (job == null) {
+        _cancelledPackages.add(packageName);
+        return;
+      }
+      _bridge.callSync('download.cancel', {'id': job});
+    } else {
+      _bridge.callSync('download.cancel');
     }
-
-    _cancelled = true;
     _paused = false;
-
-    try {
-      await _subscription?.cancel();
-    } catch (e, s) {
-      DebugLog.e('ApkInstall', 'subscription cancel failed', e, s);
-    }
-    _subscription = null;
-
-    _client?.close(force: true);
-    _client = null;
-
-    await _deleteFile(_activeFile);
-    _activeFile = null;
-
-    final completer = _downloadCompleter;
-    if (completer != null && !completer.isCompleted) {
-      completer.completeError(const StoreApiException('download_cancelled'));
-    }
   }
 
   Future<void> downloadAndInstall({
@@ -200,192 +198,120 @@ class ApkInstallService {
       throw const StoreApiException('missing_version');
     }
 
-    final previous = _serialLock;
-    final ownGate = Completer<void>();
-    _serialLock = ownGate.future;
+    final path = await downloadApk(
+      packageName: app.packageName,
+      version: version,
+      onProgress: onProgress,
+      onStarted: onStarted,
+    );
 
     try {
-      try {
-        await previous;
-      } catch (e, s) {
-        DebugLog.e('ApkInstall', 'serial lock predecessor failed', e, s);
+      await _channel.invokeMethod('installApk', {
+        'path': path,
+        'packageName': app.packageName,
+      });
+    } catch (e, s) {
+      DebugLog.e('ApkInstall', 'install failed: ${app.packageName}', e, s);
+      rethrow;
+    }
+    invalidateStateCache();
+
+    _scheduleInstallCacheCleanup(File(path));
+  }
+
+  Future<String> downloadApk({
+    required String packageName,
+    required StoreVersion version,
+    required void Function(double progress) onProgress,
+    void Function()? onStarted,
+  }) async {
+    await _bridge.ensureReady();
+
+    if (_cancelledPackages.remove(packageName)) {
+      throw const StoreApiException('download_cancelled');
+    }
+
+    _paused = false;
+
+    final job = await _bridge.call<int>(
+      'download.start',
+      args: {
+        'packageName': packageName,
+        'versionCode': version.versionCode,
+        'apkSize': version.apkSize,
+      },
+      decode: _asJobId,
+    );
+    _jobs[packageName] = job;
+
+    try {
+      if (_cancelledPackages.remove(packageName)) {
+        _bridge.callSync('download.cancel', {'id': job});
       }
 
-      if (_cancelledPackages.remove(app.packageName)) {
-        throw const StoreApiException('download_cancelled');
-      }
-
-      _cancelled = false;
-      _paused = false;
-      _activePackage = app.packageName;
-
-      onStarted?.call();
-
-      final downloadUrl = await StoreService.instance.getDownloadUrl(
-        packageName: app.packageName,
-        versionCode: version.versionCode,
-      );
-
-      final installDir = await _installCacheDirectory();
-      await _clearInstallCache(installDir);
-
-      final file = File(
-        '${installDir.path}/${app.packageName}-${version.versionCode}.apk',
-      );
-      _activeFile = file;
-
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 15);
-      _client = client;
-
-      final request = await client.getUrl(Uri.parse(downloadUrl));
-      final response = await request.close();
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        client.close(force: true);
-        _client = null;
-        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} http_${response.statusCode}');
-        throw StoreApiException('download_http_${response.statusCode}');
-      }
-
-      final total = response.contentLength;
-      var received = 0;
-
-      final digestOutput = AccumulatorSink<Digest>();
-      final digestInput = sha256.startChunkedConversion(digestOutput);
-      final sink = file.openWrite();
-      final completer = Completer<void>();
-      _downloadCompleter = completer;
-
-      _subscription = response.listen(
-            (chunk) {
-          if (_cancelled) return;
-          received += chunk.length;
-          digestInput.add(chunk);
-          sink.add(chunk);
-          if (total > 0) {
-            onProgress(received / total);
-          }
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          DebugLog.e('ApkInstall', 'download stream failed: ${app.packageName}', error, stackTrace);
-          if (!completer.isCompleted) {
-            completer.completeError(error, stackTrace);
-          }
-        },
-        onDone: () {
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        cancelOnError: true,
-      );
-
-      try {
-        await completer.future;
-      } finally {
-        await sink.close();
-        digestInput.close();
-        client.close(force: true);
-        _subscription = null;
-        _downloadCompleter = null;
-        _client = null;
-        _paused = false;
-      }
-
-      if (_cancelled) {
-        await _deleteFile(file);
-        _activeFile = null;
-        throw const StoreApiException('download_cancelled');
-      }
-
-      if (version.apkSize > 0 && file.lengthSync() != version.apkSize) {
-        await _deleteFile(file);
-        _activeFile = null;
-        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} apk_size_mismatch');
-        throw const StoreApiException('apk_size_mismatch');
-      }
-
-      final actualSha256 = digestOutput.events.single.toString().toLowerCase();
-      final expectedSha256 = version.sha256.trim().toLowerCase();
-
-      if (expectedSha256.isEmpty) {
-        await _deleteFile(file);
-        _activeFile = null;
-        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} sha256_missing');
-        throw const StoreApiException('sha256_missing');
-      }
-
-      if (actualSha256 != expectedSha256) {
-        await _deleteFile(file);
-        _activeFile = null;
-        DebugLog.e('ApkInstall', 'download failed: ${app.packageName} sha256_mismatch');
-        throw const StoreApiException('sha256_mismatch');
-      }
-
+      final path = await _awaitJob(job, packageName, onProgress, onStarted);
       onProgress(1);
-
-      try {
-        await _channel.invokeMethod('installApk', {
-          'path': file.path,
-          'packageName': app.packageName,
-        });
-      } catch (e, s) {
-        DebugLog.e('ApkInstall', 'install failed: ${app.packageName}', e, s);
-        rethrow;
-      }
-      invalidateStateCache();
-
-      _scheduleInstallCacheCleanup(installDir, file);
+      return path;
     } finally {
-      _activePackage = null;
-      _cancelledPackages.remove(app.packageName);
-      ownGate.complete();
+      _jobs.remove(packageName);
+      _cancelledPackages.remove(packageName);
+      if (_runningJob == job) _runningJob = null;
+      _paused = false;
     }
   }
 
-  Future<Directory> _installCacheDirectory() async {
-    final dir = await getApplicationSupportDirectory();
-    final installDir = Directory('${dir.path}/install_cache');
-    if (!await installDir.exists()) {
-      await installDir.create(recursive: true);
-    }
-    return installDir;
-  }
+  Future<String> _awaitJob(
+    int job,
+    String packageName,
+    void Function(double progress) onProgress,
+    void Function()? onStarted,
+  ) async {
+    var started = false;
+    var lastProgress = -1.0;
 
-  Future<void> _clearInstallCache(Directory installDir) async {
-    if (!await installDir.exists()) return;
-    final active = _activeFile;
-    await for (final entity in installDir.list()) {
-      if (active != null && entity.path == active.path) continue;
-      await _deleteEntity(entity);
-    }
-  }
+    while (true) {
+      final status = _bridge.callSync('download.status', {'id': job}) as Map<String, dynamic>;
+      final state = status['state'] as String;
 
-  void _scheduleInstallCacheCleanup(Directory installDir, File installedFile) {
-    _cleanupTimer?.cancel();
-    _cleanupTimer = Timer(_installCacheTtl, () async {
-      await _deleteFile(installedFile);
-    });
-  }
-
-  Future<void> _deleteFile(File? file) async {
-    if (file == null) return;
-    try {
-      if (await file.exists()) {
-        await file.delete();
+      if (!started && state != 'queued') {
+        started = true;
+        _runningJob = job;
+        onStarted?.call();
       }
-    } catch (e, s) {
-      DebugLog.e('ApkInstall', 'delete file failed: ${file.path}', e, s);
+
+      if (state == 'done') return status['path'] as String;
+
+      if (state == 'failed') {
+        final error = status['error'] as String? ?? 'download_failed';
+        if (error != 'download_cancelled') {
+          DebugLog.e('ApkInstall', 'download failed: $packageName $error');
+        }
+        throw StoreApiException(error);
+      }
+
+      final total = _asInt(status['total']);
+      if (total > 0) {
+        final progress = _asInt(status['received']) / total;
+        if (progress != lastProgress) {
+          lastProgress = progress;
+          onProgress(progress);
+        }
+      }
+
+      await Future<void>.delayed(_pollInterval);
     }
   }
 
-  Future<void> _deleteEntity(FileSystemEntity entity) async {
-    try {
-      await entity.delete(recursive: true);
-    } catch (e, s) {
-      DebugLog.e('ApkInstall', 'delete entity failed: ${entity.path}', e, s);
-    }
+  void _scheduleInstallCacheCleanup(File installedFile) {
+    Timer(_installCacheTtl, () async {
+      try {
+        if (await installedFile.exists()) {
+          await installedFile.delete();
+        }
+      } catch (e, s) {
+        DebugLog.e('ApkInstall', 'delete file failed: ${installedFile.path}', e, s);
+      }
+    });
   }
 
   String? _asString(Object? value) {
@@ -400,3 +326,5 @@ class ApkInstallService {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
+
+int _asJobId(dynamic value) => (value as num).toInt();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
@@ -24,6 +23,8 @@ class _SearchScreenState extends State<SearchScreen> {
   String _query = '';
   String? _selectedCategory;
   double _minRating = 0;
+  List<PublicStoreApp> _results = const [];
+  int _queryId = 0;
 
   bool get _hasActiveSearch =>
       _query.isNotEmpty || _selectedCategory != null || _minRating > 0;
@@ -33,9 +34,10 @@ class _SearchScreenState extends State<SearchScreen> {
     super.initState();
     _future = IndexService.instance.fetchIndex();
     _searchController.addListener(() {
-      setState(() {
-        _query = _searchController.text.trim().toLowerCase();
-      });
+      final query = _searchController.text.trim().toLowerCase();
+      if (query == _query) return;
+      _query = query;
+      _runQuery();
     });
   }
 
@@ -45,22 +47,22 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  List<PublicStoreApp> _filtered(List<PublicStoreApp> apps) {
-    if (!_hasActiveSearch) return const [];
-
-    return apps.where((app) {
-      final matchesQuery = _query.isEmpty ||
-          app.name.toLowerCase().contains(_query) ||
-          app.packageName.toLowerCase().contains(_query) ||
-          app.displaySummary.toLowerCase().contains(_query);
-
-      final matchesCategory =
-          _selectedCategory == null || app.category == _selectedCategory;
-
-      final matchesRating = _minRating == 0 || app.ratingAvg >= _minRating;
-
-      return matchesQuery && matchesCategory && matchesRating;
-    }).toList();
+  Future<void> _runQuery() async {
+    final id = ++_queryId;
+    if (!_hasActiveSearch) {
+      setState(() => _results = const []);
+      return;
+    }
+    try {
+      final results = await IndexService.instance.query(
+        query: _query,
+        category: _selectedCategory,
+        minRating: _minRating,
+      );
+      if (mounted && id == _queryId) setState(() => _results = results);
+    } catch (_) {
+      if (mounted && id == _queryId) setState(() => _results = const []);
+    }
   }
 
   @override
@@ -72,7 +74,7 @@ class _SearchScreenState extends State<SearchScreen> {
       builder: (context, snapshot) {
         final loading = snapshot.connectionState == ConnectionState.waiting;
         final index = snapshot.data;
-        final filtered = _filtered(index?.apps ?? []);
+        final filtered = _results;
         final categories = index?.categories ?? {};
 
         return Column(
@@ -85,12 +87,13 @@ class _SearchScreenState extends State<SearchScreen> {
               minRating: _minRating,
               allCategoriesValue: _allCategoriesValue,
               onCategoryChanged: (v) {
-                setState(() {
-                  _selectedCategory =
-                  v == _allCategoriesValue ? null : v;
-                });
+                setState(() => _selectedCategory = v == _allCategoriesValue ? null : v);
+                _runQuery();
               },
-              onRatingChanged: (v) => setState(() => _minRating = v),
+              onRatingChanged: (v) {
+                setState(() => _minRating = v);
+                _runQuery();
+              },
             ),
             Expanded(
               child: loading
@@ -158,7 +161,7 @@ class _SearchBar extends StatelessWidget {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: colors.border),
         ),
@@ -369,16 +372,9 @@ class _FilterMenu<T> extends StatelessWidget {
         height: 42,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: colors.card,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: colors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.035),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
         ),
         child: Row(
           children: [

@@ -1,11 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:safehaven/services/engine/bridge.dart';
 import '../../logs/debug_log_service.dart';
 import '../../store_service.dart';
+import '../apk_install_service.dart';
 
 class SelfUpdateInfo {
   const SelfUpdateInfo({
@@ -55,6 +53,8 @@ class SelfUpdateService {
   // static const _apiBase = 'https://api.github.com/repos/$_repo';
   static const MethodChannel _channel = MethodChannel('safehaven/installer');
 
+  final EngineBridge _bridge = EngineBridge.instance;
+
   static bool forceUpdate = false;
 
   static final _tagPrefix = RegExp(r'^v', caseSensitive: false);
@@ -75,11 +75,7 @@ class SelfUpdateService {
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
 
-      final index = await StoreService.instance.fetchIndex();
-      final storeApp = index.apps.firstWhere(
-            (a) => a.packageName == _selfPackage,
-        orElse: () => throw StateError('not_in_index'),
-      );
+      final storeApp = await _storeApp();
 
       final latest = storeApp.latestVersion;
       if (latest == null) return null;
@@ -102,69 +98,31 @@ class SelfUpdateService {
     }
   }
 
+  Future<PublicStoreApp> _storeApp() {
+    return _bridge.call<PublicStoreApp>(
+      'index.app',
+      args: {'package': _selfPackage},
+      decode: _decodeApp,
+    );
+  }
+
   Future<String?> downloadApk(
       int versionCode, {
         required void Function(double progress) onProgress,
       }) async {
-    final dir = await getApplicationSupportDirectory();
-    final updateDir = Directory('${dir.path}/install_cache');
-    if (!await updateDir.exists()) {
-      await updateDir.create(recursive: true);
-    }
-
-    await for (final entity in updateDir.list()) {
-      try {
-        await entity.delete(recursive: true);
-      } catch (_) {}
-    }
-
-    final file = File('${updateDir.path}/safehaven_self_update.apk');
-
-    String url;
     try {
-      url = await StoreService.instance.getDownloadUrl(
+      final storeApp = await _storeApp();
+      final version = storeApp.versions.firstWhere(
+        (v) => v.versionCode == versionCode,
+      );
+      return await ApkInstallService.instance.downloadApk(
         packageName: _selfPackage,
-        versionCode: versionCode,
+        version: version,
+        onProgress: onProgress,
       );
     } catch (e, s) {
-      DebugLog.e('SelfUpdate', 'getDownloadUrl failed', e, s);
-      return null;
-    }
-
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 15);
-
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      final response = await request.close();
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        DebugLog.e('SelfUpdate', 'download failed: http_${response.statusCode}');
-        return null;
-      }
-
-      final total = response.contentLength;
-      var received = 0;
-      final sink = file.openWrite();
-
-      await for (final chunk in response) {
-        received += chunk.length;
-        sink.add(chunk);
-        if (total > 0) {
-          onProgress((received / total).clamp(0.0, 1.0));
-        }
-      }
-
-      await sink.close();
-      return file.path;
-    } catch (e, s) {
       DebugLog.e('SelfUpdate', 'download failed', e, s);
-      try {
-        await file.delete();
-      } catch (_) {}
       return null;
-    } finally {
-      client.close(force: true);
     }
   }
 
@@ -266,4 +224,8 @@ class SelfUpdateService {
 
     return blocks;
   }
+}
+
+PublicStoreApp _decodeApp(dynamic value) {
+  return PublicStoreApp.fromJson(value as Map<String, dynamic>);
 }

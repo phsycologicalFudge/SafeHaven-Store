@@ -64,6 +64,26 @@
   "myAppsEmptyTitle": "No installed store apps found.",
   "myAppsEmptyBody": "Apps only appear here when their package name matches an app in the catalogue.",
   "myAppsErrorTitle": "Could not load your apps",
+  "myAppsVersionAvailable": "{versionName} is available",
+  "@myAppsVersionAvailable": {
+    "placeholders": {
+      "versionName": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsInstalledSection": "Installed",
+  "myAppsUpdatingProgress": "Updating {current} of {total}",
+  "@myAppsUpdatingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "appOptionsTitle": "App options",
   "appCopyRepoLink": "Copy repo link",
   "appNoRepoLink": "No repository link is available yet.",
@@ -147,9 +167,9 @@
   "settingsUpdateNoneDesc": "SafeHaven will not automatically update apps for you.",
   "settingsUpdateLightDesc": "SafeHaven will periodically every 6 hours check for updates. This uses minimum battery, but apps may not be updated quickly.",
   "settingsUpdateFullDesc": "SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]",
-  "settingsDeveloper": "Developer",
+  "settingsProfile": "Profile",
   "settingsAccount": "Account",
-  "settingsAccountSubtitle": "Manage your developer profile",
+  "settingsAccountSubtitle": "Manage your account and profile",
   "settingsAbout": "About",
   "settingsHowThisWorks": "How This Works",
   "settingsHowThisWorksSubtitle": "Tap to find out",
@@ -174,6 +194,9 @@
   "devYourApps": "Your apps",
   "devSignInPrompt": "Sign in to manage developer submissions, review status, signing keys, and dashboard access.",
   "devNoDevAccess": "Developer access is not enabled. Open the dashboard to agree to the developer terms.",
+  "accountSignInSubtitle": "Are you a developer? Sign in above to see details on your submissions",
+  "accountSignInToView": "Sign in to view your apps!",
+  "accountEmpty": "It's pretty empty here...",
   "devNoApps": "No apps registered yet. Open the dashboard to register your first app.",
   "devCouldNotOpenLogin": "Could not open login page.",
   "devCouldNotOpenDashboard": "Could not open dashboard.",
@@ -187,6 +210,8 @@
   "devSigningKeyCopied": "Copied",
   "devSubmissions": "Submissions",
   "devSeeAllHistory": "See all history",
+  "devStatusLive": "Live",
+  "devStatusRejected": "Rejected",
   "devStatusInactive": "Inactive",
   "devVersionCode": "Version {code}",
   "@devVersionCode": {
@@ -206,5 +231,23 @@
   "commonDone": "Done",
   "commonSave": "Save",
   "devEditProfile": "Edit profile",
-  "devRemovePhoto": "Remove photo"
+  "devRemovePhoto": "Remove photo",
+  "notificationsTitle": "Notifications",
+  "notificationsEmpty": "No notifications yet",
+  "notificationsToday": "Today",
+  "notificationsYesterday": "Yesterday",
+  "notificationsLastWeek": "Last week",
+  "notificationsLastMonth": "Last month",
+  "notificationsOlder": "Older",
+  "notificationsDelete": "Delete",
+  "notificationUpdated": "Updated to the latest version",
+  "notificationUpdateFailed": "Couldn't be updated",
+  "notificationSelfUpdate": "Version {version} is available",
+  "@notificationSelfUpdate": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
 }

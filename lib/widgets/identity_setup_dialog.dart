@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/developer_profile_service.dart';
 import '../services/device_identity_service.dart';
 import '../services/theme/theme_manager.dart';
 import 'package:safehaven/translations/app_localizations.dart';
@@ -50,6 +51,7 @@ class _IdentitySetupDialogState extends State<IdentitySetupDialog> {
 
     try {
       await DeviceIdentityService.instance.setupIdentity(nickname);
+      await DeveloperProfileService.instance.refreshNickname();
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
       setState(() {

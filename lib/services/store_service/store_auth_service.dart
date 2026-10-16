@@ -1,9 +1,7 @@
-import 'package:http/http.dart' as http;
+import 'package:safehaven/services/engine/bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'store_config.dart';
 import 'store_exceptions.dart';
-import 'store_http_utils.dart';
 
 class StoreAuthService {
   StoreAuthService._();
@@ -56,14 +54,12 @@ class StoreAuthService {
 
   Future<StoreAccount> fetchMe() async {
     final token = await requireToken();
-    final res = await http.get(
-      Uri.parse('$storeDefaultBaseUrl/me'),
-      headers: storeAuthHeaders(token),
+    final body = await EngineBridge.instance.call<Map<String, dynamic>>(
+      'api.request',
+      args: {'method': 'GET', 'path': '/me', 'token': token},
+      decode: asMap,
     );
 
-    storeThrowIfBad(res);
-
-    final body = storeDecodeMap(res.body);
     final user = body['user'];
     if (user is! Map<String, dynamic>) {
       throw const StoreApiException('user_missing');

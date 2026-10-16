@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../services/catalogue_service.dart';
+import '../../../../services/index_service.dart';
 import '../../../../services/store_service.dart';
 import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/animated_tap.dart';
@@ -10,13 +10,9 @@ import '../widgets/catalogue_shared_widgets.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 
 class SeeMoreAppsScreen extends StatefulWidget {
-  const SeeMoreAppsScreen({
-    required this.title,
-    required this.apps,
-  });
+  const SeeMoreAppsScreen({required this.title});
 
   final String title;
-  final List<PublicStoreApp> apps;
 
   @override
   State<SeeMoreAppsScreen> createState() => _SeeMoreAppsScreenState();
@@ -25,56 +21,33 @@ class SeeMoreAppsScreen extends StatefulWidget {
 class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-
-  late List<_SearchableApp> _searchableApps;
-  late List<PublicStoreApp> _displayedApps;
+  List<PublicStoreApp>? _displayedApps;
+  int _queryId = 0;
 
   @override
   void initState() {
     super.initState();
-    _initSearchables();
+    _runQuery();
   }
 
-  @override
-  void didUpdateWidget(SeeMoreAppsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.apps != oldWidget.apps) {
-      _initSearchables();
+  Future<void> _runQuery() async {
+    final id = ++_queryId;
+    try {
+      final apps = await IndexService.instance.query(query: _searchQuery);
+      if (mounted && id == _queryId) setState(() => _displayedApps = apps);
+    } catch (_) {
+      if (mounted && id == _queryId) setState(() => _displayedApps ??= const []);
     }
-  }
-
-  void _initSearchables() {
-    _searchableApps = widget.apps.map((a) => _SearchableApp(a)).toList();
-    _filterApps();
-  }
-
-  void _filterApps() {
-    final query = _searchQuery.trim().toLowerCase();
-
-    if (query.isEmpty) {
-      _displayedApps = widget.apps;
-      return;
-    }
-
-    _displayedApps = _searchableApps
-        .where((a) => a.searchString.contains(query))
-        .map((a) => a.app)
-        .toList();
   }
 
   void _onSearchChanged(String value) {
-    setState(() {
-      _searchQuery = value;
-      _filterApps();
-    });
+    setState(() => _searchQuery = value);
+    _runQuery();
   }
 
   void _clearSearch() {
     _searchController.clear();
-    setState(() {
-      _searchQuery = '';
-      _displayedApps = widget.apps;
-    });
+    _onSearchChanged('');
   }
 
   @override
@@ -86,6 +59,7 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final apps = _displayedApps;
 
     return Scaffold(
       backgroundColor: colors.backgroundFrost,
@@ -126,15 +100,17 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                               color: colors.text,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${_displayedApps.length})',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: colors.textMuted,
+                          if (apps != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '(${apps.length})',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textMuted,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -148,18 +124,9 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: colors.surface,
+                    color: colors.card,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: colors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                          SafeHavenThemeManager.instance.isDark ? 0.16 : 0.045,
-                        ),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
                   ),
                   child: Row(
                     children: [
@@ -210,7 +177,9 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            if (_displayedApps.isEmpty)
+            if (apps == null)
+              const SliverToBoxAdapter(child: CatalogueLoadingBlock())
+            else if (apps.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.only(top: 40),
@@ -219,9 +188,9 @@ class _SeeMoreAppsScreenState extends State<SeeMoreAppsScreen> {
               )
             else
               SliverList.builder(
-                itemCount: _displayedApps.length,
+                itemCount: apps.length,
                 itemBuilder: (context, index) {
-                  return _SeeMoreAppRow(app: _displayedApps[index]);
+                  return _SeeMoreAppRow(app: apps[index]);
                 },
               ),
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
@@ -292,12 +261,4 @@ class _SeeMoreAppRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SearchableApp {
-  _SearchableApp(this.app)
-      : searchString = '${app.name} ${app.developerName} ${app.packageName}'.toLowerCase();
-
-  final PublicStoreApp app;
-  final String searchString;
 }

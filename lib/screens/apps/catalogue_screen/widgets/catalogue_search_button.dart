@@ -23,18 +23,9 @@ class CatalogueSearchButton extends StatelessWidget {
         child: Container(
           height: 48,
           decoration: BoxDecoration(
-            color: colors.surface,
+            color: colors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: colors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(
-                  SafeHavenThemeManager.instance.isDark ? 0.16 : 0.045,
-                ),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Row(
             children: [

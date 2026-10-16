@@ -66,7 +66,7 @@ class _TopChartGalleryCard extends StatelessWidget {
         width: cardWidth,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
-          color: colors.surfaceSoft,
+          color: SafeHavenThemeManager.instance.isDark ? colors.card : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: colors.border),
         ),

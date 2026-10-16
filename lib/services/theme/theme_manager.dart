@@ -47,6 +47,7 @@ class SafeHavenColors {
     required this.backgroundFrost,
     required this.surface,
     required this.surfaceSoft,
+    required this.card,
     required this.border,
     required this.text,
     required this.textSoft,
@@ -63,6 +64,7 @@ class SafeHavenColors {
   final Color backgroundFrost;
   final Color surface;
   final Color surfaceSoft;
+  final Color card;
   final Color border;
   final Color text;
   final Color textSoft;
@@ -73,6 +75,8 @@ class SafeHavenColors {
   final Color accentEnd;
   final Color iconBackground;
   final Color buttonText;
+
+  Color get faint => Color.lerp(backgroundFrost, surfaceSoft, 0.4)!;
 
   LinearGradient get accentGradient {
     return LinearGradient(
@@ -93,35 +97,37 @@ class SafeHavenColors {
 class SafeHavenTheme {
   static const light = SafeHavenColors(
     background: Color(0xFFFFFFFF),
-    backgroundFrost: Color(0xFFF2F2F6),
+    backgroundFrost: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
-    surfaceSoft: Color(0xFFF7F7FA),
-    border: Color(0xFFE7E8EE),
-    text: Color(0xFF18181C),
-    textSoft: Color(0xFF4D515C),
-    textMuted: Color(0xFF8E929E),
-    navBackground: Color(0xFFF2F2F6),
-    navBorder: Color(0xFFE7E8EE),
+    surfaceSoft: Color(0xFFF2F2F4),
+    card: Color(0xFFFAFAFB),
+    border: Color(0xFFE8E8EB),
+    text: Color(0xFF18181A),
+    textSoft: Color(0xFF4A4A4F),
+    textMuted: Color(0xFF8E8E93),
+    navBackground: Color(0xFFFFFFFF),
+    navBorder: Color(0xFFEDEDEF),
     accentStart: Color(0xFF5A92FF),
     accentEnd: Color(0xFF8EBCFF),
-    iconBackground: Color(0xFFF4F5F8),
+    iconBackground: Color(0xFFF2F2F4),
     buttonText: Color(0xFFFFFFFF),
   );
 
   static const dark = SafeHavenColors(
-    background: Color(0xFF0B0B10),
-    backgroundFrost: Color(0xFF111118),
-    surface: Color(0xFF12131A),
-    surfaceSoft: Color(0xFF191B24),
-    border: Color(0xFF272A34),
-    text: Color(0xFFF6F7FB),
-    textSoft: Color(0xFFD8DBE3),
-    textMuted: Color(0xFF9BA0AD),
-    navBackground: Color(0xFF111118),
-    navBorder: Color(0xFF232632),
+    background: Color(0xFF000000),
+    backgroundFrost: Color(0xFF000000),
+    surface: Color(0xFF1C1C1E),
+    surfaceSoft: Color(0xFF121214),
+    card: Color(0xFF0A0A0B),
+    border: Color(0xFF222224),
+    text: Color(0xFFF5F5F7),
+    textSoft: Color(0xFFD1D1D6),
+    textMuted: Color(0xFF98989F),
+    navBackground: Color(0xFF000000),
+    navBorder: Color(0xFF1A1A1C),
     accentStart: Color(0xFF3B71E8),
     accentEnd: Color(0xFF6A97FF),
-    iconBackground: Color(0xFF1B1E27),
+    iconBackground: Color(0xFF1C1C1E),
     buttonText: Color(0xFFFFFFFF),
   );
 

@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../services/index_service.dart';
 import '../../services/installer/safehaven_updater/self_update_dialog.dart';
 import '../../services/installer/safehaven_updater/self_update_service.dart';
 import '../../services/installer/store_update_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../widgets/footer.dart';
@@ -71,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen>
     _tabController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.load();
       _requestNotificationPermission();
       _checkForUpdates();
       _checkForSelfUpdate();
@@ -89,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      NotificationService.instance.load();
       _checkForUpdates();
       _checkForSelfUpdate();
     }
@@ -102,8 +104,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     _lastUpdateCheck = now;
     try {
-      final index = await IndexService.instance.fetchIndex(forceRefresh: true);
-      await StoreUpdateService.instance.syncAndTriggerAutoUpdates(index.apps);
+      await StoreUpdateService.instance.syncAndTriggerAutoUpdates();
     } catch (_) {}
   }
 
@@ -123,6 +124,12 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final info = await SelfUpdateService.instance.check();
       if (info == null || !mounted) return;
+      NotificationService.instance.add(
+        NotificationKind.selfUpdate,
+        packageName: 'com.colourswift.safehaven',
+        appName: 'SafeHaven',
+        detail: info.latestVersion,
+      );
 
       _selfUpdateDialogOpen = true;
       await SelfUpdateDialog.show(context, info);
@@ -215,7 +222,10 @@ class _HomeScreenState extends State<HomeScreen>
               },
               child: IndexedStack(
                 index: _selectedIndex,
-                children: _screens,
+                children: [
+                  for (var i = 0; i < _screens.length; i++)
+                    TickerMode(enabled: i == _selectedIndex, child: _screens[i]),
+                ],
               ),
             ),
           ),

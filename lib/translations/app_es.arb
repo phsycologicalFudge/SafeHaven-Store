@@ -64,6 +64,26 @@
   "myAppsEmptyTitle": "No se encontraron aplicaciones instaladas desde la tienda.",
   "myAppsEmptyBody": "Las aplicaciones solo aparecen aquí cuando el nombre de su paquete coincide con una aplicación del catálogo.",
   "myAppsErrorTitle": "No se pudieron cargar tus aplicaciones",
+  "myAppsVersionAvailable": "{versionName} está disponible",
+  "@myAppsVersionAvailable": {
+    "placeholders": {
+      "versionName": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsInstalledSection": "Instaladas",
+  "myAppsUpdatingProgress": "Actualizando {current} de {total}",
+  "@myAppsUpdatingProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "appOptionsTitle": "Opciones de la aplicación",
   "appCopyRepoLink": "Copiar enlace del repositorio",
   "appNoRepoLink": "Aún no hay ningún enlace al repositorio disponible.",
@@ -147,9 +167,9 @@
   "settingsUpdateNoneDesc": "SafeHaven no actualizará automáticamente las aplicaciones.",
   "settingsUpdateLightDesc": "SafeHaven comprobará si hay actualizaciones cada 6 horas. Esto consume muy poca batería, pero puede que las aplicaciones no se actualicen rápidamente.",
   "settingsUpdateFullDesc": "SafeHaven comprobará si hay actualizaciones cada 6 horas y también se ejecutará como servicio en primer plano para buscarlas cada 5 minutos.\n\n[Esto consume aproximadamente entre un 1 y un 3 % más de batería.]",
-  "settingsDeveloper": "Desarrollador",
+  "settingsProfile": "Perfil",
   "settingsAccount": "Cuenta",
-  "settingsAccountSubtitle": "Gestiona tu perfil de desarrollador",
+  "settingsAccountSubtitle": "Gestiona tu cuenta y perfil",
   "settingsAbout": "Acerca de",
   "settingsHowThisWorks": "Cómo funciona",
   "settingsHowThisWorksSubtitle": "Toca para obtener más información",
@@ -174,6 +194,9 @@
   "devYourApps": "Tus aplicaciones",
   "devSignInPrompt": "Inicia sesión para gestionar los envíos de desarrollador, el estado de revisión, las claves de firma y el acceso al panel.",
   "devNoDevAccess": "El acceso de desarrollador no está habilitado. Abre el panel para aceptar los términos para desarrolladores.",
+  "accountSignInSubtitle": "¿Eres desarrollador? Inicia sesión arriba para ver los detalles de tus envíos",
+  "accountSignInToView": "¡Inicia sesión para ver tus apps!",
+  "accountEmpty": "Esto está bastante vacío...",
   "devNoApps": "Aún no hay aplicaciones registradas. Abre el panel para registrar tu primera aplicación.",
   "devCouldNotOpenLogin": "No se pudo abrir la página de inicio de sesión.",
   "devCouldNotOpenDashboard": "No se pudo abrir el panel.",
@@ -187,6 +210,8 @@
   "devSigningKeyCopied": "Copiado",
   "devSubmissions": "Envíos",
   "devSeeAllHistory": "Ver todo el historial",
+  "devStatusLive": "Publicada",
+  "devStatusRejected": "Rechazada",
   "devStatusInactive": "Inactivo",
   "devVersionCode": "Versión {code}",
   "@devVersionCode": {
@@ -206,5 +231,23 @@
   "commonDone": "Listo",
   "commonSave": "Guardar",
   "devEditProfile": "Editar perfil",
-  "devRemovePhoto": "Quitar foto"
+  "devRemovePhoto": "Quitar foto",
+  "notificationsTitle": "Notificaciones",
+  "notificationsEmpty": "Aún no hay notificaciones",
+  "notificationsToday": "Hoy",
+  "notificationsYesterday": "Ayer",
+  "notificationsLastWeek": "La semana pasada",
+  "notificationsLastMonth": "El mes pasado",
+  "notificationsOlder": "Más antiguas",
+  "notificationsDelete": "Eliminar",
+  "notificationUpdated": "Actualizada a la última versión",
+  "notificationUpdateFailed": "No se pudo actualizar",
+  "notificationSelfUpdate": "La versión {version} está disponible",
+  "@notificationSelfUpdate": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
 }

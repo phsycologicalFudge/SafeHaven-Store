@@ -23,7 +23,7 @@ class _PullRefreshState extends State<PullRefresh> {
   bool _dragging = false;
 
   bool _handleNotification(ScrollNotification notification) {
-    if (_armed) return false;
+    if (_armed || notification.depth != 0) return false;
 
     if (notification is OverscrollNotification &&
         notification.overscroll < 0 &&
@@ -63,6 +63,7 @@ class _PullRefreshState extends State<PullRefresh> {
 
     try {
       await widget.onRefresh();
+    } catch (_) {
     } finally {
       if (mounted) setState(() => _armed = false);
     }

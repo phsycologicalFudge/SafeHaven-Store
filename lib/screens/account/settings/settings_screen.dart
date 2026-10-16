@@ -208,7 +208,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SliverToBoxAdapter(
             child: _SettingsSection(
-              title: AppLocalizations.of(context)!.settingsDeveloper,
+              title: AppLocalizations.of(context)!.settingsProfile,
               children: [
                 _SettingsActionTile(
                   icon: Icons.person_rounded,
@@ -332,7 +332,7 @@ class _SettingsSection extends StatelessWidget {
           ),
           Container(
             decoration: BoxDecoration(
-              color: colors.surfaceSoft,
+              color: colors.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: colors.border),
             ),

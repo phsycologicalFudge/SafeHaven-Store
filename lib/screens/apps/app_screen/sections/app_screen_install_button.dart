@@ -10,6 +10,8 @@ import '../../../../services/theme/theme_manager.dart';
 import '../../../../widgets/dialogs/message_dialog.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 
+const Color _danger = Color(0xFFE85D75);
+
 class AppScreenInstallButton extends StatefulWidget {
   const AppScreenInstallButton({
     super.key,
@@ -98,7 +100,8 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
     final status = check?.status;
 
     if (status == StoreUpdateStatus.current ||
-        status == StoreUpdateStatus.installedNewerThanStore) {
+        status == StoreUpdateStatus.installedNewerThanStore ||
+        check?.updateBlocked == true) {
       await _openInstalledApp();
       return;
     }
@@ -176,10 +179,8 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       DebugLog.e('ApkInstall', 'install failed: $_pkg ${e.code}', e, s);
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
-      final message = e.code == 'install_permission_required'
-          ? AppLocalizations.of(context)!.installPermissionRequired
-          : AppLocalizations.of(context)!.installCouldNotStart;
-      SimpleMessageDialog.show(context, title: AppLocalizations.of(context)!.installFailed, message: message);
+      final l = AppLocalizations.of(context)!;
+      SimpleMessageDialog.show(context, title: l.installFailed, message: ApkInstallService.failureMessage(e, l));
     } catch (e, s) {
       final msg = e.toString();
       if (msg != 'download_cancelled') {
@@ -188,12 +189,8 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       if (!mounted) return;
       InstallSync.preparing[_pkg]!.value = false;
       if (msg != 'download_cancelled') {
-        final text = switch (msg) {
-          'sha256_mismatch' || 'sha256_missing' => AppLocalizations.of(context)!.installIntegrityFailed,
-          'apk_size_mismatch' => AppLocalizations.of(context)!.installIncomplete,
-          _ => AppLocalizations.of(context)!.installFailedGeneric(e.toString()),
-        };
-        SimpleMessageDialog.show(context, title: AppLocalizations.of(context)!.installFailed, message: text);
+        final l = AppLocalizations.of(context)!;
+        SimpleMessageDialog.show(context, title: l.installFailed, message: ApkInstallService.failureMessage(e, l));
       }
     } finally {
       InstallSync.active[_pkg]!.value = false;
@@ -247,7 +244,9 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
       case StoreUpdateStatus.notInstalled:
         return AppLocalizations.of(context)!.buttonInstall;
       case StoreUpdateStatus.updateAvailable:
-        return AppLocalizations.of(context)!.buttonUpdate;
+        return check?.updateBlocked == true
+            ? AppLocalizations.of(context)!.buttonOpen
+            : AppLocalizations.of(context)!.buttonUpdate;
       case StoreUpdateStatus.current:
       case StoreUpdateStatus.installedNewerThanStore:
         return AppLocalizations.of(context)!.buttonOpen;
@@ -269,6 +268,7 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
         InstallSync.progress[_pkg]!,
         InstallSync.preparing[_pkg]!,
         InstallSync.isChecking[_pkg]!,
+        InstallSync.checkVersion,
       ]),
       builder: (context, _) {
         final isInstalling = InstallSync.active[_pkg]!.value;
@@ -402,7 +402,23 @@ class _AppScreenInstallButtonState extends State<AppScreenInstallButton>
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
-          child: buttonRow,
+          child: check?.updateBlocked == true
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buttonRow,
+                    const SizedBox(height: 8),
+                    Text(
+                      AppLocalizations.of(context)!.updateFailureCannotUpdate,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: _danger,
+                      ),
+                    ),
+                  ],
+                )
+              : buttonRow,
         );
       },
     );
@@ -475,7 +491,6 @@ class _InstallIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = SafeHavenThemeManager.instance.isDark;
-    const danger = Color(0xFFE85D75);
 
     return Tooltip(
       message: tooltip,
@@ -487,15 +502,15 @@ class _InstallIconButton extends StatelessWidget {
           height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isDark ? Colors.transparent : danger.withOpacity(0.09),
+            color: isDark ? Colors.transparent : _danger.withOpacity(0.09),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: danger.withOpacity(isDark ? 0.15 : 0.18),
+              color: _danger.withOpacity(isDark ? 0.15 : 0.18),
             ),
             boxShadow: [
               if (!isDark)
                 BoxShadow(
-                  color: danger.withOpacity(0.08),
+                  color: _danger.withOpacity(0.08),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -504,7 +519,7 @@ class _InstallIconButton extends StatelessWidget {
           child: Icon(
             icon,
             size: 22,
-            color: danger.withOpacity(isDark ? 0.75 : 0.92),
+            color: _danger.withOpacity(isDark ? 0.75 : 0.92),
           ),
         ),
       ),

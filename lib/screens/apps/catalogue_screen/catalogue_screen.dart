@@ -3,7 +3,6 @@ import 'package:safehaven/screens/apps/catalogue_screen/sections/catalogue_top_c
 import 'package:safehaven/screens/apps/catalogue_screen/widgets/catalogue_shared_widgets.dart';
 import '../../../services/index_service.dart';
 import '../../../services/store_service.dart';
-import '../../../services/installer/store_update_service.dart';
 import '../../../widgets/identity_setup_dialog.dart';
 import '../../../widgets/refresh/pull_to_refresh.dart';
 import 'catalogue_navigation.dart';
@@ -21,17 +20,18 @@ class CatalogueScreen extends StatefulWidget {
 }
 
 class _CatalogueScreenState extends State<CatalogueScreen> {
+  static const int _bannersPerCarousel = 6;
   late Future<StoreIndex> _future;
+  StoreIndex? _lastIndex;
   String? _selectedCategory;
   List<String> _shuffledCategoryKeys = [];
-  Future<List<PublicStoreApp>>? _recommendedFuture;
+  Future<List<PublicStoreApp>>? _bannersTop;
+  Future<List<PublicStoreApp>>? _bannersMid;
   int? _recommendedTimestamp;
 
   int? _memoTimestamp;
   String? _memoCategory;
   bool _memoCatsReady = false;
-  List<PublicStoreApp> _memoAllApps = const [];
-  List<PublicStoreApp> _memoFiltered = const [];
   List<PublicStoreApp> _memoTopCharts = const [];
   List<PublicStoreApp> _memoNewArrivals = const [];
   List<PublicStoreApp> _memoTopInA = const [];
@@ -46,16 +46,19 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
 
     _future.then((index) {
       if (!mounted) return;
-
-      StoreUpdateService.instance.syncAndTriggerAutoUpdates(index.apps);
-
-      if (_shuffledCategoryKeys.isEmpty) {
-        setState(() {
-          _shuffledCategoryKeys =
-              IndexService.instance.shuffledCategoryKeys(index.categories);
-        });
-      }
-    });
+      _lastIndex = index;
+      final keys = index.categories.keys.toSet();
+      final same = _shuffledCategoryKeys.length == keys.length &&
+          _shuffledCategoryKeys.every(keys.contains);
+      if (same) return;
+      setState(() {
+        _shuffledCategoryKeys =
+            IndexService.instance.shuffledCategoryKeys(index.categories);
+        if (_selectedCategory != null && !keys.contains(_selectedCategory)) {
+          _selectedCategory = null;
+        }
+      });
+    }, onError: (_) {});
   }
 
   @override
@@ -68,17 +71,22 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   }
 
   Future<void> _reload() async {
+    final hadData = _lastIndex != null;
     setState(() {
-      _shuffledCategoryKeys = [];
-      _recommendedFuture = null;
+      _bannersTop = null;
+      _bannersMid = null;
       _recommendedTimestamp = null;
-      _memoTimestamp = null;
-      _memoCategory = null;
-      _memoCatsReady = false;
       _loadFuture(forceRefresh: true);
     });
 
-    await _future;
+    try {
+      await _future;
+    } catch (_) {
+      if (!mounted || !hadData) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.catalogueCouldNotLoad)),
+      );
+    }
   }
 
   void _recompute(StoreIndex index) {
@@ -90,10 +98,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
     _memoTimestamp = ts;
     _memoCategory = cat;
     _memoCatsReady = catsReady;
-    _memoAllApps = index.apps;
-    _memoFiltered = IndexService.instance.filterByCategory(_memoAllApps, cat);
-    _memoTopCharts = IndexService.instance.topCharts(_memoFiltered);
-    _memoNewArrivals = IndexService.instance.newArrivals(_memoFiltered);
+    _memoTopCharts = IndexService.instance.topCharts(category: cat);
+    _memoNewArrivals = IndexService.instance.newArrivals(category: cat);
 
     final showCatRows = cat == null && _shuffledCategoryKeys.length >= 2;
     _memoCatKeyA = showCatRows ? _shuffledCategoryKeys[0] : null;
@@ -105,37 +111,24 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
         ? (index.categories[_memoCatKeyB] ?? _memoCatKeyB)
         : null;
     _memoTopInA = _memoCatKeyA != null
-        ? IndexService.instance.topInCategory(_memoAllApps, _memoCatKeyA!)
+        ? IndexService.instance.topInCategory(_memoCatKeyA!)
         : const [];
     _memoTopInB = _memoCatKeyB != null
-        ? IndexService.instance.topInCategory(_memoAllApps, _memoCatKeyB!)
+        ? IndexService.instance.topInCategory(_memoCatKeyB!)
         : const [];
   }
 
-  Future<List<PublicStoreApp>> _recommendedForYou(
-      List<PublicStoreApp> allApps,
-      List<PublicStoreApp> topCharts,
-      int timestamp,
-      ) {
-    if (_recommendedTimestamp != timestamp || _recommendedFuture == null) {
-      _recommendedTimestamp = timestamp;
-      _recommendedFuture = IndexService.instance.recommended(
-        allApps,
-        exclude: topCharts,
-      );
-    }
-
-    return _recommendedFuture!;
+  void _loadBanners(List<PublicStoreApp> topCharts, int timestamp) {
+    if (_recommendedTimestamp == timestamp && _bannersTop != null) return;
+    _recommendedTimestamp = timestamp;
+    final picks = IndexService.instance.recommended(exclude: topCharts, limit: _bannersPerCarousel * 2);
+    _bannersTop = picks.then((apps) => apps.take(_bannersPerCarousel).toList());
+    _bannersMid = picks.then((apps) => apps.skip(_bannersPerCarousel).toList());
   }
 
-  void _openAllApps(List<PublicStoreApp> allApps) {
+  void _openAllApps() {
     Navigator.of(context).push(
-      pushRoute(
-        SeeMoreAppsScreen(
-          title: AppLocalizations.of(context)!.allApps,
-          apps: allApps,
-        ),
-      ),
+      pushRoute(SeeMoreAppsScreen(title: AppLocalizations.of(context)!.allApps)),
     );
   }
 
@@ -144,8 +137,10 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
     return FutureBuilder<StoreIndex>(
       future: _future,
       builder: (context, snapshot) {
-        final loading = snapshot.connectionState == ConnectionState.waiting;
-        final index = snapshot.data;
+        final index = snapshot.data ?? _lastIndex;
+        final loading =
+            snapshot.connectionState == ConnectionState.waiting && index == null;
+        final failed = snapshot.hasError && index == null;
 
         if (index != null) {
           _recompute(index);
@@ -153,19 +148,21 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
 
         final showCategoryRows = _memoCatKeyA != null;
 
-        final Future<List<PublicStoreApp>>? recommendedFuture =
-        (_selectedCategory == null && _memoAllApps.isNotEmpty)
-            ? _recommendedForYou(_memoAllApps, _memoTopCharts, _memoTimestamp ?? 0)
-            : null;
-        final Widget? recommendedSection = recommendedFuture == null
-            ? null
-            : CatalogueRecommendedSection(future: recommendedFuture);
+        if ((index?.count ?? 0) > 0) {
+          _loadBanners(_memoTopCharts, _memoTimestamp ?? 0);
+        }
+        final top = _bannersTop;
+        final mid = _bannersMid;
 
         return PullRefresh(
           onRefresh: _reload,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              if (top != null && !failed)
+                SliverToBoxAdapter(
+                  child: CatalogueRecommendedSection(future: top, storageId: 'catalogue_banner_top'),
+                ),
               if (index != null && index.categories.isNotEmpty)
                 SliverToBoxAdapter(
                   child: CatalogueCategoryTabs(
@@ -173,32 +170,39 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                     categories: index.categories,
                     selected: _selectedCategory,
                     onSelected: (key) {
-                      setState(() {
-                        _selectedCategory = key;
-                        _memoCategory = null;
-                      });
+                      if (key == _selectedCategory) return;
+                      setState(() => _selectedCategory = key);
                     },
                   ),
                 ),
               if (loading)
                 const SliverToBoxAdapter(child: CatalogueLoadingBlock()),
-              if (snapshot.hasError)
+              if (failed)
                 SliverToBoxAdapter(
                   child: CatalogueErrorBlock(
                     message: snapshot.error.toString(),
                     onRetry: _reload,
                   ),
                 ),
-              if (!loading && !snapshot.hasError && _memoFiltered.isEmpty)
+              if (!loading && !failed && _memoTopCharts.isEmpty)
                 const SliverToBoxAdapter(child: CatalogueEmptyBlock()),
-              if (!loading && !snapshot.hasError && _memoFiltered.isNotEmpty) ...[
-                if (recommendedSection != null)
-                  SliverToBoxAdapter(child: recommendedSection),
+              if (!loading && !failed && _memoTopCharts.isNotEmpty) ...[
                 if (_memoTopCharts.isNotEmpty)
                   SliverToBoxAdapter(
                     child: CatalogueTopChartsSection(
                       apps: _memoTopCharts.take(10).toList(),
-                      onAllApps: () => _openAllApps(_memoAllApps),
+                      onAllApps: _openAllApps,
+                    ),
+                  ),
+                if (mid != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: CatalogueRecommendedSection(
+                        future: mid,
+                        storageId: 'catalogue_banner_mid',
+                        speed: 1.35,
+                      ),
                     ),
                   ),
                 if (showCategoryRows && _memoTopInA.isNotEmpty)
@@ -221,8 +225,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                   ),
                 SliverToBoxAdapter(
                   child: CatalogueSeeAllBlock(
-                    count: _memoAllApps.length,
-                    onTap: () => _openAllApps(_memoAllApps),
+                    count: index?.count ?? 0,
+                    onTap: _openAllApps,
                   ),
                 ),
               ],

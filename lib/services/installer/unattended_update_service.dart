@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../engine/bridge.dart';
 import '../logs/debug_log_service.dart';
-import '../index_service.dart';
-import '../store_service.dart';
 import 'apk_install_service.dart';
 import 'update_mode_service.dart';
 
@@ -40,54 +39,30 @@ class UnattendedUpdateService {
 
   @pragma('vm:entry-point')
   static Future<void> performBackgroundCheck() async {
-    final index = await IndexService.instance.fetchIndex(forceRefresh: true);
+    final bridge = EngineBridge.instance;
+    await bridge.call<dynamic>('index.sync', args: {'force': true}, decode: asIs);
+
     final triggered = await _loadTriggeredUpdates();
+    final states = await ApkInstallService.instance.getAllPackageStates(forceRefresh: true);
 
-    final candidates = index.apps.where((app) {
-      final latestVersionCode = app.latestVersion?.versionCode;
-      if (latestVersionCode == null) return false;
-      return triggered[app.packageName] != latestVersionCode;
-    }).toList();
-
-    final states = await Future.wait(
-      candidates.map((app) => ApkInstallService.instance.getPackageState(packageName: app.packageName)),
+    final plan = await bridge.call<List<dynamic>>(
+      'updates.plan',
+      args: {
+        'states': ApkInstallService.wire(states),
+        'triggered': triggered,
+      },
+      decode: asList,
     );
 
-    final eligible = <({PublicStoreApp app, int versionCode})>[];
-    for (var i = 0; i < candidates.length; i++) {
-      final app = candidates[i];
-      final state = states[i];
-      if (!state.installed) continue;
-      if (!state.canUpdateTo(app.latestVersion)) continue;
-      if (state.signatureMismatchWith(app.signingKeyHash) == true) continue;
-      eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
-    }
-
-    if (eligible.isEmpty) return;
-
-    final urlResults = await Future.wait(
-      eligible.map((e) async {
-        try {
-          return await StoreService.instance.getDownloadUrl(
-            packageName: e.app.packageName,
-            versionCode: e.versionCode,
-          );
-        } catch (err, s) {
-          DebugLog.e('Unattended', 'getDownloadUrl failed: ${e.app.packageName}', err, s);
-          return null;
-        }
-      }),
-    );
+    if (plan.isEmpty) return;
 
     final updates = <Map<String, dynamic>>[];
-    for (var i = 0; i < eligible.length; i++) {
-      final url = urlResults[i];
-      if (url == null) continue;
-      updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
-      triggered[eligible[i].app.packageName] = eligible[i].versionCode;
+    for (final entry in plan) {
+      final item = entry as Map<String, dynamic>;
+      final packageName = item['packageName'] as String;
+      updates.add({'packageName': packageName, 'downloadUrl': item['downloadUrl']});
+      triggered[packageName] = (item['versionCode'] as num).toInt();
     }
-
-    if (updates.isEmpty) return;
 
     await triggerManualBatchUpdate(updates);
     await _saveTriggeredUpdates(triggered);

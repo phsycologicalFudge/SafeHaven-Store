@@ -1,9 +1,7 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:safehaven/services/engine/bridge.dart';
 import 'store_service/store_auth_service.dart';
 import 'store_service/store_config.dart';
 import 'store_service/store_exceptions.dart';
-import 'store_service/store_http_utils.dart';
 export 'store_service/store_exceptions.dart';
 export 'store_service/store_auth_service.dart' show StoreAccount, StoreAuthService;
 
@@ -14,36 +12,31 @@ class StoreService {
 
   static const String defaultBaseUrl = storeDefaultBaseUrl;
 
-  Future<StoreIndex> fetchIndex() async {
-    final uri = Uri.parse('$defaultBaseUrl/store/index.json');
-    final res = await http.get(uri);
+  final EngineBridge _bridge = EngineBridge.instance;
 
-    storeThrowIfBad(res);
-
-    return StoreIndex.fromJson(storeDecodeMap(res.body));
+  Future<Map<String, dynamic>> _request(
+    String path, {
+    String method = 'GET',
+    String? token,
+    Map<String, Object?>? body,
+  }) {
+    return _bridge.call<Map<String, dynamic>>(
+      'api.request',
+      args: {'method': method, 'path': path, 'token': token, 'body': body},
+      decode: asMap,
+    );
   }
 
   Future<PublicStoreApp> fetchPublicApp(String packageName) async {
-    final uri = Uri.parse(
-      '$defaultBaseUrl/store/catalog/${Uri.encodeComponent(packageName)}',
+    final body = await _request(
+      '/store/catalog/${Uri.encodeComponent(packageName)}',
     );
-    final res = await http.get(uri);
-
-    storeThrowIfBad(res);
-
-    return PublicStoreApp.fromJson(storeDecodeMap(res.body));
+    return PublicStoreApp.fromJson(body);
   }
 
   Future<List<DeveloperStoreApp>> fetchDeveloperApps() async {
     final token = await StoreAuthService.instance.requireToken();
-    final res = await http.get(
-      Uri.parse('$defaultBaseUrl/store/apps'),
-      headers: storeAuthHeaders(token),
-    );
-
-    storeThrowIfBad(res);
-
-    final body = storeDecodeMap(res.body);
+    final body = await _request('/store/apps', token: token);
     final apps = body['apps'];
     if (apps is! List) return const [];
 
@@ -55,34 +48,8 @@ class StoreService {
 
   Future<DeveloperAppDetail> fetchDeveloperApp(String appId) async {
     final token = await StoreAuthService.instance.requireToken();
-    final res = await http.get(
-      Uri.parse('$defaultBaseUrl/store/apps/$appId'),
-      headers: storeAuthHeaders(token),
-    );
-
-    storeThrowIfBad(res);
-
-    return DeveloperAppDetail.fromJson(storeDecodeMap(res.body));
-  }
-
-  Future<String> getDownloadUrl({
-    required String packageName,
-    required int versionCode,
-  }) async {
-    final res = await http.get(
-      Uri.parse(
-        '$defaultBaseUrl/store/apps/${Uri.encodeComponent(packageName)}/download/$versionCode',
-      ),
-    );
-
-    storeThrowIfBad(res);
-
-    final body = storeDecodeMap(res.body);
-    final url = body['url'];
-    if (url == null || url.toString().isEmpty) {
-      throw const StoreApiException('missing_url');
-    }
-    return url.toString();
+    final body = await _request('/store/apps/$appId', token: token);
+    return DeveloperAppDetail.fromJson(body);
   }
 
   Future<String> submitRating({
@@ -90,17 +57,15 @@ class StoreService {
     required String deviceToken,
     required int rating,
   }) async {
-    final res = await http.post(
-      Uri.parse('$defaultBaseUrl/store/ratings'),
-      headers: {'content-type': 'application/json; charset=utf-8'},
-      body: jsonEncode({
+    await _request(
+      '/store/ratings',
+      method: 'POST',
+      body: {
         'packageName': packageName,
         'deviceToken': deviceToken,
         'rating': rating,
-      }),
+      },
     );
-
-    storeThrowIfBad(res);
     return 'ok';
   }
 }
@@ -109,15 +74,14 @@ class StoreIndex {
   const StoreIndex({
     required this.timestamp,
     required this.categories,
-    required this.apps,
+    required this.count,
   });
 
   final int timestamp;
   final Map<String, String> categories;
-  final List<PublicStoreApp> apps;
+  final int count;
 
   factory StoreIndex.fromJson(Map<String, dynamic> json) {
-    final apps = json['apps'];
     final cats = json['categories'];
 
     return StoreIndex(
@@ -127,21 +91,8 @@ class StoreIndex {
         cats.entries.map((e) => MapEntry(e.key.toString(), e.value.toString())),
       )
           : const {},
-      apps: apps is List
-          ? apps
-          .whereType<Map<String, dynamic>>()
-          .map(PublicStoreApp.fromJson)
-          .toList()
-          : const [],
+      count: _asInt(json['count']),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'timestamp': timestamp,
-      'categories': categories,
-      'apps': apps.map((a) => a.toJson()).toList(),
-    };
   }
 }
 
@@ -207,25 +158,6 @@ class PublicStoreApp {
           : const [],
       signingKeyHash: _asNullableString(json['signingKeyHash']),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'packageName': packageName,
-      'name': name,
-      'summary': summary,
-      'description': description,
-      'repoUrl': repoUrl,
-      'trustLevel': trustLevel,
-      'category': category,
-      'upstream': upstream,
-      'ratingAvg': ratingAvg,
-      'ratingCount': ratingCount,
-      'versions': versions.map((v) => v.toJson()).toList(),
-      'iconUrl': iconUrl,
-      'screenshots': screenshots,
-      'signingKeyHash': signingKeyHash,
-    };
   }
 
   StoreVersion? get latestVersion {
@@ -327,19 +259,6 @@ class StoreVersion {
       added: _asInt(json['added']),
       whatsNew: _asNullableString(json['whatsNew']),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'versionName': versionName,
-      'versionCode': versionCode,
-      'apkPath': apkPath,
-      'apkSize': apkSize,
-      'sha256': sha256,
-      'scannedAt': scannedAt,
-      'added': added,
-      'whatsNew': whatsNew,
-    };
   }
 }
 

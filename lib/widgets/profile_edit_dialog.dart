@@ -91,6 +91,7 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
     final avatarFile = DeveloperProfileService.instance.avatarFile;
+    final hint = DeveloperProfileService.instance.nickname ?? widget.fallbackName;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
@@ -138,7 +139,7 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
             style: TextStyle(color: colors.text, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               counterText: '',
-              hintText: widget.fallbackName,
+              hintText: hint,
               hintStyle: TextStyle(color: colors.textMuted, fontWeight: FontWeight.w700),
               filled: true,
               fillColor: colors.iconBackground,

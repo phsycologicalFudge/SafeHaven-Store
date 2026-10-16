@@ -6,6 +6,7 @@ import 'package:safehaven/screens/apps/app_screen/sections/app_screen_header.dar
 import 'package:safehaven/screens/apps/app_screen/sections/app_screen_install_button.dart';
 import 'package:safehaven/screens/apps/app_screen/sections/app_screen_technical.dart';
 import '../../../services/history_service.dart';
+import '../../../services/index_service.dart';
 import '../../../services/store_service.dart';
 import '../../../services/theme/theme_manager.dart';
 import 'app_screen_helpers.dart';
@@ -24,6 +25,7 @@ class _AppScreenState extends State<AppScreen> {
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _scrollOffset = ValueNotifier(0.0);
 
+  late PublicStoreApp _app = IndexService.instance.full(widget.app);
   Color _iconColor = const Color(0xFF161A24);
   int _iconColorRequestId = 0;
 
@@ -42,6 +44,7 @@ class _AppScreenState extends State<AppScreen> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.app.packageName != widget.app.packageName) {
+      _app = IndexService.instance.full(widget.app);
       _recordHistory();
     }
 
@@ -59,13 +62,13 @@ class _AppScreenState extends State<AppScreen> {
   }
 
   void _recordHistory() {
-    HistoryService.instance.recordView(widget.app.packageName);
-    HistoryService.instance.recordCategoryView(widget.app.category);
+    HistoryService.instance.recordView(_app.packageName);
+    HistoryService.instance.recordCategoryView(_app.category);
   }
 
   Future<void> _loadIconColor() async {
     final requestId = ++_iconColorRequestId;
-    final iconUrl = widget.app.iconUrl?.trim();
+    final iconUrl = _app.iconUrl?.trim();
 
     if (iconUrl == null || iconUrl.isEmpty) return;
 
@@ -78,7 +81,7 @@ class _AppScreenState extends State<AppScreen> {
 
   void _showActionsSheet() {
     final colors = SafeHavenTheme.of(context);
-    final repoUrl = widget.app.repoUrl.trim();
+    final repoUrl = _app.repoUrl.trim();
 
     showDialog(
       context: context,
@@ -184,15 +187,15 @@ class _AppScreenState extends State<AppScreen> {
                   height: topPadding + 56 + 8,
                 ),
               ),
-              SliverToBoxAdapter(child: AppScreenHeader(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenMetadataRow(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenInstallButton(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenWhatsNewSection(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenPreviewSection(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenAboutSection(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenTrustSection(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenTechnicalSection(app: widget.app)),
-              SliverToBoxAdapter(child: AppScreenRateButton(app: widget.app)),
+              SliverToBoxAdapter(child: AppScreenHeader(app: _app)),
+              SliverToBoxAdapter(child: AppScreenMetadataRow(app: _app)),
+              SliverToBoxAdapter(child: AppScreenInstallButton(app: _app)),
+              SliverToBoxAdapter(child: AppScreenWhatsNewSection(app: _app)),
+              SliverToBoxAdapter(child: AppScreenPreviewSection(app: _app)),
+              SliverToBoxAdapter(child: AppScreenAboutSection(app: _app)),
+              SliverToBoxAdapter(child: AppScreenTrustSection(app: _app)),
+              SliverToBoxAdapter(child: AppScreenTechnicalSection(app: _app)),
+              SliverToBoxAdapter(child: AppScreenRateButton(app: _app)),
               const SliverToBoxAdapter(child: SizedBox(height: 28)),
             ],
           ),
@@ -224,7 +227,7 @@ class _AppScreenState extends State<AppScreen> {
                           ),
                           alignment: Alignment.center,
                           child: AppScreenInstallButton(
-                            app: widget.app,
+                            app: _app,
                             compact: true,
                           ),
                         ),

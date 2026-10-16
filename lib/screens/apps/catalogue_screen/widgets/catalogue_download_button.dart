@@ -170,7 +170,7 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
 
         final cached = InstallSync.cachedCheck[_pkg];
         final installed = cached?.installed ?? false;
-        final canUpdate = cached?.canUpdate ?? false;
+        final canUpdate = cached?.updatable ?? false;
 
         Widget inner;
         VoidCallback? onTap;
@@ -202,33 +202,35 @@ class _CatalogueDownloadButtonState extends State<CatalogueDownloadButton>
           onTap = _open;
         }
 
+        final button = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+              ),
+              child: child,
+            ),
+          ),
+          child: Container(
+            key: ValueKey(stateKey),
+            width: w,
+            height: h,
+            decoration: BoxDecoration(
+              color: SafeHavenThemeManager.instance.isDark ? colors.surface : colors.faint,
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              border: Border.all(color: colors.border, width: 1.5),
+            ),
+            child: Center(child: inner),
+          ),
+        );
+
         return AnimatedTap(
           borderRadius: widget.borderRadius,
           scale: 0.94,
           onTap: onTap,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                ),
-                child: child,
-              ),
-            ),
-            child: Container(
-              key: ValueKey(stateKey),
-              width: w,
-              height: h,
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(widget.borderRadius),
-                border: Border.all(color: colors.border, width: 1.5),
-              ),
-              child: Center(child: inner),
-            ),
-          ),
+          child: button,
         );
       },
     );

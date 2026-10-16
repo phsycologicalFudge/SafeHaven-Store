@@ -1,19 +1,20 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:app_links/app_links.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../services/index_service.dart';
 import '../../services/store_service.dart';
 import '../../services/theme/theme_manager.dart';
 import '../../services/developer_profile_service.dart';
 import '../../widgets/animated_tap.dart';
 import '../../widgets/profile_edit_dialog.dart';
+import '../../widgets/refresh/pull_to_refresh.dart';
 import '../../widgets/settings_picker_dialog.dart';
+import '../apps/catalogue_screen/widgets/catalogue_shared_widgets.dart';
+import '../home/top_banner.dart';
 import 'package:safehaven/translations/app_localizations.dart';
 
 class DeveloperAccountScreen extends StatefulWidget {
@@ -110,22 +111,17 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
         return;
       }
 
-      final results = await Future.wait([
-        _auth.fetchMe(),
-        IndexService.instance.fetchIndex(),
-      ]);
-
-      final account = results[0] as StoreAccount;
-      final index = results[1] as StoreIndex;
+      final account = await _auth.fetchMe();
       final apps = account.developerEnabled
           ? await _service.fetchDeveloperApps()
           : <DeveloperStoreApp>[];
+      final publicApps = await IndexService.instance.apps([for (final app in apps) app.packageName]);
 
       if (!mounted) return;
       setState(() {
         _account = account;
         _apps = apps;
-        _publicApps = {for (final app in index.apps) app.packageName: app};
+        _publicApps = {for (final app in publicApps) app.packageName: app};
         _loading = false;
       });
     } catch (e) {
@@ -191,16 +187,44 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
     });
   }
 
+  void _editProfile() {
+    ProfileEditDialog.show(
+      context: context,
+      currentName: DeveloperProfileService.instance.displayName,
+      fallbackName: _account?.displayName.trim() ?? '',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final l = AppLocalizations.of(context)!;
+    final profile = DeveloperProfileService.instance;
 
     return Scaffold(
       backgroundColor: colors.backgroundFrost,
+      appBar: TopBanner.defaultScreen(
+        title: l.settingsAccount,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: AnimatedTap(
+              borderRadius: 99,
+              scale: 0.92,
+              onTap: _editProfile,
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(Icons.info_outline_rounded, size: 25, color: colors.textMuted),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
-        top: true,
+        top: false,
         bottom: false,
-        child: RefreshIndicator(
+        child: PullRefresh(
           onRefresh: () => _load(showLoading: false),
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -208,24 +232,12 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
               SliverToBoxAdapter(
                 child: _AccountHeader(
                   account: _account,
-                  loading: _loading,
                   openingLogin: _openingLogin,
-                  openingDashboard: _openingDashboard,
                   onLogin: _login,
-                  onDashboard: _openDashboard,
                   onLogout: _logout,
-                  profileName: DeveloperProfileService.instance.displayName,
-                  avatarFile: DeveloperProfileService.instance.avatarFile,
-                  onEditProfile: () {
-                    final email = _account?.email.trim() ?? '';
-                    final displayName = _account?.displayName.trim() ?? '';
-                    final fallback = displayName.isNotEmpty ? displayName : email;
-                    ProfileEditDialog.show(
-                      context: context,
-                      currentName: DeveloperProfileService.instance.displayName,
-                      fallbackName: fallback,
-                    );
-                  },
+                  name: profile.name,
+                  avatarFile: profile.avatarFile,
+                  onEditProfile: _editProfile,
                 ),
               ),
               if (_error != null)
@@ -243,62 +255,31 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
                   ),
                 ),
               if (_loading)
-                const SliverToBoxAdapter(child: _LoadingBlock()),
-              if (!_loading && _account != null) ...[
+                const SliverToBoxAdapter(child: CatalogueLoadingBlock())
+              else if (_account == null)
+                SliverFillRemaining(hasScrollBody: false, child: _EmptyState(message: l.accountSignInToView, showIcon: false))
+              else ...[
                 SliverToBoxAdapter(
                   child: _SectionHeader(
-                    title: AppLocalizations.of(context)!.devYourApps,
-                    count: _account!.developerEnabled ? _apps.length : null,
+                    title: l.devYourApps,
+                    action: _openingDashboard ? l.devOpening : l.devDashboard,
+                    onAction: _openingDashboard ? null : _openDashboard,
                   ),
                 ),
-                if (!_account!.developerEnabled)
-                  SliverToBoxAdapter(
-                    child: _MessageBlock(
-                      message:
-                      AppLocalizations.of(context)!.devNoDevAccess,
-                      actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
-                      onAction: _openDashboard,
-                    ),
-                  )
-                else if (_apps.isEmpty)
-                  SliverToBoxAdapter(
-                    child: _MessageBlock(
-                      message:
-                      AppLocalizations.of(context)!.devNoApps,
-                      actionLabel: AppLocalizations.of(context)!.devOpenDashboard,
-                      onAction: _openDashboard,
-                    ),
-                  )
+                if (_apps.isEmpty)
+                  SliverFillRemaining(hasScrollBody: false, child: _EmptyState(message: l.accountEmpty))
                 else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        final app = _apps[index];
-                        return _DeveloperAppRow(
-                          app: app,
-                          publicApp: _publicApps[app.packageName],
-                        );
-                      },
-                      childCount: _apps.length,
-                    ),
-                  ),
-              ],
-              if (!_loading && _account == null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                    child: Text(
-                      AppLocalizations.of(context)!.devSignInPrompt,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        height: 1.45,
-                        color: colors.textMuted,
+                  SliverPadding(
+                    padding: const EdgeInsets.only(bottom: 28),
+                    sliver: SliverList.builder(
+                      itemCount: _apps.length,
+                      itemBuilder: (context, index) => _DeveloperAppRow(
+                        app: _apps[index],
+                        publicApp: _publicApps[_apps[index].packageName],
                       ),
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              ],
             ],
           ),
         ),
@@ -310,145 +291,102 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
 class _AccountHeader extends StatelessWidget {
   const _AccountHeader({
     required this.account,
-    required this.loading,
     required this.openingLogin,
-    required this.openingDashboard,
     required this.onLogin,
-    required this.onDashboard,
     required this.onLogout,
-    required this.profileName,
+    required this.name,
     required this.avatarFile,
     required this.onEditProfile,
   });
 
   final StoreAccount? account;
-  final bool loading;
   final bool openingLogin;
-  final bool openingDashboard;
   final VoidCallback onLogin;
-  final VoidCallback onDashboard;
   final VoidCallback onLogout;
-  final String? profileName;
+  final String name;
   final File? avatarFile;
   final VoidCallback onEditProfile;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
+    final l = AppLocalizations.of(context)!;
     final signedIn = account != null;
-    final displayName = account?.displayName.trim() ?? '';
     final email = account?.email.trim() ?? '';
-    final customName = profileName?.trim() ?? '';
-    final label = customName.isNotEmpty
-        ? customName
-        : displayName.isNotEmpty
-        ? displayName
-        : email.isNotEmpty
-        ? email
-        : AppLocalizations.of(context)!.devAccountTitle;
-    final initial = label.isNotEmpty ? label.substring(0, 1).toUpperCase() : 'S';
-    final showEmailLine = signedIn && email.isNotEmpty && label != email;
+    final accountName = account?.displayName.trim() ?? '';
+    final label = name.isNotEmpty
+        ? name
+        : accountName.isNotEmpty
+            ? accountName
+            : l.settingsAccount;
+    final subtitle = signedIn ? email : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 22),
+      child: Row(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              AnimatedTap(
-                borderRadius: 40,
-                onTap: signedIn ? onEditProfile : null,
-                child: Container(
-                  width: 68,
-                  height: 68,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colors.iconBackground,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: colors.border),
-                    image: avatarFile != null
-                        ? DecorationImage(image: FileImage(avatarFile!), fit: BoxFit.cover)
-                        : null,
-                  ),
-                  child: loading
-                      ? SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: colors.accentEnd,
-                    ),
-                  )
-                      : avatarFile != null
-                      ? null
-                      : Text(
-                    signedIn ? initial : 'S',
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                      color: colors.text,
-                    ),
-                  ),
-                ),
+          AnimatedTap(
+            borderRadius: 40,
+            onTap: onEditProfile,
+            child: Container(
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.iconBackground,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.border),
+                image: avatarFile != null
+                    ? DecorationImage(image: FileImage(avatarFile!), fit: BoxFit.cover)
+                    : null,
               ),
-              if (signedIn)
-                Positioned(
-                  top: -6,
-                  right: -6,
-                  child: AnimatedTap(
-                    borderRadius: 12,
-                    onTap: onEditProfile,
-                    child: Icon(Icons.edit_rounded, size: 14, color: colors.text),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            signedIn ? label : AppLocalizations.of(context)!.devNotSignedIn,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: colors.text,
+              child: avatarFile != null
+                  ? null
+                  : Text(
+                      label.substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: colors.text,
+                      ),
+                    ),
             ),
           ),
-          if (showEmailLine) ...[
-            const SizedBox(height: 4),
-            Text(
-              email,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: colors.textMuted),
-            ),
-          ],
-          const SizedBox(height: 20),
-          if (signedIn)
-            Row(
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _GradientButton(
-                    label: openingDashboard ? AppLocalizations.of(context)!.devOpening : AppLocalizations.of(context)!.devDashboard,
-                    onTap: openingDashboard ? null : onDashboard,
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: colors.text,
                   ),
                 ),
-                const SizedBox(width: 10),
-                _PlainActionButton(label: AppLocalizations.of(context)!.devSignOut, onTap: onLogout),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12.5, height: 1.35, color: colors.textMuted),
+                  ),
+                ],
               ],
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: _GradientButton(
-                label: openingLogin ? AppLocalizations.of(context)!.devOpening : AppLocalizations.of(context)!.devSignIn,
-                onTap: openingLogin ? null : onLogin,
-              ),
             ),
+          ),
+          const SizedBox(width: 10),
+          signedIn
+              ? _PlainActionButton(label: l.devSignOut, onTap: onLogout)
+              : _GradientButton(
+                  label: openingLogin ? l.devOpening : l.devSignIn,
+                  onTap: openingLogin ? null : onLogin,
+                ),
         ],
       ),
     );
@@ -456,17 +394,18 @@ class _AccountHeader extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.count});
+  const _SectionHeader({required this.title, required this.action, required this.onAction});
 
   final String title;
-  final int? count;
+  final String action;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 10, 22, 8),
+      padding: const EdgeInsets.fromLTRB(22, 6, 14, 6),
       child: Row(
         children: [
           Expanded(
@@ -480,15 +419,58 @@ class _SectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (count != null)
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: colors.textMuted,
+          AnimatedTap(
+            borderRadius: 8,
+            onTap: onAction,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    action,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: colors.accentEnd,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(Icons.north_east_rounded, size: 13, color: colors.accentEnd),
+                ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.message, this.showIcon = true});
+
+  final String message;
+  final bool showIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 0, 28, 120),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (showIcon) ...[
+            Icon(Icons.apps_rounded, size: 38, color: colors.textMuted),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, height: 1.4, color: colors.textMuted),
+          ),
         ],
       ),
     );
@@ -692,7 +674,6 @@ class _DeveloperAppDetail extends StatelessWidget {
             AppLocalizations.of(context)!.devSubmissions,
             style: TextStyle(
               fontSize: 13.5,
-              fontWeight: FontWeight.w800,
               color: colors.text,
             ),
           ),
@@ -783,16 +764,86 @@ Future<void> _showSubmissionHistory(
   return SettingsPickerDialog.show<void>(
     context: context,
     title: AppLocalizations.of(context)!.devSubmissions,
-    children: submissions
-        .map((s) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: _SubmissionRow(
-        submission: s,
-        statusOverride: _statusOverride(context, s, latestLive),
-      ),
-    ))
-        .toList(),
+    children: [_SubmissionHistory(submissions: submissions, latestLive: latestLive)],
   );
+}
+
+String _versionLabel(BuildContext context, StoreSubmission submission) {
+  final raw = submission.versionName;
+  final name = raw.startsWith('v') || raw.startsWith('V') ? raw.substring(1) : raw;
+  return name.isEmpty
+      ? AppLocalizations.of(context)!.devVersionCode(submission.versionCode.toString())
+      : 'v$name';
+}
+
+class _SubmissionHistory extends StatelessWidget {
+  const _SubmissionHistory({required this.submissions, required this.latestLive});
+
+  final List<StoreSubmission> submissions;
+  final StoreSubmission? latestLive;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final live = <StoreSubmission>[];
+    final inactive = <StoreSubmission>[];
+    final rejected = <StoreSubmission>[];
+    for (final s in submissions) {
+      final status = s.statusLabel.toLowerCase();
+      if (status == 'rejected') {
+        rejected.add(s);
+      } else if (status == 'inactive' || _isSupersededLive(s, latestLive)) {
+        inactive.add(s);
+      } else if (status == 'live') {
+        live.add(s);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _HistoryColumn(title: l.devStatusLive, items: live)),
+          Expanded(child: _HistoryColumn(title: l.devStatusInactive, items: inactive)),
+          Expanded(child: _HistoryColumn(title: l.devStatusRejected, items: rejected)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryColumn extends StatelessWidget {
+  const _HistoryColumn({required this.title, required this.items});
+
+  final String title;
+  final List<StoreSubmission> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+    final sorted = [...items]..sort((a, b) => b.versionCode.compareTo(a.versionCode));
+
+    return Column(
+      children: [
+        Text(title, style: TextStyle(fontSize: 12.5, color: colors.textMuted)),
+        const SizedBox(height: 8),
+        if (sorted.isEmpty)
+          Text('-', style: TextStyle(fontSize: 13, color: colors.textMuted))
+        else
+          for (final s in sorted)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                _versionLabel(context, s),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: colors.text),
+              ),
+            ),
+      ],
+    );
+  }
 }
 
 class _SeeAllHistoryButton extends StatelessWidget {
@@ -816,7 +867,6 @@ class _SeeAllHistoryButton extends StatelessWidget {
               AppLocalizations.of(context)!.devSeeAllHistory,
               style: TextStyle(
                 fontSize: 12.5,
-                fontWeight: FontWeight.w700,
                 color: colors.accentEnd,
               ),
             ),
@@ -842,10 +892,6 @@ class _SubmissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
-    final rawName = submission.versionName;
-    final trimmedName = rawName.startsWith('v') || rawName.startsWith('V')
-        ? rawName.substring(1)
-        : rawName;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -853,14 +899,11 @@ class _SubmissionRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              trimmedName.isEmpty
-                  ? AppLocalizations.of(context)!.devVersionCode(submission.versionCode.toString())
-                  : 'v$trimmedName',
+              _versionLabel(context, submission),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
                 color: colors.text,
               ),
             ),
@@ -869,7 +912,6 @@ class _SubmissionRow extends StatelessWidget {
             statusOverride ?? submission.statusLabel,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w700,
               color: colors.textMuted,
             ),
           ),
@@ -977,7 +1019,6 @@ class _SourceRow extends StatelessWidget {
                         sourceLabel,
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
                           color: colors.accentEnd,
                           decoration: TextDecoration.underline,
                           decorationColor: colors.accentEnd,
@@ -1069,7 +1110,6 @@ class _CopySigningKeyRowState extends State<_CopySigningKeyRow> {
                             : AppLocalizations.of(context)!.devSigningKeyTapToCopy,
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
                           color: _copied ? colors.accentEnd : colors.textSoft,
                         ),
                       ),
@@ -1084,45 +1124,6 @@ class _CopySigningKeyRowState extends State<_CopySigningKeyRow> {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MessageBlock extends StatelessWidget {
-  const _MessageBlock({
-    required this.message,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = SafeHavenTheme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              color: colors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _GradientButton(label: actionLabel, onTap: onAction),
           ),
         ],
       ),
@@ -1213,20 +1214,6 @@ class _PlainActionButton extends StatelessWidget {
   }
 }
 
-class _LoadingBlock extends StatelessWidget {
-  const _LoadingBlock();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = SafeHavenTheme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 44, 22, 44),
-      child: Center(child: CircularProgressIndicator(color: colors.accentEnd)),
-    );
-  }
-}
-
 class _AppIcon extends StatelessWidget {
   const _AppIcon({required this.iconUrl, required this.size});
 
@@ -1267,21 +1254,5 @@ class _AppIcon extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-Color _statusColor(BuildContext context, String status) {
-  final colors = SafeHavenTheme.of(context);
-
-  switch (status) {
-    case 'live':
-    case 'active':
-      return colors.accentEnd;
-    case 'rejected':
-    case 'suspended':
-    case 'removed':
-      return const Color(0xFFE85D75);
-    default:
-      return colors.textMuted;
   }
 }

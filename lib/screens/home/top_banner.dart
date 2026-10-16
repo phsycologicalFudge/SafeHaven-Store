@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../services/developer_profile_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/theme/theme_manager.dart';
+import '../../widgets/animated_tap.dart';
+import '../account/developer_account_screen.dart';
+import '../apps/catalogue_screen/catalogue_navigation.dart';
+import '../notifications/notifications_screen.dart';
 
 class TopBanner {
   static PreferredSizeWidget home() {
@@ -7,7 +13,7 @@ class TopBanner {
       title: 'SafeHaven',
       showHomeDecoration: true,
       large: true,
-      actions: [],
+      actions: [_NotificationsButton(), _AccountButton()],
     );
   }
 
@@ -111,6 +117,94 @@ class _SafeHavenTopBanner extends StatelessWidget
         ],
       ),
       actions: actions,
+    );
+  }
+}
+
+class _AccountButton extends StatelessWidget {
+  const _AccountButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+    final profile = DeveloperProfileService.instance..ensureLoaded();
+    final placeholder = Icon(Icons.account_circle_rounded, size: 32, color: colors.textMuted);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: AnimatedTap(
+        borderRadius: 99,
+        scale: 0.92,
+        onTap: () => Navigator.of(context).push(pushRoute(const DeveloperAccountScreen())),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: ListenableBuilder(
+              listenable: profile,
+              builder: (context, _) {
+                final avatar = profile.avatarFile;
+                if (avatar == null) return placeholder;
+                return ClipOval(
+                  child: Image.file(
+                    avatar,
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => placeholder,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationsButton extends StatelessWidget {
+  const _NotificationsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SafeHavenTheme.of(context);
+
+    return AnimatedTap(
+      borderRadius: 99,
+      scale: 0.92,
+      onTap: () => Navigator.of(context).push(pushRoute(const NotificationsScreen())),
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: ValueListenableBuilder<int>(
+          valueListenable: NotificationService.instance.unread,
+          builder: (context, unread, _) => Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                unread > 0 ? Icons.notifications_rounded : Icons.notifications_none_rounded,
+                size: 27,
+                color: colors.textMuted,
+              ),
+              if (unread > 0)
+                Positioned(
+                  top: 8,
+                  right: 9,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: colors.accentStart,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.backgroundFrost, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

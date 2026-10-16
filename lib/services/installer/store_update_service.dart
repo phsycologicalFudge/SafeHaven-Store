@@ -1,4 +1,5 @@
-import '../logs/debug_log_service.dart';
+import '../engine/bridge.dart';
+import '../index_service.dart';
 import '../store_service.dart';
 import 'apk_install_service.dart';
 import 'unattended_update_service.dart';
@@ -30,6 +31,8 @@ class StoreUpdateCheck {
 
   bool get installed => installedState.installed;
   bool get canUpdate => status == StoreUpdateStatus.updateAvailable;
+  bool get updateBlocked => canUpdate && hasConfirmedSignatureMismatch;
+  bool get updatable => canUpdate && !hasConfirmedSignatureMismatch;
   bool get isCurrent => status == StoreUpdateStatus.current;
   bool get isInstalledNewerThanStore => status == StoreUpdateStatus.installedNewerThanStore;
   int get installedVersionCode => installedState.versionCode;
@@ -43,115 +46,105 @@ class StoreUpdateService {
   StoreUpdateService._();
   static final StoreUpdateService instance = StoreUpdateService._();
 
-  Future<void> syncAndTriggerAutoUpdates(List<PublicStoreApp> apps) async {
-    final installedStates = await ApkInstallService.instance.getAllPackageStates();
+  final EngineBridge _bridge = EngineBridge.instance;
 
-    final eligible = <({PublicStoreApp app, int versionCode})>[];
-    for (final app in apps) {
-      final state = installedStates[app.packageName];
-      if (state == null || !state.installed) continue;
-      if (!state.canUpdateTo(app.latestVersion)) continue;
-      if (state.signatureMismatchWith(app.signingKeyHash) == true) continue;
-      eligible.add((app: app, versionCode: app.latestVersion!.versionCode));
-    }
+  static const _absent = InstalledPackageState(installed: false, versionCode: 0);
 
-    if (eligible.isEmpty) return;
+  Future<void> syncAndTriggerAutoUpdates() async {
+    await IndexService.instance.sync(force: true);
+    final states = await ApkInstallService.instance.getAllPackageStates();
 
-    final urlResults = await Future.wait(
-      eligible.map((e) async {
-        try {
-          return await StoreService.instance.getDownloadUrl(
-            packageName: e.app.packageName,
-            versionCode: e.versionCode,
-          );
-        } catch (err, s) {
-          DebugLog.e('StoreUpdate', 'getDownloadUrl failed: ${e.app.packageName}', err, s);
-          return null;
-        }
-      }),
+    final plan = await _bridge.call<List<dynamic>>(
+      'updates.plan',
+      args: {'states': ApkInstallService.wire(states)},
+      decode: asList,
     );
 
-    final updates = <Map<String, dynamic>>[];
-    for (var i = 0; i < eligible.length; i++) {
-      final url = urlResults[i];
-      if (url != null) {
-        updates.add({'packageName': eligible[i].app.packageName, 'downloadUrl': url});
-      }
-    }
+    if (plan.isEmpty) return;
 
-    if (updates.isEmpty) return;
-    await UnattendedUpdateService.triggerManualBatchUpdate(updates);
+    await UnattendedUpdateService.triggerManualBatchUpdate([
+      for (final entry in plan)
+        {
+          'packageName': (entry as Map<String, dynamic>)['packageName'],
+          'downloadUrl': entry['downloadUrl'],
+        },
+    ]);
   }
 
   Future<StoreUpdateCheck> checkApp(PublicStoreApp app) async {
-    final installedState = await ApkInstallService.instance.getPackageState(
+    await _bridge.ensureReady();
+    final state = await ApkInstallService.instance.getPackageState(
       packageName: app.packageName,
     );
-
-    final latestVersion = app.latestVersion;
-    final status = _resolveStatus(
-      installedState: installedState,
-      latestVersion: latestVersion,
-    );
-
-    return StoreUpdateCheck(
-      app: app,
-      installedState: installedState,
-      latestVersion: latestVersion,
-      status: status,
-      signatureMismatch: installedState.signatureMismatchWith(app.signingKeyHash),
-    );
+    return _evaluate([app], {app.packageName: state}).single;
   }
 
   Future<StoreUpdateCheck> checkAppCached(PublicStoreApp app, {bool forceRefresh = false}) async {
-    final installedStates = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
-    final installedState = installedStates[app.packageName] ??
-        const InstalledPackageState(installed: false, versionCode: 0);
-
-    final latestVersion = app.latestVersion;
-    final status = _resolveStatus(
-      installedState: installedState,
-      latestVersion: latestVersion,
-    );
-
-    return StoreUpdateCheck(
-      app: app,
-      installedState: installedState,
-      latestVersion: latestVersion,
-      status: status,
-      signatureMismatch: installedState.signatureMismatchWith(app.signingKeyHash),
-    );
+    final checks = await checkApps([app], forceRefresh: forceRefresh);
+    return checks.single;
   }
 
   Future<List<StoreUpdateCheck>> checkApps(List<PublicStoreApp> apps, {bool forceRefresh = false}) async {
-    final installedStates = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
-    return apps.map((app) {
-      final state = installedStates[app.packageName] ??
-          const InstalledPackageState(installed: false, versionCode: 0);
-      final latestVersion = app.latestVersion;
-      return StoreUpdateCheck(
-        app: app,
-        installedState: state,
-        latestVersion: latestVersion,
-        status: _resolveStatus(installedState: state, latestVersion: latestVersion),
-        signatureMismatch: state.signatureMismatchWith(app.signingKeyHash),
-      );
-    }).toList();
+    await _bridge.ensureReady();
+    final states = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
+    return _evaluate(apps, states);
   }
 
-  Future<List<StoreUpdateCheck>> availableUpdates(List<PublicStoreApp> apps) async {
-    final checks = await checkApps(apps);
-    return checks.where((check) => check.canUpdate).toList();
+  Future<List<StoreUpdateCheck>> installedChecks({bool forceRefresh = false}) async {
+    await _bridge.ensureReady();
+    final states = await ApkInstallService.instance.getAllPackageStates(forceRefresh: forceRefresh);
+    final results = _bridge.callSync('updates.installed', {
+      'states': ApkInstallService.wire(states),
+    }) as List<dynamic>;
+    return [
+      for (final raw in results.cast<Map<String, dynamic>>())
+        _check(PublicStoreApp.fromJson(raw['app'] as Map<String, dynamic>), states, raw),
+    ];
   }
 
-  StoreUpdateStatus _resolveStatus({
-    required InstalledPackageState installedState,
-    required StoreVersion? latestVersion,
-  }) {
-    if (!installedState.installed) return StoreUpdateStatus.notInstalled;
-    if (latestVersion == null) return StoreUpdateStatus.missingStoreVersion;
-    if (latestVersion.versionCode > installedState.versionCode) return StoreUpdateStatus.updateAvailable;
-    if (latestVersion.versionCode == installedState.versionCode) return StoreUpdateStatus.current;
-    return StoreUpdateStatus.installedNewerThanStore;
+  List<StoreUpdateCheck> _evaluate(
+    List<PublicStoreApp> apps,
+    Map<String, InstalledPackageState> states,
+  ) {
+    final results = _bridge.callSync('updates.check', {
+      'states': ApkInstallService.wire(states),
+      'items': [
+        for (final app in apps)
+          {
+            'packageName': app.packageName,
+            'latestVersionCode': app.latestVersion?.versionCode,
+            'signingKeyHash': app.signingKeyHash,
+          },
+      ],
+    }) as List<dynamic>;
+
+    return [
+      for (var i = 0; i < apps.length; i++)
+        _check(apps[i], states, results[i] as Map<String, dynamic>),
+    ];
+  }
+
+  StoreUpdateCheck _check(
+    PublicStoreApp app,
+    Map<String, InstalledPackageState> states,
+    Map<String, dynamic> result,
+  ) {
+    return StoreUpdateCheck(
+      app: app,
+      installedState: states[app.packageName] ?? _absent,
+      latestVersion: app.latestVersion,
+      status: _statusOf(result['status'] as String),
+      signatureMismatch: result['signatureMismatch'] as bool?,
+    );
+  }
+
+  StoreUpdateStatus _statusOf(String wire) {
+    return switch (wire) {
+      'notInstalled' => StoreUpdateStatus.notInstalled,
+      'missingStoreVersion' => StoreUpdateStatus.missingStoreVersion,
+      'current' => StoreUpdateStatus.current,
+      'updateAvailable' => StoreUpdateStatus.updateAvailable,
+      _ => StoreUpdateStatus.installedNewerThanStore,
+    };
   }
 }

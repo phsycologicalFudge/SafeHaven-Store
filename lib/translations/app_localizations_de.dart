@@ -151,6 +151,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get myAppsErrorTitle => 'Deine Apps konnten nicht geladen werden';
 
   @override
+  String myAppsVersionAvailable(String versionName) {
+    return '$versionName ist verfügbar';
+  }
+
+  @override
+  String get myAppsInstalledSection => 'Installiert';
+
+  @override
+  String myAppsUpdatingProgress(int current, int total) {
+    return 'Aktualisiere $current von $total';
+  }
+
+  @override
   String get appOptionsTitle => 'App-Optionen';
 
   @override
@@ -379,13 +392,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'SafeHaven prüft alle 6 Stunden auf Updates und läuft zusätzlich als Vordergrunddienst, um alle 5 Minuten nach Updates zu suchen.\n\n[Dies verbraucht etwa 1–3 % mehr Akku.]';
 
   @override
-  String get settingsDeveloper => 'Entwickler';
+  String get settingsProfile => 'Profil';
 
   @override
   String get settingsAccount => 'Konto';
 
   @override
-  String get settingsAccountSubtitle => 'Dein Entwicklerprofil verwalten';
+  String get settingsAccountSubtitle => 'Dein Konto und Profil verwalten';
 
   @override
   String get settingsAbout => 'Über';
@@ -462,6 +475,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Der Entwicklerzugriff ist nicht aktiviert. Öffne das Dashboard, um den Entwicklerbedingungen zuzustimmen.';
 
   @override
+  String get accountSignInSubtitle =>
+      'Bist du Entwickler? Melde dich oben an, um Details zu deinen Einreichungen zu sehen';
+
+  @override
+  String get accountSignInToView => 'Melde dich an, um deine Apps zu sehen!';
+
+  @override
+  String get accountEmpty => 'Hier ist es ziemlich leer...';
+
+  @override
   String get devNoApps =>
       'Noch keine Apps registriert. Öffne das Dashboard, um deine erste App zu registrieren.';
 
@@ -502,6 +525,12 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get devSeeAllHistory => 'Gesamten Verlauf anzeigen';
+
+  @override
+  String get devStatusLive => 'Live';
+
+  @override
+  String get devStatusRejected => 'Abgelehnt';
 
   @override
   String get devStatusInactive => 'Inaktiv';
@@ -545,4 +574,39 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get devRemovePhoto => 'Foto entfernen';
+
+  @override
+  String get notificationsTitle => 'Benachrichtigungen';
+
+  @override
+  String get notificationsEmpty => 'Noch keine Benachrichtigungen';
+
+  @override
+  String get notificationsToday => 'Heute';
+
+  @override
+  String get notificationsYesterday => 'Gestern';
+
+  @override
+  String get notificationsLastWeek => 'Letzte Woche';
+
+  @override
+  String get notificationsLastMonth => 'Letzter Monat';
+
+  @override
+  String get notificationsOlder => 'Älter';
+
+  @override
+  String get notificationsDelete => 'Löschen';
+
+  @override
+  String get notificationUpdated => 'Auf die neueste Version aktualisiert';
+
+  @override
+  String get notificationUpdateFailed => 'Konnte nicht aktualisiert werden';
+
+  @override
+  String notificationSelfUpdate(String version) {
+    return 'Version $version ist verfügbar';
+  }
 }

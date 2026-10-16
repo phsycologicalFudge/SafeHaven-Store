@@ -151,6 +151,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get myAppsErrorTitle => 'Could not load your apps';
 
   @override
+  String myAppsVersionAvailable(String versionName) {
+    return '$versionName is available';
+  }
+
+  @override
+  String get myAppsInstalledSection => 'Installed';
+
+  @override
+  String myAppsUpdatingProgress(int current, int total) {
+    return 'Updating $current of $total';
+  }
+
+  @override
   String get appOptionsTitle => 'App options';
 
   @override
@@ -370,13 +383,13 @@ class AppLocalizationsZh extends AppLocalizations {
       'SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]';
 
   @override
-  String get settingsDeveloper => 'Developer';
+  String get settingsProfile => 'Profile';
 
   @override
   String get settingsAccount => 'Account';
 
   @override
-  String get settingsAccountSubtitle => 'Manage your developer profile';
+  String get settingsAccountSubtitle => 'Manage your account and profile';
 
   @override
   String get settingsAbout => 'About';
@@ -453,6 +466,16 @@ class AppLocalizationsZh extends AppLocalizations {
       'Developer access is not enabled. Open the dashboard to agree to the developer terms.';
 
   @override
+  String get accountSignInSubtitle =>
+      'Are you a developer? Sign in above to see details on your submissions';
+
+  @override
+  String get accountSignInToView => 'Sign in to view your apps!';
+
+  @override
+  String get accountEmpty => 'It\'s pretty empty here...';
+
+  @override
   String get devNoApps =>
       'No apps registered yet. Open the dashboard to register your first app.';
 
@@ -491,6 +514,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get devSeeAllHistory => 'See all history';
+
+  @override
+  String get devStatusLive => 'Live';
+
+  @override
+  String get devStatusRejected => 'Rejected';
 
   @override
   String get devStatusInactive => 'Inactive';
@@ -533,6 +562,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get devRemovePhoto => 'Remove photo';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+
+  @override
+  String get notificationsEmpty => 'No notifications yet';
+
+  @override
+  String get notificationsToday => 'Today';
+
+  @override
+  String get notificationsYesterday => 'Yesterday';
+
+  @override
+  String get notificationsLastWeek => 'Last week';
+
+  @override
+  String get notificationsLastMonth => 'Last month';
+
+  @override
+  String get notificationsOlder => 'Older';
+
+  @override
+  String get notificationsDelete => 'Delete';
+
+  @override
+  String get notificationUpdated => 'Updated to the latest version';
+
+  @override
+  String get notificationUpdateFailed => 'Couldn\'t be updated';
+
+  @override
+  String notificationSelfUpdate(String version) {
+    return 'Version $version is available';
+  }
 }
 
 /// The translations for Chinese, as used in Macao (`zh_MO`).

@@ -153,6 +153,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get myAppsErrorTitle => 'No se pudieron cargar tus aplicaciones';
 
   @override
+  String myAppsVersionAvailable(String versionName) {
+    return '$versionName está disponible';
+  }
+
+  @override
+  String get myAppsInstalledSection => 'Instaladas';
+
+  @override
+  String myAppsUpdatingProgress(int current, int total) {
+    return 'Actualizando $current de $total';
+  }
+
+  @override
   String get appOptionsTitle => 'Opciones de la aplicación';
 
   @override
@@ -378,13 +391,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'SafeHaven comprobará si hay actualizaciones cada 6 horas y también se ejecutará como servicio en primer plano para buscarlas cada 5 minutos.\n\n[Esto consume aproximadamente entre un 1 y un 3 % más de batería.]';
 
   @override
-  String get settingsDeveloper => 'Desarrollador';
+  String get settingsProfile => 'Perfil';
 
   @override
   String get settingsAccount => 'Cuenta';
 
   @override
-  String get settingsAccountSubtitle => 'Gestiona tu perfil de desarrollador';
+  String get settingsAccountSubtitle => 'Gestiona tu cuenta y perfil';
 
   @override
   String get settingsAbout => 'Acerca de';
@@ -464,6 +477,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'El acceso de desarrollador no está habilitado. Abre el panel para aceptar los términos para desarrolladores.';
 
   @override
+  String get accountSignInSubtitle =>
+      '¿Eres desarrollador? Inicia sesión arriba para ver los detalles de tus envíos';
+
+  @override
+  String get accountSignInToView => '¡Inicia sesión para ver tus apps!';
+
+  @override
+  String get accountEmpty => 'Esto está bastante vacío...';
+
+  @override
   String get devNoApps =>
       'Aún no hay aplicaciones registradas. Abre el panel para registrar tu primera aplicación.';
 
@@ -503,6 +526,12 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get devSeeAllHistory => 'Ver todo el historial';
+
+  @override
+  String get devStatusLive => 'Publicada';
+
+  @override
+  String get devStatusRejected => 'Rechazada';
 
   @override
   String get devStatusInactive => 'Inactivo';
@@ -545,4 +574,39 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get devRemovePhoto => 'Quitar foto';
+
+  @override
+  String get notificationsTitle => 'Notificaciones';
+
+  @override
+  String get notificationsEmpty => 'Aún no hay notificaciones';
+
+  @override
+  String get notificationsToday => 'Hoy';
+
+  @override
+  String get notificationsYesterday => 'Ayer';
+
+  @override
+  String get notificationsLastWeek => 'La semana pasada';
+
+  @override
+  String get notificationsLastMonth => 'El mes pasado';
+
+  @override
+  String get notificationsOlder => 'Más antiguas';
+
+  @override
+  String get notificationsDelete => 'Eliminar';
+
+  @override
+  String get notificationUpdated => 'Actualizada a la última versión';
+
+  @override
+  String get notificationUpdateFailed => 'No se pudo actualizar';
+
+  @override
+  String notificationSelfUpdate(String version) {
+    return 'La versión $version está disponible';
+  }
 }

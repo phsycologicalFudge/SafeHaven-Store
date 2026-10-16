@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' as intl;
 import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_frc.dart';
 import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
@@ -99,6 +100,7 @@ abstract class AppLocalizations {
     Locale('de'),
     Locale('en'),
     Locale('es'),
+    Locale('frc'),
     Locale('zh'),
     Locale('zh', 'MO'),
   ];
@@ -360,6 +362,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load your apps'**
   String get myAppsErrorTitle;
+
+  /// No description provided for @myAppsVersionAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{versionName} is available'**
+  String myAppsVersionAvailable(String versionName);
+
+  /// No description provided for @myAppsInstalledSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get myAppsInstalledSection;
+
+  /// No description provided for @myAppsUpdatingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating {current} of {total}'**
+  String myAppsUpdatingProgress(int current, int total);
 
   /// No description provided for @appOptionsTitle.
   ///
@@ -775,11 +795,11 @@ abstract class AppLocalizations {
   /// **'SafeHaven will periodically every 6 hours, and run as a foreground service to check for updates every 5 minutes.\n\n[This uses around 1-3% more battery.]'**
   String get settingsUpdateFullDesc;
 
-  /// No description provided for @settingsDeveloper.
+  /// No description provided for @settingsProfile.
   ///
   /// In en, this message translates to:
-  /// **'Developer'**
-  String get settingsDeveloper;
+  /// **'Profile'**
+  String get settingsProfile;
 
   /// No description provided for @settingsAccount.
   ///
@@ -790,7 +810,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAccountSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Manage your developer profile'**
+  /// **'Manage your account and profile'**
   String get settingsAccountSubtitle;
 
   /// No description provided for @settingsAbout.
@@ -937,6 +957,24 @@ abstract class AppLocalizations {
   /// **'Developer access is not enabled. Open the dashboard to agree to the developer terms.'**
   String get devNoDevAccess;
 
+  /// No description provided for @accountSignInSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you a developer? Sign in above to see details on your submissions'**
+  String get accountSignInSubtitle;
+
+  /// No description provided for @accountSignInToView.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your apps!'**
+  String get accountSignInToView;
+
+  /// No description provided for @accountEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s pretty empty here...'**
+  String get accountEmpty;
+
   /// No description provided for @devNoApps.
   ///
   /// In en, this message translates to:
@@ -1015,6 +1053,18 @@ abstract class AppLocalizations {
   /// **'See all history'**
   String get devSeeAllHistory;
 
+  /// No description provided for @devStatusLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get devStatusLive;
+
+  /// No description provided for @devStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get devStatusRejected;
+
   /// No description provided for @devStatusInactive.
   ///
   /// In en, this message translates to:
@@ -1092,6 +1142,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove photo'**
   String get devRemovePhoto;
+
+  /// No description provided for @notificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationsTitle;
+
+  /// No description provided for @notificationsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get notificationsEmpty;
+
+  /// No description provided for @notificationsToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get notificationsToday;
+
+  /// No description provided for @notificationsYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get notificationsYesterday;
+
+  /// No description provided for @notificationsLastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Last week'**
+  String get notificationsLastWeek;
+
+  /// No description provided for @notificationsLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Last month'**
+  String get notificationsLastMonth;
+
+  /// No description provided for @notificationsOlder.
+  ///
+  /// In en, this message translates to:
+  /// **'Older'**
+  String get notificationsOlder;
+
+  /// No description provided for @notificationsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get notificationsDelete;
+
+  /// No description provided for @notificationUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated to the latest version'**
+  String get notificationUpdated;
+
+  /// No description provided for @notificationUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t be updated'**
+  String get notificationUpdateFailed;
+
+  /// No description provided for @notificationSelfUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is available'**
+  String notificationSelfUpdate(String version);
 }
 
 class _AppLocalizationsDelegate
@@ -1105,7 +1221,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['de', 'en', 'es', 'zh'].contains(locale.languageCode);
+      <String>['de', 'en', 'es', 'frc', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -1132,6 +1248,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'frc':
+      return AppLocalizationsFrc();
     case 'zh':
       return AppLocalizationsZh();
   }

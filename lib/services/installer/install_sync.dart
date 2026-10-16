@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'store_update_service.dart';
 
@@ -21,7 +22,14 @@ class InstallSync {
     isChecking.putIfAbsent(pkg, () => ValueNotifier(true));
   }
 
+  static bool _bumpQueued = false;
+
   static void bumpCheck() {
-    checkVersion.value++;
+    if (_bumpQueued) return;
+    _bumpQueued = true;
+    Timer.run(() {
+      _bumpQueued = false;
+      checkVersion.value++;
+    });
   }
 }

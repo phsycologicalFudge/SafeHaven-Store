@@ -20,19 +20,11 @@ class CatalogueCategoryTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    return Container(
-      height: 44,
-      margin: const EdgeInsets.only(top: 8),
-      alignment: Alignment.bottomLeft,
-      decoration: BoxDecoration(
-        color: colors.backgroundFrost,
-        border: Border(
-          bottom: BorderSide(color: colors.border),
-        ),
-      ),
+    return SizedBox(
+      height: 64,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
         children: [
           _CategoryTabItem(
             label: AppLocalizations.of(context)!.catalogueForYou,
@@ -68,39 +60,32 @@ class _CategoryTabItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    return AnimatedTap(
-      borderRadius: 10,
-      scale: 0.96,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 26),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? colors.text : colors.textMuted,
-                  ),
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: AnimatedTap(
+        borderRadius: 99,
+        scale: 0.96,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: selected
+                ? (SafeHavenThemeManager.instance.isDark ? colors.surface : colors.surfaceSoft)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? colors.text : colors.textMuted,
             ),
-            Container(
-              width: 28,
-              height: 3,
-              decoration: BoxDecoration(
-                gradient: selected ? colors.accentGradient : null,
-                color: selected ? null : Colors.transparent,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-            const SizedBox(height: 6),
-          ],
+            child: Text(label),
+          ),
         ),
       ),
     );
