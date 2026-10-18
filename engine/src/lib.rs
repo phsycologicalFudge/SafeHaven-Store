@@ -1,6 +1,7 @@
 #![allow(clippy::missing_safety_doc, clippy::module_inception)]
 mod data;
 mod engine;
+mod jni_bridge;
 mod modules;
 mod net;
 mod notice;
