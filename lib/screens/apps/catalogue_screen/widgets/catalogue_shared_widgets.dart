@@ -97,16 +97,16 @@ class CatalogueSeeAllBlock extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 20, 14, 4),
       child: AnimatedTap(
-        borderRadius: 16,
+        borderRadius: 99,
         scale: 0.975,
         onTap: onTap,
         child: Shimmer(
-          borderRadius: 16,
+          borderRadius: 99,
           child: Container(
             height: 56,
             decoration: BoxDecoration(
               color: colors.card,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(99),
               border: Border.all(color: colors.border),
             ),
             child: Center(

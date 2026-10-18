@@ -162,12 +162,12 @@ class _SearchBar extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: colors.card,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(99),
           border: Border.all(color: colors.border),
         ),
         child: Row(
           children: [
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Icon(
               Icons.search_rounded,
               size: 22,
@@ -203,7 +203,7 @@ class _SearchBar extends StatelessWidget {
                 ),
               )
             else
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
           ],
         ),
       ),
@@ -314,89 +314,97 @@ class _FilterMenu<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = SafeHavenTheme.of(context);
 
-    return PopupMenuButton<T>(
-      initialValue: value,
-      tooltip: '',
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, 8),
-      color: colors.surface,
-      elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.10),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.border),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
       ),
-      constraints: const BoxConstraints(
-        minWidth: 160,
-        maxWidth: 260,
-      ),
-      itemBuilder: (context) {
-        return items.map((item) {
-          final selected = item.value == value;
+      child: PopupMenuButton<T>(
+        tooltip: '',
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 8),
+        color: colors.surface,
+        elevation: 3,
+        shadowColor: Colors.black.withOpacity(0.10),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.border),
+        ),
+        constraints: const BoxConstraints(
+          minWidth: 160,
+          maxWidth: 260,
+        ),
+        itemBuilder: (context) {
+          return items.map((item) {
+            final selected = item.value == value;
 
-          return PopupMenuItem<T>(
-            value: item.value,
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: selected ? colors.text : colors.textSoft,
-                      fontWeight:
-                      selected ? FontWeight.w700 : FontWeight.w600,
+            return PopupMenuItem<T>(
+              value: item.value,
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: selected ? colors.text : colors.textSoft,
+                        fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                if (selected) ...[
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.check_rounded,
-                    size: 17,
-                    color: colors.accentEnd,
-                  ),
+                  if (selected) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.check_rounded,
+                      size: 17,
+                      color: colors.accentEnd,
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          );
-        }).toList();
-      },
-      onSelected: onChanged,
-      child: Container(
-        height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: colors.card,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: colors.border),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colors.textSoft,
-                  fontWeight: FontWeight.w600,
+              ),
+            );
+          }).toList();
+        },
+        onSelected: onChanged,
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colors.card,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: colors.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: colors.textSoft,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 20,
-              color: colors.textMuted,
-            ),
-          ],
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 20,
+                color: colors.textMuted,
+              ),
+            ],
+          ),
         ),
       ),
     );
