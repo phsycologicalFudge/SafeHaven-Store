@@ -78,8 +78,8 @@ jobs:
 
       - name: Install Android SDK Platform 37
         run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$SDKMANAGER" "platforms;android-37.0"
+          sdkmanager "platforms;android-37.0"
+          ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
 
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
