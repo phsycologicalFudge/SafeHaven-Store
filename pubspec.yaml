@@ -24,7 +24,7 @@ dependencies:
   cupertino_icons: ^2.0.0
   palette_generator: ^0.3.3+7
   package_info_plus: ^10.2.2
-  permission_handler: ^13.0.2
+  permission_handler: ^11.3.1
   workmanager: ^0.10.10
   flutter_native_splash: ^2.4.7
   image_picker: ^1.1.2
