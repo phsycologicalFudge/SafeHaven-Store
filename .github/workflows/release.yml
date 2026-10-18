@@ -80,8 +80,10 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           "$SDKMANAGER" "platforms;android-37.0"
-          ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
-
+          cp -r "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
+          sed -i 's/platforms;android-37\.0/platforms;android-37/' "$ANDROID_HOME/platforms/android-37/package.xml"
+          grep -n 'path=' "$ANDROID_HOME/platforms/android-37/package.xml"
+          
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
 
