@@ -76,14 +76,6 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local-signing.properties
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
 
-      - name: Install Android SDK Platform 37
-        run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$SDKMANAGER" "platforms;android-37.0"
-          cp -r "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
-          sed -i 's/platforms;android-37\.0/platforms;android-37/' "$ANDROID_HOME/platforms/android-37/package.xml"
-          grep -n 'path=' "$ANDROID_HOME/platforms/android-37/package.xml"
-          
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
 
