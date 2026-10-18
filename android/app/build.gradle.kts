@@ -16,7 +16,7 @@ if (hasLocalSigning) {
 
 android {
     namespace = "com.colourswift.safehaven"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
