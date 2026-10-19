@@ -56,7 +56,9 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
   Future<void> _pickAvatar() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 95,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 90,
     );
     if (picked == null || !mounted) return;
 

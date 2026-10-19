@@ -1,8 +1,6 @@
 import 'dart:typed_data';
-
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
-
 import 'package:safehaven/translations/app_localizations.dart';
 
 class AvatarCropScreen extends StatefulWidget {
@@ -32,8 +30,14 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
                 withCircleUi: true,
                 baseColor: Colors.black,
                 maskColor: Colors.black.withOpacity(0.75),
-                onCropped: (bytes) {
-                  Navigator.of(context).pop(bytes);
+                onCropped: (result) {
+                  if (!mounted) return;
+                  switch (result) {
+                    case CropSuccess(:final croppedImage):
+                      Navigator.of(context).pop<Uint8List>(croppedImage);
+                    case CropFailure():
+                      setState(() => _cropping = false);
+                  }
                 },
               ),
             ),
