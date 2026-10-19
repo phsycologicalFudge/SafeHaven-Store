@@ -77,9 +77,67 @@ pub fn by_packages<'a>(catalog: &'a Catalog, names: &[String]) -> Vec<&'a Listin
 
 pub fn search<'a>(apps: Vec<&'a Listing>, query: &str, min_rating: f64) -> Vec<&'a Listing> {
     let needle = query.trim().to_lowercase();
-    apps.into_iter()
-        .filter(|a| (needle.is_empty() || a.haystack.contains(&needle)) && a.rating_avg >= min_rating)
-        .collect()
+    let filtered = apps.into_iter().filter(|a| a.rating_avg >= min_rating);
+    if needle.is_empty() {
+        return filtered.collect();
+    }
+    let tokens: Vec<&str> = needle.split_whitespace().collect();
+    let mut scored: Vec<(u32, f64, usize, &Listing)> = filtered
+        .filter_map(|a| {
+            let score = relevance(&a.haystack, &needle, &tokens)?;
+            Some((score, rating_score(a), a.name.len(), a))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)).then(a.2.cmp(&b.2)));
+    scored.into_iter().map(|(_, _, _, a)| a).collect()
+}
+
+fn relevance(haystack: &str, needle: &str, tokens: &[&str]) -> Option<u32> {
+    let mut parts = haystack.splitn(3, '\0');
+    let name = parts.next().unwrap_or("");
+    let package = parts.next().unwrap_or("");
+    let summary = parts.next().unwrap_or("");
+    let leaf = package.rsplit('.').next().unwrap_or("");
+
+    if let Some(score) = phrase_score(name, package, leaf, summary, needle) {
+        return Some(score);
+    }
+    if tokens.len() < 2 || !tokens.iter().all(|t| haystack.contains(t)) {
+        return None;
+    }
+    let total: u32 = tokens
+        .iter()
+        .map(|t| phrase_score(name, package, leaf, summary, t).unwrap_or(0))
+        .sum();
+    Some(total / tokens.len() as u32 / 2)
+}
+
+fn phrase_score(name: &str, package: &str, leaf: &str, summary: &str, needle: &str) -> Option<u32> {
+    if name == needle {
+        Some(1000)
+    } else if name.starts_with(needle) {
+        Some(900)
+    } else if words(name).any(|w| w.starts_with(needle)) {
+        Some(800)
+    } else if name.contains(needle) {
+        Some(700)
+    } else if leaf == needle {
+        Some(600)
+    } else if leaf.starts_with(needle) {
+        Some(550)
+    } else if package.contains(needle) {
+        Some(400)
+    } else if words(summary).any(|w| w.starts_with(needle)) {
+        Some(300)
+    } else if summary.contains(needle) {
+        Some(200)
+    } else {
+        None
+    }
+}
+
+fn words(text: &str) -> impl Iterator<Item = &str> {
+    text.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty())
 }
 
 pub fn rating_score(app: &Listing) -> f64 {
