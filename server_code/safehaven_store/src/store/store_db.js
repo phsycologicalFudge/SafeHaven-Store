@@ -123,14 +123,23 @@ export async function setAppCategory(env, appId, category) {
     .run();
 }
 
-export async function setAppImages(env, appId, { iconKey, screenshotKeys }) {
+export async function setAppImages(env, appId, { iconKey, screenshotKeys, sourceSignature }) {
   const icon        = (iconKey || "").toString().trim() || null;
   const screenshots = Array.isArray(screenshotKeys) && screenshotKeys.length
     ? JSON.stringify(screenshotKeys.filter(Boolean).map((k) => k.toString().trim()))
     : null;
+
+  if (sourceSignature === undefined) {
+    await db(env)
+      .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, image_version = image_version + 1, updated_at = ?4 WHERE id = ?1")
+      .bind((appId || "").toString().trim(), icon, screenshots, nowUnix())
+      .run();
+    return;
+  }
+
   await db(env)
-    .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, image_version = image_version + 1, updated_at = ?4 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), icon, screenshots, nowUnix())
+    .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, screenshots_source = ?4, image_version = image_version + 1, updated_at = ?5 WHERE id = ?1")
+    .bind((appId || "").toString().trim(), icon, screenshots, sourceSignature || null, nowUnix())
     .run();
 }
 
