@@ -93,7 +93,7 @@ const stripReadmeToDescription = (readme) => {
       const plain = withoutImgs.replace(/<[^>]+>/g, "").trim();
 
       if (!plain) return "\n\n";
-      if (plain.includes("•") || plain.includes("&bull;")) return "\n\n";
+      if (plain.includes("\u2022") || plain.includes("&bull;")) return "\n\n";
       if (plain.length > 180) return "\n\n";
 
       return `\n\n${plain}\n\n`;
@@ -134,7 +134,7 @@ const stripReadmeToDescription = (readme) => {
     .replace(/<em\b[^>]*>([\s\S]*?)<\/em>/gi, "$1")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&bull;/gi, "•")
+    .replace(/&bull;/gi, "\u2022")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
@@ -345,19 +345,24 @@ const readmeScreenshotUrls = (owner, repo, rawReadme) => {
 const uploadReadmeScreenshot = (env, packageName, slot, imageUrl) =>
   uploadImageFromUrl(env, packageName, slot, imageUrl, MAX_SCREENSHOT_BYTES);
 
-const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) => {
+const syncReadmeScreenshots = async (env, app, owner, repo, rawReadme) => {
   if (!app) return [];
   if (app.developer_id !== COMMUNITY_DEVELOPER_ID) return [];
   if (Number(app.auto_tracked || 0) !== 1) return [];
   if (Number(app.claimed || 0) === 1) return [];
 
   const existingScreenshots = parseScreenshots(app.screenshots_json);
-  if (existingScreenshots.length > 0) return existingScreenshots;
-
   const candidates = readmeScreenshotUrls(owner, repo, rawReadme);
-  if (!candidates.length) return [];
+
+  if (!candidates.length) return existingScreenshots;
+
+  const candidateSignature = candidates.map((c) => c.url).join("\n");
+  if (existingScreenshots.length > 0 && (app.screenshots_source || "") === candidateSignature) {
+    return existingScreenshots;
+  }
 
   const screenshotKeys = [];
+  const uploadedSources = [];
 
   for (let i = 0; i < candidates.length && screenshotKeys.length < 6; i++) {
     const slot = `screenshot_${screenshotKeys.length + 1}`;
@@ -365,14 +370,16 @@ const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) 
 
     if (key) {
       screenshotKeys.push(key);
+      uploadedSources.push(candidates[i].url);
     }
   }
 
-  if (!screenshotKeys.length) return [];
+  if (!screenshotKeys.length) return existingScreenshots;
 
   await setAppImages(env, app.id, {
     iconKey: app.icon_key || null,
     screenshotKeys,
+    sourceSignature: uploadedSources.join("\n"),
   });
 
   return screenshotKeys;
@@ -435,7 +442,7 @@ export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
   let updatedApp = await getStoreAppById(env, app.id);
 
   if (updatedApp && rawReadme) {
-    await saveReadmeScreenshotsIfMissing(env, updatedApp, owner, repo, rawReadme);
+    await syncReadmeScreenshots(env, updatedApp, owner, repo, rawReadme);
     updatedApp = await getStoreAppById(env, app.id);
   }
 
@@ -915,7 +922,7 @@ const importCandidate = async (env, rawCandidate) => {
 
   if (rawReadme) {
     const createdApp = await getStoreAppById(env, appId);
-    screenshotKeys = await saveReadmeScreenshotsIfMissing(env, createdApp, owner, repo, rawReadme);
+    screenshotKeys = await syncReadmeScreenshots(env, createdApp, owner, repo, rawReadme);
   }
 
   let apkBuffer;
@@ -1111,10 +1118,10 @@ export const pollGitHubApp = async (env, app) => {
   const normalized = normalizeGitHubRepoUrl(app.repo_url);
   if (!normalized) return null;
 
-  await refreshGitHubMetadataForApp(env, app).catch(() => {});
-
   const parsed = parseGitHubRepo(normalized);
   if (!parsed) return null;
+
+  await refreshGitHubMetadataForApp(env, app, parsed.owner, parsed.repo).catch(() => {});
 
   const release = await githubLatestRelease(env, parsed.owner, parsed.repo);
   if (!release) return null;
@@ -1252,7 +1259,7 @@ export async function runGitHubReadmeSweep(env, limit = 50) {
       let screenshotKeys = [];
 
       if (updatedApp && rawReadme) {
-        screenshotKeys = await saveReadmeScreenshotsIfMissing(env, updatedApp, owner, repo, rawReadme);
+        screenshotKeys = await syncReadmeScreenshots(env, updatedApp, owner, repo, rawReadme);
         updatedApp = await getStoreAppById(env, app.id);
       }
 
