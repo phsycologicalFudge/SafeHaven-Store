@@ -39,7 +39,7 @@ export const getAppDetail = async (env, packageName) => {
   const fullApp = fullIndex.apps.find((a) => a.packageName === packageName) || null;
 
   if (fullApp && env.STORE_INDEX_KV) {
-    await env.STORE_INDEX_KV.put(cacheKey, JSON.stringify(fullApp));
+    await env.STORE_INDEX_KV.put(cacheKey, JSON.stringify(fullApp), { expirationTtl: 300 });
   }
 
   return { app: fullApp, lite };
