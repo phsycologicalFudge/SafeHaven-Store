@@ -93,7 +93,7 @@ const stripReadmeToDescription = (readme) => {
       const plain = withoutImgs.replace(/<[^>]+>/g, "").trim();
 
       if (!plain) return "\n\n";
-      if (plain.includes("\u2022") || plain.includes("&bull;")) return "\n\n";
+      if (plain.includes("•") || plain.includes("&bull;")) return "\n\n";
       if (plain.length > 180) return "\n\n";
 
       return `\n\n${plain}\n\n`;
@@ -134,7 +134,7 @@ const stripReadmeToDescription = (readme) => {
     .replace(/<em\b[^>]*>([\s\S]*?)<\/em>/gi, "$1")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&bull;/gi, "\u2022")
+    .replace(/&bull;/gi, "•")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
