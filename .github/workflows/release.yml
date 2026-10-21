@@ -48,14 +48,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Rust
-        run: rustup show
-
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --version 4.1.2 --locked
 
+      - name: Install NDK
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973"
+
       - name: Build Rust Engine
         working-directory: engine
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: cargo ndk -t arm64-v8a -t armeabi-v7a -o ../android/app/src/main/jniLibs build --release --locked
 
       - name: Get Dependencies
