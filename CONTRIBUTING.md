@@ -28,7 +28,10 @@ it will be created for you.
 For server-side code, please do not submit:
 - Complete or partial code intended to be copied directly into the project
 - Feature suggestions
-- AI generated code. 
+
+For client-side code, please do not submit:
+- AI generated code
+- Extensive UI changes (without prior communication)
 
 ## Code style
 - Please format code before submitting it.
