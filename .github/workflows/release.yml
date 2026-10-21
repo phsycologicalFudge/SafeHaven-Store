@@ -85,10 +85,10 @@ jobs:
           echo "storeFile=upload-keystore.jks" >> android/local-signing.properties
 
       - name: Build Release APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/safehaven-store.apk
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/safehaven-store.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
