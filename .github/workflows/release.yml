@@ -52,7 +52,7 @@ jobs:
         run: rustup show
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
+        run: cargo install cargo-ndk --version 4.1.2 --locked
 
       - name: Build Rust Engine
         working-directory: engine
