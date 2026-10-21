@@ -48,17 +48,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Rust
+      - name: Read tool version
+        id: android_versions
+        working-directory: engine
         run: |
-          rustup update stable
-          rustup target add aarch64-linux-android armv7-linux-androideabi
+          echo "cargo_ndk_version=$(yq -r '.package.metadata.android."cargo-ndk-version"' -p toml Cargo.toml)" >> "$GITHUB_OUTPUT"
+          echo "ndk_version=$(yq -r '.package.metadata.android."ndk-version"' -p toml Cargo.toml)" >> "$GITHUB_OUTPUT"
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
+        working-directory: engine
+        run: cargo install cargo-ndk --version ${{ steps.android_versions.outputs.cargo_ndk_version }} --locked
+
+      - name: Install NDK
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;${{ steps.android_versions.outputs.ndk_version }}"
 
       - name: Build Rust Engine
         working-directory: engine
-        run: cargo ndk -t arm64-v8a -t armeabi-v7a -o ../android/app/src/main/jniLibs build --release --locked
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${{ steps.android_versions.outputs.ndk_version }}"
+          cargo ndk -t arm64-v8a -t armeabi-v7a -o ../android/app/src/main/jniLibs build --release --locked
 
       - name: Get Dependencies
         run: flutter pub get
