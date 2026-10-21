@@ -49,9 +49,7 @@ jobs:
           cache: true
 
       - name: Setup Rust
-        run: |
-          rustup update stable
-          rustup target add aarch64-linux-android armv7-linux-androideabi
+        run: rustup show
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
