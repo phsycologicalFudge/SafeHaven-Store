@@ -5,7 +5,7 @@ edition = "2021" #TODO: upgrade
 
 [package.metadata.android]
 cargo-ndk-version = "4.1.2"
-ndk-version = "27.0.12077973"
+ndk-version = "28.2.13676358"
 
 [lib]
 name = "safehaven_engine"
