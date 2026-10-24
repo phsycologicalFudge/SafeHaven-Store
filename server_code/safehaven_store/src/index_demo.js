@@ -6,7 +6,7 @@ import {
   runFdroidCronJob,
   runIzzyCronJob,
   runUpstreamPolls,
-} from "./store/store.js";
+} from "./store/lib.ts";
 import { demoAuth } from "./store/auth_demo.js";
 import { renderDashboardHtml } from "./store/web/dashboard.js";
 import { handleStoreWeb } from "./store/web/store_web_router.js";
