@@ -56,6 +56,10 @@
                 android:resource="@style/NormalTheme"
                 />
 
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -78,6 +82,16 @@
                     android:scheme="https"
                     android:host="store.colourswift.com"
                     android:pathPrefix="/app" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="account.colourswift.com"
+                    android:path="/app/auth/store" />
             </intent-filter>
         </activity>
 

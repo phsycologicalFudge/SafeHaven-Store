@@ -1,7 +1,7 @@
 name: safehaven
 description: "An android app store."
 publish_to: 'none'
-version: 2.1.1+19
+version: 2.1.2+20
 
 environment:
   sdk: ^3.9.2

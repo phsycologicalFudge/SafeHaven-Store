@@ -62,8 +62,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
   void _listenForAuthLinks() {
     _linkSub = _appLinks.uriLinkStream.listen(
           (uri) async {
-        if (uri.scheme != 'safehaven') return;
-        if (uri.host != 'auth') return;
+        if (!_auth.isAuthUri(uri)) return;
 
         setState(() {
           _loading = true;
@@ -71,7 +70,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
         });
 
         try {
-          await _auth.saveTokenFromAuthUri(uri);
+          await _auth.completeLoginFromUri(uri);
           await _load(showLoading: false);
         } catch (e) {
           if (!mounted) return;
@@ -144,7 +143,7 @@ class _DeveloperAccountScreenState extends State<DeveloperAccountScreen> {
 
     try {
       final ok = await launchUrl(
-        _auth.loginUri(),
+        await _auth.startLoginUri(),
         mode: LaunchMode.externalApplication,
       );
       if (!ok && mounted) {

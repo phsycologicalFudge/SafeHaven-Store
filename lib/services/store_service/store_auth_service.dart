@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:safehaven/services/engine/bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'store_config.dart';
@@ -9,6 +12,11 @@ class StoreAuthService {
   static final StoreAuthService instance = StoreAuthService._();
 
   static const String _tokenKey = 'safehaven_developer_token';
+  static const String _verifierKey = 'safehaven_auth_pkce_verifier';
+  static const String _startedAtKey = 'safehaven_auth_pkce_started_at';
+  static const String _appLinkHost = 'account.colourswift.com';
+  static const String _appLinkPath = '/app/auth/store';
+  static const Duration _pendingTtl = Duration(minutes: 10);
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,24 +41,74 @@ class StoreAuthService {
     return token;
   }
 
-  Uri loginUri() {
-    return Uri.parse('$storeDefaultBaseUrl/login?app=store');
+  Future<Uri> startLoginUri() async {
+    final rnd = Random.secure();
+    final verifier = _b64url(List<int>.generate(32, (_) => rnd.nextInt(256)));
+    final challenge = _b64url(sha256.convert(ascii.encode(verifier)).bytes);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_verifierKey, verifier);
+    await prefs.setInt(_startedAtKey, DateTime.now().millisecondsSinceEpoch);
+
+    return Uri.parse('$storeDefaultBaseUrl/login').replace(queryParameters: {
+      'app': 'store',
+      'flow': 'v2',
+      'applink': '1',
+      'code_challenge': challenge,
+    });
+  }
+
+  bool isAuthUri(Uri uri) =>
+      (uri.scheme == 'https' && uri.host == _appLinkHost && uri.path == _appLinkPath) ||
+      (uri.scheme == 'safehaven' && uri.host == 'auth');
+
+  Future<void> completeLoginFromUri(Uri uri) async {
+    if (!isAuthUri(uri)) return;
+    final code = (uri.queryParameters['code'] ?? '').trim();
+    if (code.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final verifier = prefs.getString(_verifierKey) ?? '';
+    final startedAt = prefs.getInt(_startedAtKey) ?? 0;
+    await prefs.remove(_verifierKey);
+    await prefs.remove(_startedAtKey);
+
+    if (verifier.isEmpty) return;
+    final age = DateTime.now().millisecondsSinceEpoch - startedAt;
+    if (age < 0 || age > _pendingTtl.inMilliseconds) return;
+
+    final body = await EngineBridge.instance.call<Map<String, dynamic>>(
+      'api.request',
+      args: {
+        'method': 'POST',
+        'path': '/auth/exchange',
+        'token': null,
+        'body': {'code': code, 'codeVerifier': verifier},
+      },
+      decode: asMap,
+    );
+    final token = (body['token'] ?? '').toString().trim();
+    if (token.isEmpty) throw const StoreApiException('missing_token');
+    await saveToken(token);
   }
 
   Future<Uri> dashboardUri() async {
     final token = await requireToken();
-    return Uri.parse(
-      '$storeDefaultBaseUrl/account?token=${Uri.encodeComponent(token)}',
-    );
+    final target = Uri.parse('$storeDefaultBaseUrl/account');
+    try {
+      final body = await EngineBridge.instance.call<Map<String, dynamic>>(
+        'api.request',
+        args: {'method': 'POST', 'path': '/auth/web-handoff', 'token': token},
+        decode: asMap,
+      );
+      final code = (body['code'] ?? '').toString().trim();
+      if (code.isNotEmpty) return target.replace(queryParameters: {'handoff': code});
+    } catch (_) {}
+    return target;
   }
 
-  Future<void> saveTokenFromAuthUri(Uri uri) async {
-    final token = uri.queryParameters['token']?.trim();
-    if (token == null || token.isEmpty) {
-      throw const StoreApiException('missing_token');
-    }
-    await saveToken(token);
-  }
+  static String _b64url(List<int> bytes) =>
+      base64Url.encode(bytes).replaceAll('=', '');
 
   Future<StoreAccount> fetchMe() async {
     final token = await requireToken();
