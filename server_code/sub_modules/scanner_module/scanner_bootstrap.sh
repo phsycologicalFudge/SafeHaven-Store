@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 HASH_SERVER_DIR="$SCRIPT_DIR/hash_server"
 ENGINE_DIR="$SCRIPT_DIR/optional_engine"
+VXTITANIUM_DATA_DIR="$ENGINE_DIR/data"
 VENV_DIR="$SCRIPT_DIR/.venv"
 SCANNER_PORT="8080"
 HASH_PORT="8081"
@@ -65,11 +66,9 @@ VXTITANIUM_LIB_PATH="$ENGINE_DIR/lib/libcolourswift_av.so"
 VXTITANIUM_DEFS_PATH="$ENGINE_DIR/defs/defs.cs"
 TFLITE_LIB_PATH="$ENGINE_DIR/lib/libtensorflowlite_c.so"
 HASH_API_URL="http://127.0.0.1:$HASH_PORT/check_batch"
-HASH_API_KEY="23JVO3ojo23oO3O423rrTR"
 EOF
 
 cat > "$SCRIPT_DIR/.env.hash" <<EOF
-CS_SECRET="23JVO3ojo23oO3O423rrTR"
 BAZAAR_INTERVAL="7200"
 CS_IOC_DIR="$HASH_SERVER_DIR/raw_database/iocs"
 EOF

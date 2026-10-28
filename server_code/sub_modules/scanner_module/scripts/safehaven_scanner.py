@@ -16,8 +16,7 @@ from fastapi import FastAPI
 CS_API_URL       = os.getenv("CS_API_URL", "https://api.colourswift.com").rstrip("/")
 VPS_AUTH_SECRET  = os.getenv("VPS_AUTH_SECRET", "").strip()
 POLL_INTERVAL    = int(os.getenv("POLL_INTERVAL", "30"))
-HASH_API_URL     = "https://efkou1u21ooih2hko.colourswift.com/check_batch"
-HASH_API_KEY     = "23JVO3ojo23oO3O423rrTR"
+HASH_API_URL     = os.getenv("HASH_API_URL", "http://127.0.0.1:8081/check_batch")
 HASH_TIMEOUT     = 8.0
 DOWNLOAD_TIMEOUT = 60.0
 RESCAN_COOLDOWN  = 7 * 86400
@@ -317,41 +316,16 @@ async def download_apk(url: str) -> bytes:
         return resp.content
 
 
-async def _check_hashes_remote(hashes: list[str]) -> dict:
-    async with httpx.AsyncClient(timeout=HASH_TIMEOUT) as client:
-        resp = await client.post(
-            HASH_API_URL,
-            json=hashes,
-            headers={"x-cs-key": HASH_API_KEY}
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        found = data.get("found", [])
-        return {"verdict": "known_malware" if found else "unknown", "matches": found}
-
-
-async def _check_hashes_local(hashes: list[str]) -> dict:
-    async with httpx.AsyncClient(timeout=HASH_TIMEOUT) as client:
-        resp = await client.post(
-            "http://127.0.0.1:8081/check_batch",
-            json=hashes
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        found = data.get("found", [])
-        return {"verdict": "known_malware" if found else "unknown", "matches": found}
-
-
 async def check_hashes(hashes: list[str]) -> dict:
     try:
-        return await _check_hashes_remote(hashes)
+        async with httpx.AsyncClient(timeout=HASH_TIMEOUT) as client:
+            resp = await client.post(HASH_API_URL, json=hashes)
+            resp.raise_for_status()
+            found = resp.json().get("found", [])
+            return {"verdict": "known_malware" if found else "unknown", "matches": found}
     except Exception as exc:
-        print(f"[scanner] remote hash check failed: {exc}, falling back to local")
-        try:
-            return await _check_hashes_local(hashes)
-        except Exception as local_exc:
-            print(f"[scanner] local hash check failed: {local_exc}")
-            return {"verdict": "unknown", "matches": []}
+        print(f"[scanner] local hash check failed: {exc}")
+        return {"verdict": "unknown", "matches": []}
 
 
 async def run_engine_scan(apk_bytes: bytes) -> dict[str, Any] | None:
