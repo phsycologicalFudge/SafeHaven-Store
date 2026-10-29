@@ -1,5 +1,6 @@
 import { REJECTION_REASONS, SUBMISSION_STATUS, db, REJECTION_RETRY_COOLDOWN_SECONDS } from "./constants.js";
-import { nowUnix, cryptoRandomHex } from "../../helpers/store_helpers.js";
+import { nowUnix, cryptoRandomHex, normalizeStoreText } from "../../helpers/store_helpers.js";
+import { capWhatsNew } from "../../helpers/changelog_helpers.js";
 
 export function isRetryBlockingRejection(submission, now = nowUnix()) {
   if (!submission || submission.status !== SUBMISSION_STATUS.REJECTED) {
@@ -65,15 +66,16 @@ export async function createSubmission(env, input) {
   const versionName = (input.versionName || "").toString().trim();
   const versionCode = Number(input.versionCode);
   const stagingKey  = (input.stagingKey || "").toString().trim();
+  const releaseNotes = capWhatsNew(normalizeStoreText(input.releaseNotes));
   const now         = nowUnix();
 
   if (!appId || !developerId || !packageName || !versionName || !Number.isFinite(versionCode)) return null;
 
   await db(env)
     .prepare(
-      "INSERT INTO store_submissions (id, app_id, developer_id, package_name, version_name, version_code, status, staging_key, submitted_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)"
+      "INSERT INTO store_submissions (id, app_id, developer_id, package_name, version_name, version_code, status, staging_key, release_notes, submitted_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)"
     )
-    .bind(id, appId, developerId, packageName, versionName, versionCode, SUBMISSION_STATUS.PENDING_UPLOAD, stagingKey, now)
+    .bind(id, appId, developerId, packageName, versionName, versionCode, SUBMISSION_STATUS.PENDING_UPLOAD, stagingKey, releaseNotes, now)
     .run();
 
   return id;
