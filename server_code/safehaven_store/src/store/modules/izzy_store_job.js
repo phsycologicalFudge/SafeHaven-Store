@@ -1,18 +1,6 @@
-import {
-  createSubmission,
-  advanceSubmissionToScan,
-  setAppImages,
-  getStoreAppByPackage,
-  getStoreAppById,
-  APP_STATUS,
-} from "../store_db.js";
-
-import {
-  getPresignedStagingUploadUrl,
-  addOrUpdateApp,
-} from "../storage.js";
+import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppByPackage, getStoreAppById, APP_STATUS } from "../main/db/index.js";
+import { getPresignedStagingUploadUrl, addOrUpdateApp } from "../main/storage/index.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
-
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID, fetchWithTimeout } from "../helpers/store_helpers.js";
 import { releaseNotesFromFdroid } from "../helpers/changelog_helpers.js";
 

@@ -1,5 +1,5 @@
-import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../store_db.js";
-import { addOrUpdateApp, getIndex, putIndexWithChangelog } from "../storage.js";
+import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../main/db/index.js";
+import { addOrUpdateApp, getIndex, putIndexWithChangelog } from "../main/storage/index.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
 import { githubHeaders, normalizeGitHubRepoUrl, parseGitHubRepo, repoUrlVariants, githubLatestRelease, normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, uploadBufferToStaging } from "../helpers/github_helpers.js";

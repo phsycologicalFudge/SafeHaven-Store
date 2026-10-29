@@ -79,7 +79,6 @@ const pollIzzyApp = async (env, app) => {
   return !!outcome?.imported;
 };
 
-
 const resolveUpstream = (app) => {
   if (app.upstream === "fdroid" || app.upstream === "izzyondroid") return app.upstream;
   return detectPlatform(app.repo_url) || app.upstream || null;

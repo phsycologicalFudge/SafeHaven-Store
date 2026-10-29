@@ -1,18 +1,7 @@
-import { createSubmission, advanceSubmissionToScan } from "../store_db.js";
-import { getPresignedStagingUploadUrl, addOrUpdateApp, getIndex, putIndexWithChangelog } from "../storage.js";
-import {
-  nowUnix,
-  cryptoRandomHex,
-  normalizeStoreText,
-  buildIndexAppEntry,
-  COMMUNITY_DEVELOPER_ID,
-} from "../helpers/store_helpers.js";
-import {
-  findApkAsset,
-  tagToVersionCode,
-  versionNameToVersionCode,
-  assetNameToVersionName,
-} from "../helpers/apk_helpers.js";
+import { createSubmission, advanceSubmissionToScan } from "../main/db/index.js";
+import { getPresignedStagingUploadUrl, addOrUpdateApp, getIndex, putIndexWithChangelog } from "../main/storage/index.js";
+import { nowUnix, cryptoRandomHex, normalizeStoreText, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
+import { findApkAsset, tagToVersionCode, versionNameToVersionCode, assetNameToVersionName } from "../helpers/apk_helpers.js";
 import { releaseNotesFromCodeberg } from "../helpers/changelog_helpers.js";
 
 const MAX_APK_BYTES       = 100 * 1024 * 1024;

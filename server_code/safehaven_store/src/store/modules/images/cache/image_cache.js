@@ -1,4 +1,4 @@
-import { s3Fetch } from "../../../storage.js";
+import { s3Fetch } from "../../../main/storage/index.js";
 
 const ALLOWED_PREFIX = "images/";
 const DEFAULT_CONTENT_TYPE = "image/png";

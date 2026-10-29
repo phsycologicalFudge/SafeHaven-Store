@@ -1,4 +1,4 @@
-import { getIndex } from "../../storage.js";
+import { getIndex } from "../../main/storage/index.js";
 import { buildLiteIndex } from "../lib/shared.ts";
 
 export const getStorefrontIndex = async (env) => {

@@ -1,14 +1,4 @@
-import {
-  escapeHtml,
-  iconOrFallbackHtml,
-  displayVersion,
-  displayRating,
-  developerName,
-  trustLabel,
-  displaySummary,
-  latestVersion,
-  brandIconUrl,
-} from "../lib/shared.ts";
+import { escapeHtml, iconOrFallbackHtml, displayVersion, displayRating, developerName, trustLabel, displaySummary, latestVersion, brandIconUrl } from "../lib/shared.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
 import { footerHtml } from "../components/footer.ts";
 import { headerHtml, themeHeadScript, themeScript } from "../components/header.ts";

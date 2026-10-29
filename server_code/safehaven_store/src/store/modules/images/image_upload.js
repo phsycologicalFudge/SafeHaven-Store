@@ -1,4 +1,4 @@
-import { getPresignedImageUploadUrl, imageKey } from "../../storage.js";
+import { getPresignedImageUploadUrl, imageKey } from "../../main/storage/index.js";
 import { normaliseIcon } from "./icon_normalise.js";
 import { normaliseScreenshot } from "./screenshot_normalise.js";
 import { fetchWithTimeout } from "../../helpers/store_helpers.js";

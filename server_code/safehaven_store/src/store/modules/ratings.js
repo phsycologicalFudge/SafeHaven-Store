@@ -1,4 +1,4 @@
-import { getIndex, updateAppRating, sha256Hex } from "../storage.js";
+import { getIndex, updateAppRating, sha256Hex } from "../main/storage/index.js";
 
 const nowUnix = () => Math.floor(Date.now() / 1000);
 const db      = (env) => env.api_control_db;

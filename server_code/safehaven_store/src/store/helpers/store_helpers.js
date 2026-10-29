@@ -1,4 +1,4 @@
-import { publicImageUrl } from "../storage.js";
+import { publicImageUrl } from "../main/storage/index.js";
 
 export const nowUnix = () => Math.floor(Date.now() / 1000);
 

@@ -1,5 +1,4 @@
-import { getPresignedStagingUploadUrl } from "../storage.js";
-
+import { getPresignedStagingUploadUrl } from "../main/storage/index.js";
 export { normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, } from "./apk_helpers.js";
 
 export const githubHeaders = (env) => {

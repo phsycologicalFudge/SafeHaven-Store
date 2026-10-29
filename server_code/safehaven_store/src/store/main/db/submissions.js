@@ -1,137 +1,60 @@
-import { nowUnix, cryptoRandomHex } from "./helpers/store_helpers.js";
+import { REJECTION_REASONS, SUBMISSION_STATUS, db, REJECTION_RETRY_COOLDOWN_SECONDS } from "./constants.js";
+import { nowUnix, cryptoRandomHex } from "../../helpers/store_helpers.js";
 
-const db = (env) => env.api_control_db;
+export function isRetryBlockingRejection(submission, now = nowUnix()) {
+  if (!submission || submission.status !== SUBMISSION_STATUS.REJECTED) {
+    return false;
+  }
 
-export const SUBMISSION_STATUS = {
-  PENDING_UPLOAD:  "pending_upload",
-  PENDING_SCAN:    "pending_scan",
-  SCANNING:        "scanning",
-  PENDING_REVIEW:  "pending_review",
-  LIVE:            "live",
-  REJECTED:        "rejected",
-};
+  const reason = (submission.rejection_reason || "").toString().trim();
 
-export const APP_STATUS = {
-  ACTIVE:    "active",
-  SUSPENDED: "suspended",
-  REMOVED:   "removed",
-};
+  const scannerRejected =
+    reason === REJECTION_REASONS.SCAN_FAILED ||
+    reason === REJECTION_REASONS.SIGNING_KEY_CHANGED ||
+    reason === REJECTION_REASONS.PACKAGE_NAME_MISMATCH ||
+    (
+      !reason &&
+      submission.scan_passed !== null &&
+      submission.scan_passed !== undefined &&
+      Number(submission.scan_passed) === 0
+    );
 
-export const TRUST_LEVEL = {
-  VERIFIED_SOURCE:    "verified_source",
-  SECURITY_REVIEWED:  "security_reviewed",
-};
+  if (!scannerRejected) return false;
 
-export async function getStoreAppByPackage(env, packageName) {
-  const clean = (packageName || "").toString().trim();
-  if (!clean) return null;
-  return db(env)
-    .prepare("SELECT * FROM store_apps WHERE package_name = ?1 LIMIT 1")
-    .bind(clean)
-    .first();
+  const rejectedAt = Number(submission.updated_at || 0);
+  if (!Number.isFinite(rejectedAt) || rejectedAt <= 0) return false;
+
+  return rejectedAt + REJECTION_RETRY_COOLDOWN_SECONDS > now;
 }
 
-export async function getStoreAppById(env, id) {
-  const clean = (id || "").toString().trim();
-  if (!clean) return null;
-  return db(env)
-    .prepare("SELECT * FROM store_apps WHERE id = ?1 LIMIT 1")
-    .bind(clean)
-    .first();
+export function getRetryAfterSeconds(submission, now = nowUnix()) {
+  const rejectedAt = Number(submission?.updated_at || 0);
+  if (!Number.isFinite(rejectedAt) || rejectedAt <= 0) return 0;
+
+  return Math.max(
+    0,
+    rejectedAt + REJECTION_RETRY_COOLDOWN_SECONDS - now
+  );
 }
 
-export async function getStoreAppsByDeveloper(env, developerId) {
-  const clean = (developerId || "").toString().trim();
-  if (!clean) return [];
-  const rows = await db(env)
-    .prepare("SELECT * FROM store_apps WHERE developer_id = ?1 ORDER BY created_at DESC")
-    .bind(clean)
-    .all();
-  return rows.results || [];
-}
-
-export async function getAllStoreApps(env) {
-  const rows = await db(env)
-    .prepare("SELECT * FROM store_apps WHERE status = ?1 ORDER BY created_at DESC")
-    .bind(APP_STATUS.ACTIVE)
-    .all();
-  return rows.results || [];
-}
-
-export async function createStoreApp(env, input) {
-  const id          = cryptoRandomHex(16);
-  const packageName = (input.packageName || "").toString().trim();
-  const developerId = (input.developerId || "").toString().trim();
-  const name        = (input.name || "").toString().trim();
-  const summary     = (input.summary || "").toString().trim() || null;
-  const description = (input.description || "").toString().trim() || null;
-  const repoUrl     = (input.repoUrl || "").toString().trim();
-  const repoToken   = cryptoRandomHex(24);
-  const now         = nowUnix();
-
-  if (!packageName || !developerId || !name || !repoUrl) return null;
-
-  await db(env)
-    .prepare(
-      "INSERT INTO store_apps (id, developer_id, package_name, name, summary, description, repo_url, repo_token, repo_verified, trust_level, status, created_at, updated_at, upstream) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?10, ?11, ?11, NULL)"
-    )
-    .bind(
-      id, developerId, packageName, name, summary, description,
-      repoUrl, repoToken, TRUST_LEVEL.VERIFIED_SOURCE, APP_STATUS.ACTIVE, now
-    )
-    .run();
-
-  return { id, repoToken };
-}
-
-export async function setAppRepoVerified(env, appId, verified) {
-  await db(env)
-    .prepare("UPDATE store_apps SET repo_verified = ?2, updated_at = ?3 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), verified ? 1 : 0, nowUnix())
-    .run();
-}
-
-export async function setAppSigningKeyHash(env, appId, signingKeyHash) {
-  await db(env)
-    .prepare("UPDATE store_apps SET signing_key_hash = ?2, updated_at = ?3 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), (signingKeyHash || "").toString().trim(), nowUnix())
-    .run();
-}
-
-export async function setAppTrustLevel(env, appId, trustLevel) {
-  if (trustLevel !== null && !Object.values(TRUST_LEVEL).includes(trustLevel)) return;
-  await db(env)
-    .prepare("UPDATE store_apps SET trust_level = ?2, updated_at = ?3 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), trustLevel, nowUnix())
-    .run();
-}
-
-export async function setAppStatus(env, appId, status) {
-  if (!Object.values(APP_STATUS).includes(status)) return;
-  await db(env)
-    .prepare("UPDATE store_apps SET status = ?2, updated_at = ?3 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), status, nowUnix())
-    .run();
-}
-
-export async function setAppCategory(env, appId, category) {
+export async function getSubmissionsByVersionCode(env, appId, versionCode) {
   const clean = (appId || "").toString().trim();
-  if (!clean) return;
-  await db(env)
-    .prepare("UPDATE store_apps SET category = ?2, updated_at = ?3 WHERE id = ?1")
-    .bind(clean, category || null, nowUnix())
-    .run();
-}
+  const vc = Number(versionCode);
 
-export async function setAppImages(env, appId, { iconKey, screenshotKeys }) {
-  const icon        = (iconKey || "").toString().trim() || null;
-  const screenshots = Array.isArray(screenshotKeys) && screenshotKeys.length
-    ? JSON.stringify(screenshotKeys.filter(Boolean).map((k) => k.toString().trim()))
-    : null;
-  await db(env)
-    .prepare("UPDATE store_apps SET icon_key = ?2, screenshots_json = ?3, image_version = image_version + 1, updated_at = ?4 WHERE id = ?1")
-    .bind((appId || "").toString().trim(), icon, screenshots, nowUnix())
-    .run();
+  if (!clean || !Number.isFinite(vc)) return [];
+
+  const rows = await db(env)
+    .prepare(
+      `SELECT *
+       FROM store_submissions
+       WHERE app_id = ?1
+         AND version_code = ?2
+       ORDER BY submitted_at DESC`
+    )
+    .bind(clean, vc)
+    .all();
+
+  return rows.results || [];
 }
 
 export async function createSubmission(env, input) {
@@ -203,9 +126,12 @@ export async function advanceSubmissionToScan(env, id) {
 export async function cancelSubmission(env, id) {
   const clean = (id || "").toString().trim();
   if (!clean) return;
+
   await db(env)
-    .prepare("UPDATE store_submissions SET status = ?2, rejection_reason = ?3, updated_at = ?4 WHERE id = ?1 AND status = ?5")
-    .bind(clean, SUBMISSION_STATUS.REJECTED, "developer_cancelled", nowUnix(), SUBMISSION_STATUS.PENDING_UPLOAD)
+    .prepare(
+      "DELETE FROM store_submissions WHERE id = ?1 AND status = ?2"
+    )
+    .bind(clean, SUBMISSION_STATUS.PENDING_UPLOAD)
     .run();
 }
 
@@ -225,12 +151,33 @@ export async function recordScanResult(env, id, input) {
   const now         = nowUnix();
   const reviewAfter = passed ? now + 3600 : null;
   const nextStatus  = passed ? SUBMISSION_STATUS.PENDING_REVIEW : SUBMISSION_STATUS.REJECTED;
+  const rejectionReason = passed ? null : REJECTION_REASONS.SCAN_FAILED;
 
   await db(env)
     .prepare(
-      "UPDATE store_submissions SET status = ?2, scan_passed = ?3, scan_result = ?4, apk_sha256 = ?5, apk_size = ?6, scanned_at = ?7, review_after = ?8, updated_at = ?7 WHERE id = ?1"
+      `UPDATE store_submissions
+       SET status = ?2,
+           scan_passed = ?3,
+           scan_result = ?4,
+           apk_sha256 = ?5,
+           apk_size = ?6,
+           scanned_at = ?7,
+           review_after = ?8,
+           rejection_reason = ?9,
+           updated_at = ?7
+       WHERE id = ?1`
     )
-    .bind(clean, nextStatus, passed, scanResult, apkSha256, apkSize, now, reviewAfter)
+    .bind(
+      clean,
+      nextStatus,
+      passed,
+      scanResult,
+      apkSha256,
+      apkSize,
+      now,
+      reviewAfter,
+      rejectionReason
+    )
     .run();
 }
 
@@ -283,3 +230,74 @@ export async function getAllLiveApps(env) {
     .all();
   return rows.results || [];
 }
+
+export const getLiveSubmissionForRescan = async (env, packageName, versionCode) => {
+  const pkg = (packageName || "").toString().trim();
+  const vc  = Number(versionCode);
+
+  if (!pkg || !Number.isFinite(vc)) return null;
+
+  return env.api_control_db
+    .prepare(
+      `SELECT
+         ss.*,
+         sa.id AS app_id,
+         sa.package_name AS app_package_name,
+         sa.signing_key_hash AS stored_signing_key_hash,
+         sa.auto_tracked AS app_auto_tracked
+       FROM store_submissions ss
+       JOIN store_apps sa ON sa.id = ss.app_id
+       WHERE sa.package_name = ?1
+         AND ss.version_code = ?2
+         AND ss.status = 'live'
+         AND sa.status = 'active'
+       LIMIT 1`
+    )
+    .bind(pkg, vc)
+    .first();
+};
+
+export const recordRescanResult = async (env, submissionId, input) => {
+  const clean      = (submissionId || "").toString().trim();
+  const passed     = input.passed ? 1 : 0;
+  const scanResult = typeof input.detail === "object" ? JSON.stringify(input.detail) : (input.detail || null);
+  const apkSha256  = (input.apkSha256 || "").toString().trim() || null;
+  const apkSize    = Number.isFinite(Number(input.apkSize)) ? Number(input.apkSize) : null;
+  const scannedAt  = Number.isFinite(Number(input.scannedAt)) ? Number(input.scannedAt) : nowUnix();
+
+  if (!clean) return null;
+
+  await env.api_control_db
+    .prepare(
+      `UPDATE store_submissions
+       SET scan_passed = ?2,
+           scan_result = ?3,
+           apk_sha256 = ?4,
+           apk_size = ?5,
+           scanned_at = ?6,
+           updated_at = ?6
+       WHERE id = ?1
+         AND status = 'live'`
+    )
+    .bind(clean, passed, scanResult, apkSha256, apkSize, scannedAt)
+    .run();
+
+  return {
+    apkSha256,
+    apkSize,
+    scannedAt,
+  };
+};
+
+export const getSubmissionByVersionCode = async (env, appId, versionCode) =>
+  env.api_control_db
+    .prepare("SELECT * FROM store_submissions WHERE app_id = ?1 AND version_code = ?2 LIMIT 1")
+    .bind((appId || "").toString().trim(), versionCode)
+    .first();
+
+export const deleteSubmissionById = async (env, submissionId) => {
+  await env.api_control_db
+    .prepare("DELETE FROM store_submissions WHERE id = ?1")
+    .bind((submissionId || "").toString().trim())
+    .run();
+};
