@@ -1,6 +1,7 @@
 ## Before you open a PR
 
 Please expect to be turned down politely more often than not, outside of language contributions. This is a *very* opinionated project, so not every contribution will fit its current direction. If yours is turned down, please do not take it personally.
+Anyone contributing to client-side code and translations, please join the [discord](https://discord.gg/VYubQJfcYM), and ping @tkodrift.
 
 Thanks in advance!
 
