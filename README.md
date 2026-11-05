@@ -44,7 +44,7 @@ SafeHaven is an Android app distribution platform built around transparency. Ins
 - Developers can register and manage their apps. SafeHaven checks submitted APKs through its scan pipeline before they become available in the public catalog.
 - Community/imported listings are kept separate from verified developer listings.
 
-Want to suggest an app? Use the [App Suggestions discussion](https://github.com/phsycologicalFudge/SafeHaven/discussions/categories/app-suggestions).
+Want to suggest an app? Use the [community submission portal](https://api.colourswift.com/submit).
 
 ## Repository structure
 
