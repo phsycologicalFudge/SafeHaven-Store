@@ -3,7 +3,7 @@ import { getIndex, putIndex, publicImageUrl, putImageObject, CATEGORIES, updateA
 import { normaliseIcon } from "../../../modules/images/icon_normalise.js";
 import { normaliseScreenshot } from "../../../modules/images/screenshot_normalise.js";
 import { nowUnix, parseScreenshots } from "../../../helpers/store_helpers.js";
-import { json, readJson, unauthorized, forbidden } from "../../http/responses.js";
+import { json, readJson, unauthorized, forbidden, isAdminSecretAuth } from "../../http/responses.js";
 
 export const routes = [
   {
@@ -48,8 +48,7 @@ export const routes = [
     methods: ["POST"],
     match: (path) => path === "/admin/store/backfill-signing-hashes",
     handle: async ({ request, env }) => {
-      const provided = (request.headers.get("authorization") || "").trim();
-      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+      if (!isAdminSecretAuth(env, request)) return unauthorized();
 
       const rows = await env.api_control_db
         .prepare("SELECT package_name, signing_key_hash FROM store_apps WHERE signing_key_hash IS NOT NULL AND package_name IS NOT NULL")

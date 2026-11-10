@@ -55,10 +55,15 @@ export const routes = [
           invalid_gitlab_url:          [400, "invalid_repo_url"],
           invalid_codeberg_url:        [400, "invalid_repo_url"],
           unparseable_version:         [422, "unsupported_release_tag"],
+          apk_download_error:          [502, "apk_download_failed"],
+          apk_download_failed:         [502, "apk_download_failed"],
+          staging_failed:              [500, "staging_upload_failed"],
         };
 
-        const [status, error] = reasonMap[outcome.reason] || [422, outcome.reason || "import_failed"];
-        return json({ error, reason: outcome.reason }, status);
+        const code = (outcome.reason || "").split(":")[0];
+        if (code !== outcome.reason) console.log(JSON.stringify({ tag: "track_error", repoUrl, reason: outcome.reason }));
+        const [status, error] = reasonMap[code] || [422, code || "import_failed"];
+        return json({ error, reason: code }, status);
       }
 
       const summary     = normalizeStoreText(body.summary);
@@ -75,7 +80,8 @@ export const routes = [
       try {
         release = await githubLatestRelease(env, gh.owner, gh.repo);
       } catch (e) {
-        return json({ error: "github_fetch_failed", detail: String(e?.message || e) }, 502);
+        console.log(JSON.stringify({ tag: "track_error", repoUrl, stage: "github_fetch", error: String(e?.message || e) }));
+        return json({ error: "github_fetch_failed" }, 502);
       }
       if (!release) return json({ error: "no_stable_release_found" }, 422);
 
@@ -152,7 +158,8 @@ export const routes = [
         if (!apkRes.ok) throw new Error(`apk_download_failed:${apkRes.status}`);
         apkBuffer = await apkRes.arrayBuffer();
       } catch (e) {
-        return json({ error: "apk_download_failed", detail: String(e?.message || e) }, 502);
+        console.log(JSON.stringify({ tag: "track_error", repoUrl, stage: "apk_download", error: String(e?.message || e) }));
+        return json({ error: "apk_download_failed" }, 502);
       }
 
       if (apkBuffer.byteLength > MAX_APK_BYTES) return json({ error: "apk_too_large" }, 422);
@@ -162,7 +169,8 @@ export const routes = [
       try {
         await uploadBufferToStaging(env, packageName, versionCode, apkBuffer);
       } catch (e) {
-        return json({ error: "staging_upload_failed", detail: String(e?.message || e) }, 500);
+        console.log(JSON.stringify({ tag: "track_error", repoUrl, stage: "staging_upload", error: String(e?.message || e) }));
+        return json({ error: "staging_upload_failed" }, 500);
       }
 
       const submissionId = await createSubmission(env, {

@@ -85,6 +85,6 @@ export async function handleStore(request, env, auth, ctx) {
       error: String(e?.message || e),
       stack: String(e?.stack   || ""),
     }));
-    return json({ error: "internal_error", detail: String(e?.message || e) }, 500);
+    return json({ error: "internal_error" }, 500);
   }
 }

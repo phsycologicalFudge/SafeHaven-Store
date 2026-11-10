@@ -29,3 +29,9 @@ export const isScannerAuth = (env, request) => {
   const secret   = (env.SH_SCANNER_SECRET || "").trim();
   return !!(provided && secret && provided === secret);
 };
+
+export const isAdminSecretAuth = (env, request) => {
+  const provided = (request.headers.get("authorization") || "").trim();
+  const secret   = (env.SH_ADMIN_SECRET || "").trim();
+  return !!(provided && secret && provided === secret);
+};

@@ -6,14 +6,13 @@ import { runUpstreamPolls, forcePollApp } from "../../../modules/upstream_orches
 import { runFdroidSync, runFdroidUpdateCheck, importOrUpdateFdroidApp } from "../../../modules/fdroid_store_job.js";
 import { runIzzySync, runIzzyUpdateCheck, importOrUpdateIzzyApp } from "../../../modules/izzy_store_job.js";
 import { nowUnix } from "../../../helpers/store_helpers.js";
-import { json, readJson, unauthorized, forbidden, badRequest, notFound } from "../../http/responses.js";
+import { json, readJson, unauthorized, forbidden, badRequest, notFound, isAdminSecretAuth } from "../../http/responses.js";
 
 const chunkImportRoute = (source, importApp) => ({
   methods: ["POST"],
   match: (path) => path === `/admin/store/${source}-index-chunk`,
   handle: async ({ request, env }) => {
-    const provided = (request.headers.get("authorization") || "").trim();
-    if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+    if (!isAdminSecretAuth(env, request)) return unauthorized();
 
     const body = await readJson(request);
     if (!body) return badRequest("json_required");
@@ -110,8 +109,7 @@ const indexUploadRoute = (source) => ({
   methods: ["PUT"],
   match: (path) => path === `/admin/store/${source}-index`,
   handle: async ({ request, env }) => {
-    const provided = (request.headers.get("authorization") || "").trim();
-    if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+    if (!isAdminSecretAuth(env, request)) return unauthorized();
     const body = await request.arrayBuffer();
     if (!body.byteLength) return badRequest("empty_body");
     await env.SH_BUCKET.put(`${source}/index-v1.json`, body, {
