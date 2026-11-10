@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 const COOKIE_NAME = "sh_store_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 6;
 

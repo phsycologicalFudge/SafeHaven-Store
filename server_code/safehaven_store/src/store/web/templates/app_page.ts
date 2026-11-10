@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { escapeHtml, iconOrFallbackHtml, displayVersion, displayRating, developerName, trustLabel, displaySummary, latestVersion, brandIconUrl } from "../lib/shared.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
 import { footerHtml } from "../components/footer.ts";

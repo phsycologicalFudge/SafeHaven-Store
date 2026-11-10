@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { apkKey, stagingKey, imageKey } from "./constants.js";
 
 export const hmacSha256 = async (key, message) => {

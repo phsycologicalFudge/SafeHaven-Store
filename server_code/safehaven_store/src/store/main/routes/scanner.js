@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getStoreAppById, getAllLiveApps, getSubmissionsByStatus, SUBMISSION_STATUS } from "../db/index.js";
 import { getPresignedDownloadUrl, apkKey, removeVersionFromApp } from "../storage/index.js";
 import { nowUnix } from "../../helpers/store_helpers.js";

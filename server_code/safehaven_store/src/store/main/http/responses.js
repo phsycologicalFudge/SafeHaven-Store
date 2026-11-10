@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 export const corsHeaders = {
   "access-control-allow-origin":  "*",
   "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",

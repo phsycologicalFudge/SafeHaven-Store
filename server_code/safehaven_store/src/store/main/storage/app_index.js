@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { CATEGORIES, INDEX_KEY, CHANGELOG_KEY, SEVEN_DAYS_SEC } from "./constants.js";
 import { s3Fetch } from "./s3.js";
 

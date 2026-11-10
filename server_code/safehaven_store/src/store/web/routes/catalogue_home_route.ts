@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getLiteIndex } from "../data/index_reader.ts";
 import { renderCatalogueHome } from "../templates/catalogue_home.ts";
 import { brandIconUrl } from "../lib/shared.ts";

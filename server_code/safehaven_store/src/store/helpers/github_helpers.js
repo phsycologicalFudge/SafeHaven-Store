@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getPresignedStagingUploadUrl } from "../main/storage/index.js";
 export { normalizeAssetText, apkAssetsOf, scoreApkAsset, findApkAsset, tagToVersionCode, } from "./apk_helpers.js";
 

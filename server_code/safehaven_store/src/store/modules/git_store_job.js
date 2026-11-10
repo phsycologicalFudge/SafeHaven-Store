@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../main/db/index.js";
 import { addOrUpdateApp, getIndex, putIndexWithChangelog } from "../main/storage/index.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";

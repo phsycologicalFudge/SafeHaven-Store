@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { REJECTION_REASONS, SUBMISSION_STATUS, db, REJECTION_RETRY_COOLDOWN_SECONDS } from "./constants.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText } from "../../helpers/store_helpers.js";
 import { capWhatsNew } from "../../helpers/changelog_helpers.js";

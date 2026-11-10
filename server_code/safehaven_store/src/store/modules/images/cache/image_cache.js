@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { s3Fetch } from "../../../main/storage/index.js";
 
 const ALLOWED_PREFIX = "images/";

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getStoreAppById, getAllStoreApps, setAppSigningKeyHash, setAppTrustLevel, setAppStatus, setAppCategory, getSubmissionById, getSubmissionsByStatus, rejectSubmission, SUBMISSION_STATUS, APP_STATUS, TRUST_LEVEL } from "../../db/index.js";
 import { addOrUpdateApp, removeApp, CATEGORIES } from "../../storage/index.js";
 import { nowUnix, buildIndexAppEntry } from "../../../helpers/store_helpers.js";

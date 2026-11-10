@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { apkKey, stagingKey, imageKey, IMAGE_SLOTS, ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "./constants.js";
 import { cfg, s3Fetch } from "./s3.js";
 

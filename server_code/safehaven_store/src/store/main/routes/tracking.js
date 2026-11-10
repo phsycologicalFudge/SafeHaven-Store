@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getStoreAppByPackage, getStoreAppById, setAppRepoVerified, setAppSigningKeyHash, setAppStatus, setAppCategory, createSubmission, advanceSubmissionToScan, APP_STATUS, createUnclaimedStoreApp, setAppLastRepoCheck, setAppClaimed } from "../db/index.js";
 import { getIndex, putIndexWithChangelog } from "../storage/index.js";
 import { refreshGitHubMetadataForApp } from "../../modules/git_store_job.js";

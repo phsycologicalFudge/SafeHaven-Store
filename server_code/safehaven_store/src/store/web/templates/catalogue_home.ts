@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { escapeHtml, iconOrFallbackHtml, displayRating } from "../lib/shared.ts";
 import { topCharts, newArrivals, topInCategory, dailyShuffledCategoryKeys } from "../data/catalogue_ranking.ts";
 import { footerHtml } from "../components/footer.ts";

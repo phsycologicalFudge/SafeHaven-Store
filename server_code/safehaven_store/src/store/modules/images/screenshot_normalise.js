@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { decodePixels, bilinearResize, u32be, pngChunk, compressZlib } from "./png_utils.js";
 
 const MAX_W = 1080;

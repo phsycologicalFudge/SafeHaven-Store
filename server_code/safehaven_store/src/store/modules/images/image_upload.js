@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getPresignedImageUploadUrl, imageKey } from "../../main/storage/index.js";
 import { normaliseIcon } from "./icon_normalise.js";
 import { normaliseScreenshot } from "./screenshot_normalise.js";

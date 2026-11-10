@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 /* dont look at me like that choom, im lazy. 
    run with node if you decide to make any changes */
 

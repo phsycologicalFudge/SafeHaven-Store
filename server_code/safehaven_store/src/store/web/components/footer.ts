@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 type FooterLink = { label: string; url: string; external?: boolean };
 type FooterColumn = { heading: string; links: FooterLink[] };
 

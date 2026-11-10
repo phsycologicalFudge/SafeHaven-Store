@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 export { handleStore } from "./main/http/router.js";
 export { runStoreAutoApprovals } from "./main/services/publish.js";
 export { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep } from "./modules/git_store_job.js";

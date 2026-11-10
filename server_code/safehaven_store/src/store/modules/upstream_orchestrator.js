@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { nowUnix } from "../helpers/store_helpers.js";
 import { pollGitHubApp } from "./git_store_job.js";
 import { pollGitLabApp } from "./gitlab_store_job.js";

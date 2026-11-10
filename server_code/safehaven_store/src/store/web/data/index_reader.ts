@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getIndex } from "../../main/storage/index.js";
 import { buildLiteIndex } from "../lib/shared.ts";
 

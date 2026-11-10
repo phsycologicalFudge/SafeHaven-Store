@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 const ALLOWED_TAGS = new Set([
   "p", "br", "b", "i", "em", "strong", "u", "s", "del",
   "h1", "h2", "h3", "h4", "h5", "h6",

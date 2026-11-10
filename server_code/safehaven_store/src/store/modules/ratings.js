@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getIndex, updateAppRating, sha256Hex } from "../main/storage/index.js";
 
 const nowUnix = () => Math.floor(Date.now() / 1000);

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getIndex, getPresignedDownloadUrl, apkKey, CATEGORIES, getChangelog } from "../storage/index.js";
 import { handleImageCacheRoute } from "../../modules/images/cache/image_cache.js";
 import { nowUnix } from "../../helpers/store_helpers.js";

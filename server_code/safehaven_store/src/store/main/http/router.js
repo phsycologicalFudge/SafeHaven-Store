@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { routes as publicRoutes } from "../routes/public.js";
 import { routes as adminImportsRoutes } from "../routes/admin/imports.js";
 import { routes as developerRoutes } from "../routes/developer.js";

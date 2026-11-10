@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getStoreAppById, createSubmission, getSubmissionById, advanceSubmissionToScan, cancelSubmission, SUBMISSION_STATUS, APP_STATUS } from "../db/index.js";
 import { getPresignedStagingUploadUrl, headStagingObject, deleteStagingApk, stagingKey } from "../storage/index.js";
 import { normalizeStoreText } from "../../helpers/store_helpers.js";

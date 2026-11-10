@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { APP_STATUS, TRUST_LEVEL, db } from "./constants.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, COMMUNITY_DEVELOPER_ID } from "../../helpers/store_helpers.js";
 

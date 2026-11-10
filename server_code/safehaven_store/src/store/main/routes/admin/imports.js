@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getStoreAppById } from "../../db/index.js";
 import { runGitHubBootstrapImport, runGitHubDirectImport, runGitHubReadmeSweep } from "../../../modules/git_store_job.js";
 import { runGitLabDirectImport } from "../../../modules/gitlab_store_job.js";

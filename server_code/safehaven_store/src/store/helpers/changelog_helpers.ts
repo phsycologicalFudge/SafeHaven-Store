@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { normalizeStoreText } from "./store_helpers.js";
 
 export const WHATS_NEW_MAX_CHARS = 4000;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 const CHIP_PALETTES = [
   ["#3B71E8", "#D6E4FF"],
   ["#0F766E", "#CCFBF1"],

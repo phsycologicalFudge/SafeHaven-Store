@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { getSubmissionsByVersionCode, isRetryBlockingRejection, getRetryAfterSeconds, SUBMISSION_STATUS, deleteSubmissionById } from "../db/index.js";
 import { deleteStagingApk } from "../storage/index.js";
 

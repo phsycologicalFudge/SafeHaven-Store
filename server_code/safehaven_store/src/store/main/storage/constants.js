@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 export const SEVEN_DAYS_SEC = 7 * 24 * 60 * 60;
 
 export const CATEGORIES = {
