@@ -8,227 +8,124 @@ import { runIzzySync, runIzzyUpdateCheck, importOrUpdateIzzyApp } from "../../..
 import { nowUnix } from "../../../helpers/store_helpers.js";
 import { json, readJson, unauthorized, forbidden, badRequest, notFound } from "../../http/responses.js";
 
+const chunkImportRoute = (source, importApp) => ({
+  methods: ["POST"],
+  match: (path) => path === `/admin/store/${source}-index-chunk`,
+  handle: async ({ request, env }) => {
+    const provided = (request.headers.get("authorization") || "").trim();
+    if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+
+    const body = await readJson(request);
+    if (!body) return badRequest("json_required");
+
+    const stateKey = `${source}_chunk_state`;
+    const type     = (body.type || "").toString().trim();
+
+    if (type === "repo") {
+      const repoData = body.data || {};
+      const totalApps = Number(body.totalApps || 0);
+      const totalChunks = Number(body.totalChunks || 0);
+
+      await env.api_control_db
+        .prepare("INSERT OR REPLACE INTO sync_state (key, value) VALUES (?1, ?2)")
+        .bind(
+          stateKey,
+          JSON.stringify({
+            repo: repoData,
+            totalApps,
+            totalChunks,
+            receivedChunks: [],
+            processedApps: 0,
+            startedAt: nowUnix(),
+          })
+        )
+        .run();
+
+      return json({ ok: true, message: `Ready to receive ${totalChunks} chunks with ${totalApps} apps` });
+    }
+
+    if (type === "apps") {
+      const chunkIndex = Number(body.chunkIndex || 0);
+      const apps = Array.isArray(body.apps) ? body.apps : [];
+      const totalChunks = Number(body.totalChunks || 0);
+
+      const stateRow = await env.api_control_db
+        .prepare("SELECT value FROM sync_state WHERE key = ?1")
+        .bind(stateKey)
+        .first();
+
+      if (!stateRow) return badRequest("repo_metadata_not_initialized");
+
+      const state = JSON.parse(stateRow.value);
+
+      if (state.receivedChunks.includes(chunkIndex)) {
+        return json({ ok: true, skipped: true, message: `Chunk ${chunkIndex} already processed` });
+      }
+
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors = [];
+
+      for (const app of apps) {
+        try {
+          const outcome = await importApp(env, app);
+          if (outcome.imported) {
+            imported++;
+            if (!outcome.isNew) updated++;
+          } else if (outcome.skipped) {
+            skipped++;
+          }
+        } catch (e) {
+          errors.push({ packageName: app.packageName, error: String(e?.message || e) });
+        }
+      }
+
+      state.receivedChunks.push(chunkIndex);
+      state.processedApps += apps.length;
+
+      await env.api_control_db
+        .prepare("UPDATE sync_state SET value = ?1 WHERE key = ?2")
+        .bind(JSON.stringify(state), stateKey)
+        .run();
+
+      return json({
+        ok: true,
+        chunkIndex,
+        appsReceived: apps.length,
+        imported,
+        updated,
+        skipped,
+        errors: errors.slice(0, 5),
+        totalReceived: state.receivedChunks.length,
+        totalChunks,
+      });
+    }
+
+    return badRequest("invalid_chunk_type");
+  },
+});
+
+const indexUploadRoute = (source) => ({
+  methods: ["PUT"],
+  match: (path) => path === `/admin/store/${source}-index`,
+  handle: async ({ request, env }) => {
+    const provided = (request.headers.get("authorization") || "").trim();
+    if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
+    const body = await request.arrayBuffer();
+    if (!body.byteLength) return badRequest("empty_body");
+    await env.SH_BUCKET.put(`${source}/index-v1.json`, body, {
+      httpMetadata: { contentType: "application/json" },
+    });
+    return json({ ok: true });
+  },
+});
+
 export const routes = [
-  {
-    methods: ["POST"],
-    match: (path) => path === "/admin/store/fdroid-index-chunk",
-    handle: async ({ request, env }) => {
-      const provided = (request.headers.get("authorization") || "").trim();
-      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
-
-      const body = await readJson(request);
-      if (!body) return badRequest("json_required");
-
-      const type = (body.type || "").toString().trim();
-
-      if (type === "repo") {
-        const repoData = body.data || {};
-        const totalApps = Number(body.totalApps || 0);
-        const totalChunks = Number(body.totalChunks || 0);
-
-        await env.api_control_db
-          .prepare("INSERT OR REPLACE INTO sync_state (key, value) VALUES (?1, ?2)")
-          .bind(
-            "fdroid_chunk_state",
-            JSON.stringify({
-              repo: repoData,
-              totalApps,
-              totalChunks,
-              receivedChunks: [],
-              processedApps: 0,
-              startedAt: nowUnix(),
-            })
-          )
-          .run();
-
-        return json({ ok: true, message: `Ready to receive ${totalChunks} chunks with ${totalApps} apps` });
-      }
-
-      if (type === "apps") {
-        const chunkIndex = Number(body.chunkIndex || 0);
-        const apps = Array.isArray(body.apps) ? body.apps : [];
-        const totalChunks = Number(body.totalChunks || 0);
-
-        const stateRow = await env.api_control_db
-          .prepare("SELECT value FROM sync_state WHERE key = ?1")
-          .bind("fdroid_chunk_state")
-          .first();
-
-        if (!stateRow) return badRequest("repo_metadata_not_initialized");
-
-        const state = JSON.parse(stateRow.value);
-
-        if (state.receivedChunks.includes(chunkIndex)) {
-          return json({ ok: true, skipped: true, message: `Chunk ${chunkIndex} already processed` });
-        }
-
-        let imported = 0;
-        let updated = 0;
-        let skipped = 0;
-        const errors = [];
-
-        for (const app of apps) {
-          try {
-            const outcome = await importOrUpdateFdroidApp(env, app);
-            if (outcome.imported) {
-              imported++;
-              if (!outcome.isNew) updated++;
-            } else if (outcome.skipped) {
-              skipped++;
-            }
-          } catch (e) {
-            errors.push({ packageName: app.packageName, error: String(e?.message || e) });
-          }
-        }
-
-        state.receivedChunks.push(chunkIndex);
-        state.processedApps += apps.length;
-
-        await env.api_control_db
-          .prepare("UPDATE sync_state SET value = ?1 WHERE key = ?2")
-          .bind(JSON.stringify(state), "fdroid_chunk_state")
-          .run();
-
-        return json({
-          ok: true,
-          chunkIndex,
-          appsReceived: apps.length,
-          imported,
-          updated,
-          skipped,
-          errors: errors.slice(0, 5),
-          totalReceived: state.receivedChunks.length,
-          totalChunks,
-        });
-      }
-
-      return badRequest("invalid_chunk_type");
-    },
-  },
-  {
-    methods: ["PUT"],
-    match: (path) => path === "/admin/store/fdroid-index",
-    handle: async ({ request, env }) => {
-      const provided = (request.headers.get("authorization") || "").trim();
-      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
-      const body = await request.arrayBuffer();
-      if (!body.byteLength) return badRequest("empty_body");
-      await env.SH_BUCKET.put("fdroid/index-v1.json", body, {
-        httpMetadata: { contentType: "application/json" },
-      });
-      return json({ ok: true });
-    },
-  },
-  {
-    methods: ["POST"],
-    match: (path) => path === "/admin/store/izzy-index-chunk",
-    handle: async ({ request, env }) => {
-      const provided = (request.headers.get("authorization") || "").trim();
-      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
-
-      const body = await readJson(request);
-      if (!body) return badRequest("json_required");
-
-      const type = (body.type || "").toString().trim();
-
-      if (type === "repo") {
-        const repoData = body.data || {};
-        const totalApps = Number(body.totalApps || 0);
-        const totalChunks = Number(body.totalChunks || 0);
-
-        await env.api_control_db
-          .prepare("INSERT OR REPLACE INTO sync_state (key, value) VALUES (?1, ?2)")
-          .bind(
-            "izzy_chunk_state",
-            JSON.stringify({
-              repo: repoData,
-              totalApps,
-              totalChunks,
-              receivedChunks: [],
-              processedApps: 0,
-              startedAt: nowUnix(),
-            })
-          )
-          .run();
-
-        return json({ ok: true, message: `Ready to receive ${totalChunks} chunks with ${totalApps} apps` });
-      }
-
-      if (type === "apps") {
-        const chunkIndex = Number(body.chunkIndex || 0);
-        const apps = Array.isArray(body.apps) ? body.apps : [];
-        const totalChunks = Number(body.totalChunks || 0);
-
-        const stateRow = await env.api_control_db
-          .prepare("SELECT value FROM sync_state WHERE key = ?1")
-          .bind("izzy_chunk_state")
-          .first();
-
-        if (!stateRow) return badRequest("repo_metadata_not_initialized");
-
-        const state = JSON.parse(stateRow.value);
-
-        if (state.receivedChunks.includes(chunkIndex)) {
-          return json({ ok: true, skipped: true, message: `Chunk ${chunkIndex} already processed` });
-        }
-
-        let imported = 0;
-        let updated = 0;
-        let skipped = 0;
-        const errors = [];
-
-        for (const app of apps) {
-          try {
-            const outcome = await importOrUpdateIzzyApp(env, app);
-            if (outcome.imported) {
-              imported++;
-              if (!outcome.isNew) updated++;
-            } else if (outcome.skipped) {
-              skipped++;
-            }
-          } catch (e) {
-            errors.push({ packageName: app.packageName, error: String(e?.message || e) });
-          }
-        }
-
-        state.receivedChunks.push(chunkIndex);
-        state.processedApps += apps.length;
-
-        await env.api_control_db
-          .prepare("UPDATE sync_state SET value = ?1 WHERE key = ?2")
-          .bind(JSON.stringify(state), "izzy_chunk_state")
-          .run();
-
-        return json({
-          ok: true,
-          chunkIndex,
-          appsReceived: apps.length,
-          imported,
-          updated,
-          skipped,
-          errors: errors.slice(0, 5),
-          totalReceived: state.receivedChunks.length,
-          totalChunks,
-        });
-      }
-
-      return badRequest("invalid_chunk_type");
-    },
-  },
-  {
-    methods: ["PUT"],
-    match: (path) => path === "/admin/store/izzy-index",
-    handle: async ({ request, env }) => {
-      const provided = (request.headers.get("authorization") || "").trim();
-      if (!provided || provided !== (env.SH_ADMIN_SECRET || "").trim()) return unauthorized();
-      const body = await request.arrayBuffer();
-      if (!body.byteLength) return badRequest("empty_body");
-      await env.SH_BUCKET.put("izzy/index-v1.json", body, {
-        httpMetadata: { contentType: "application/json" },
-      });
-      return json({ ok: true });
-    },
-  },
+  chunkImportRoute("fdroid", importOrUpdateFdroidApp),
+  indexUploadRoute("fdroid"),
+  chunkImportRoute("izzy", importOrUpdateIzzyApp),
+  indexUploadRoute("izzy"),
   {
     methods: ["POST"],
     match: (path) => path === "/admin/store/bootstrap-import",
