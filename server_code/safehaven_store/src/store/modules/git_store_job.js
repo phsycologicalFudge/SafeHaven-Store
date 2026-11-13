@@ -382,6 +382,8 @@ const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) 
 };
 
 export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
+  if (Number(app.auto_tracked || 0) !== 1 || Number(app.claimed || 0) === 1) return false;
+
   let details = null;
   let rawReadme = null;
   let readmeDescription = null;
@@ -415,33 +417,36 @@ export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
     readmeDescription || ""
   );
 
-  await env.api_control_db
-    .prepare(
-      `UPDATE store_apps
-       SET summary = ?2,
-           description = ?3,
-           category = ?4,
-           updated_at = ?5
-       WHERE id = ?1
-         AND auto_tracked = 1
-         AND claimed = 0`
-    )
-    .bind(
-      app.id,
-      summary,
-      description,
-      category,
-      nowUnix()
-    )
-    .run();
+  const textChanged = summary !== app.summary || description !== app.description || category !== app.category;
 
-  let updatedApp = await getStoreAppById(env, app.id);
-
-  if (updatedApp && rawReadme) {
-    await saveReadmeScreenshotsIfMissing(env, updatedApp, owner, repo, rawReadme);
-    updatedApp = await getStoreAppById(env, app.id);
+  if (textChanged) {
+    await env.api_control_db
+      .prepare(
+        `UPDATE store_apps
+         SET summary = ?2,
+             description = ?3,
+             category = ?4,
+             updated_at = ?5
+         WHERE id = ?1
+           AND auto_tracked = 1
+           AND claimed = 0`
+      )
+      .bind(
+        app.id,
+        summary,
+        description,
+        category,
+        nowUnix()
+      )
+      .run();
   }
 
+  const screenshotCount  = parseScreenshots(app.screenshots_json).length;
+  const screenshotsAdded = !!rawReadme && (await saveReadmeScreenshotsIfMissing(env, app, owner, repo, rawReadme)).length > screenshotCount;
+
+  if (!textChanged && !screenshotsAdded) return false;
+
+  const updatedApp = await getStoreAppById(env, app.id);
   if (updatedApp) {
     await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
   }
@@ -1114,10 +1119,10 @@ export const pollGitHubApp = async (env, app) => {
   const normalized = normalizeGitHubRepoUrl(app.repo_url);
   if (!normalized) return null;
 
-  await refreshGitHubMetadataForApp(env, app).catch(() => {});
-
   const parsed = parseGitHubRepo(normalized);
   if (!parsed) return null;
+
+  await refreshGitHubMetadataForApp(env, app, parsed.owner, parsed.repo).catch(() => {});
 
   const release = await githubLatestRelease(env, parsed.owner, parsed.repo);
   if (!release) return null;
