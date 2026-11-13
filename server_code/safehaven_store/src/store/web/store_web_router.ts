@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { handleAppPageRoute } from "./routes/app_page_route.ts";
 import { handleCatalogueHomeRoute } from "./routes/catalogue_home_route.ts";
 import { handleSearchRoute } from "./routes/search_route.ts";
