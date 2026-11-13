@@ -286,6 +286,8 @@ const importCandidate = async (env, { repoUrl, adminImport = false }) => {
 };
 
 export const refreshGitLabMetadataForApp = async (env, app) => {
+  if (Number(app.auto_tracked || 0) !== 1 || Number(app.claimed || 0) === 1) return false;
+
   const normalized = normalizeGitLabRepoUrl(app.repo_url);
   if (!normalized) return false;
 
@@ -294,6 +296,8 @@ export const refreshGitLabMetadataForApp = async (env, app) => {
 
   const summary     = normalizeStoreText((details.description || app.summary || "").slice(0, 200).trim()) || null;
   const description = normalizeStoreText(details.description || app.description || null);
+
+  if (summary === app.summary && description === app.description) return false;
 
   await env.api_control_db
     .prepare(
