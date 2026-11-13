@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 ColourSwift Ltd.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage } from "../main/db/index.js";
+import { createSubmission, advanceSubmissionToScan, setAppImages, getStoreAppById, getStoreAppByPackage, setAppLastRepoCheck } from "../main/db/index.js";
 import { addOrUpdateApp, getIndex, putIndexWithChangelog } from "../main/storage/index.js";
 import { uploadImageFromUrl } from "./images/image_upload.js";
 import { nowUnix, cryptoRandomHex, normalizeStoreText, parseScreenshots, buildIndexAppEntry, COMMUNITY_DEVELOPER_ID } from "../helpers/store_helpers.js";
@@ -354,8 +354,7 @@ const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) 
   if (Number(app.auto_tracked || 0) !== 1) return [];
   if (Number(app.claimed || 0) === 1) return [];
 
-  const existingScreenshots = parseScreenshots(app.screenshots_json);
-  if (existingScreenshots.length > 0) return existingScreenshots;
+  if (parseScreenshots(app.screenshots_json).length > 0) return [];
 
   const candidates = readmeScreenshotUrls(owner, repo, rawReadme);
   if (!candidates.length) return [];
@@ -381,28 +380,12 @@ const saveReadmeScreenshotsIfMissing = async (env, app, owner, repo, rawReadme) 
   return screenshotKeys;
 };
 
-export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
-  if (Number(app.auto_tracked || 0) !== 1 || Number(app.claimed || 0) === 1) return false;
+const fetchGitHubAppText = async (env, app, owner, repo) => {
+  const details   = await githubRepoDetails(env, owner, repo).catch(() => null);
+  const rawReadme = await githubReadmeRaw(env, owner, repo).catch(() => null);
+  const readmeDescription = rawReadme ? stripReadmeToDescription(rawReadme) : null;
 
-  let details = null;
-  let rawReadme = null;
-  let readmeDescription = null;
-
-  try {
-    details = await githubRepoDetails(env, owner, repo);
-  } catch {
-    details = null;
-  }
-
-  try {
-    rawReadme = await githubReadmeRaw(env, owner, repo);
-    readmeDescription = rawReadme ? stripReadmeToDescription(rawReadme) : null;
-  } catch {
-    rawReadme = null;
-    readmeDescription = null;
-  }
-
-  if (!details && !readmeDescription) return false;
+  if (!details && !readmeDescription && !rawReadme) return null;
 
   const summary = normalizeStoreText((details?.description || app.summary || "").slice(0, 200).trim()) || null;
   const description = normalizeStoreText(readmeDescription || details?.description || app.description || null);
@@ -417,6 +400,16 @@ export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
     readmeDescription || ""
   );
 
+  return { rawReadme, summary, description, category };
+};
+
+export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
+  if (Number(app.auto_tracked || 0) !== 1 || Number(app.claimed || 0) === 1) return false;
+
+  const text = await fetchGitHubAppText(env, app, owner, repo);
+  if (!text) return false;
+
+  const { rawReadme, summary, description, category } = text;
   const textChanged = summary !== app.summary || description !== app.description || category !== app.category;
 
   if (textChanged) {
@@ -441,8 +434,7 @@ export const refreshGitHubMetadataForApp = async (env, app, owner, repo) => {
       .run();
   }
 
-  const screenshotCount  = parseScreenshots(app.screenshots_json).length;
-  const screenshotsAdded = !!rawReadme && (await saveReadmeScreenshotsIfMissing(env, app, owner, repo, rawReadme)).length > screenshotCount;
+  const screenshotsAdded = !!rawReadme && (await saveReadmeScreenshotsIfMissing(env, app, owner, repo, rawReadme)).length > 0;
 
   if (!textChanged && !screenshotsAdded) return false;
 
@@ -682,15 +674,18 @@ const getAppByRepoUrl = async (env, repoUrl) => {
   return row || null;
 };
 
-const getAutoTrackedAppsForReadmeSweep = async (env, limit = 50) => {
+const getAppsForReadmeFallback = async (env, limit = 50) => {
   const rows = await env.api_control_db
     .prepare(
       `SELECT *
        FROM store_apps
        WHERE auto_tracked = 1
+         AND claimed = 0
          AND status = 'active'
+         AND upstream IN ('fdroid', 'izzyondroid')
          AND repo_url LIKE 'https://github.com/%'
-       ORDER BY updated_at ASC
+         AND (summary IS NULL OR description IS NULL OR category IS NULL OR category = 'other' OR screenshots_json IS NULL OR screenshots_json = '[]')
+       ORDER BY last_repo_check ASC
        LIMIT ?1`
     )
     .bind(limit)
@@ -699,13 +694,13 @@ const getAutoTrackedAppsForReadmeSweep = async (env, limit = 50) => {
   return rows.results || [];
 };
 
-const updateAutoTrackedAppDescription = async (env, appId, summary, description, category) => {
+const fillMissingAppText = async (env, appId, summary, description, category) => {
   await env.api_control_db
     .prepare(
       `UPDATE store_apps
-       SET summary = ?2,
-           description = ?3,
-           category = ?4,
+       SET summary = COALESCE(summary, ?2),
+           description = COALESCE(description, ?3),
+           category = CASE WHEN category IS NULL OR category = 'other' THEN ?4 ELSE category END,
            updated_at = ?5
        WHERE id = ?1
          AND auto_tracked = 1
@@ -1199,7 +1194,7 @@ export async function runGitHubDirectImport(env, input = {}) {
 }
 
 export async function runGitHubReadmeSweep(env, limit = 50) {
-  const apps = await getAutoTrackedAppsForReadmeSweep(env, limit);
+  const apps = await getAppsForReadmeFallback(env, limit);
 
   const results = {
     checked: 0,
@@ -1213,72 +1208,41 @@ export async function runGitHubReadmeSweep(env, limit = 50) {
     results.checked++;
 
     try {
-      const repoUrl = normalizeGitHubRepoUrl(app.repo_url);
-      const match = repoUrl?.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)$/i);
+      const parsed = parseGitHubRepo(normalizeGitHubRepoUrl(app.repo_url));
+      const text   = parsed ? await fetchGitHubAppText(env, app, parsed.owner, parsed.repo) : null;
 
-      if (!match) {
+      if (!text) {
         results.skipped++;
         continue;
       }
 
-      const owner = match[1];
-      const repo = match[2];
+      const textFilled =
+        (!app.summary && !!text.summary) ||
+        (!app.description && !!text.description) ||
+        ((!app.category || app.category === "other") && text.category !== "other");
 
-      const details = await githubRepoDetails(env, owner, repo);
+      if (textFilled) await fillMissingAppText(env, app.id, text.summary, text.description, text.category);
 
-      let rawReadme = null;
-      let readmeDescription = null;
+      const screenshotKeys = text.rawReadme ? await saveReadmeScreenshotsIfMissing(env, app, parsed.owner, parsed.repo, text.rawReadme) : [];
 
-      try {
-        rawReadme = await githubReadmeRaw(env, owner, repo);
-        readmeDescription = rawReadme ? stripReadmeToDescription(rawReadme) : null;
-      } catch {
-        rawReadme = null;
-        readmeDescription = null;
-      }
-
-      if (!details && !readmeDescription && !rawReadme) {
+      if (!textFilled && !screenshotKeys.length) {
         results.skipped++;
         continue;
       }
 
-      const summary = normalizeStoreText((details?.description || app.summary || "").slice(0, 200).trim()) || null;
-      const description = normalizeStoreText(readmeDescription || details?.description || app.description || null);
-      const category = inferCategory(
-        {
-          fullName: details?.fullName || `${owner}/${repo}`,
-          name: details?.name || app.name,
-          description: details?.description || summary || "",
-          topics: details?.topics || [],
-        },
-        readmeDescription || ""
-      );
-
-      await updateAutoTrackedAppDescription(env, app.id, summary, description, category);
-
-      let updatedApp = await getStoreAppById(env, app.id);
-      let screenshotKeys = [];
-
-      if (updatedApp && rawReadme) {
-        screenshotKeys = await saveReadmeScreenshotsIfMissing(env, updatedApp, owner, repo, rawReadme);
-        updatedApp = await getStoreAppById(env, app.id);
-      }
-
+      const updatedApp = await getStoreAppById(env, app.id);
       if (updatedApp) {
         await addOrUpdateApp(env, buildIndexAppEntry(env, updatedApp));
       }
 
-      if (screenshotKeys.length > 0) {
-        results.imagesAdded += screenshotKeys.length;
-      }
-
+      results.imagesAdded += screenshotKeys.length;
       results.updated++;
 
       console.log(JSON.stringify({
         tag: "github_readme_sweep_update",
         appId: app.id,
-        repo: `${owner}/${repo}`,
-        hasReadmeDescription: !!readmeDescription,
+        repo: `${parsed.owner}/${parsed.repo}`,
+        textFilled,
         readmeImagesAdded: screenshotKeys.length,
       }));
     } catch (e) {
@@ -1287,6 +1251,8 @@ export async function runGitHubReadmeSweep(env, limit = 50) {
         repoUrl: app.repo_url,
         error: String(e?.message || e),
       });
+    } finally {
+      await setAppLastRepoCheck(env, app.id).catch(() => {});
     }
   }
 
